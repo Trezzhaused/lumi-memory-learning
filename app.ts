@@ -33,7 +33,23 @@ app.use((req, res, next) => {
 // ============================================================================
 
 const renderWebhookSecret = process.env.RENDER_WEBHOOK_SECRET || '';
-const renderAPIURL = process.env.RENDER_API_URL || "https://api.render.com/v1";
+// renderAPIURL is read from a trusted server-side environment variable.
+// It is validated at startup to the expected Render API origin.
+const RAW_RENDER_API_URL = process.env.RENDER_API_URL || "https://api.render.com/v1";
+const RENDER_ALLOWED_HOSTS = ["api.render.com"];
+function buildRenderApiUrl(path: string): string {
+    // Enforce that RENDER_API_URL always points to an expected Render host
+    try {
+        const base = new URL(RAW_RENDER_API_URL);
+        if (!RENDER_ALLOWED_HOSTS.includes(base.hostname)) {
+            console.warn(`[Render] RENDER_API_URL host "${base.hostname}" is not in allow-list; using default.`);
+            return `https://api.render.com/v1${path}`;
+        }
+    } catch {
+        return `https://api.render.com/v1${path}`;
+    }
+    return `${RAW_RENDER_API_URL}${path}`;
+}
 const renderAPIToken = process.env.RENDER_API_KEY || '';
 const githubAPIToken = process.env.GITHUB_API_TOKEN || '';
 const githubOwnerName = process.env.GITHUB_OWNER_NAME || '';
@@ -423,7 +439,7 @@ async function triggerWorkflow(serviceID: string, branch: string) {
 }
 
 async function fetchEventInfo(payload: WebhookPayload): Promise<RenderEvent> {
-    const url = `${renderAPIURL}/events/${payload.data.id}`;
+    const url = buildRenderApiUrl(`/events/${payload.data.id}`);
     console.log(`fetching event info at ${url}`);
     const res = await fetch(url, {
         method: "GET",
@@ -434,7 +450,7 @@ async function fetchEventInfo(payload: WebhookPayload): Promise<RenderEvent> {
 }
 
 async function fetchDeployInfo(serviceId: string, deployId: string): Promise<RenderDeploy> {
-    const res = await fetch(`${renderAPIURL}/services/${serviceId}/deploys/${deployId}`, {
+    const res = await fetch(buildRenderApiUrl(`/services/${serviceId}/deploys/${deployId}`), {
         method: "get",
         headers: {"Content-Type": "application/json", Accept: "application/json", Authorization: "Bearer " + renderAPIToken},
     });
@@ -443,7 +459,7 @@ async function fetchDeployInfo(serviceId: string, deployId: string): Promise<Ren
 }
 
 async function fetchServiceInfo(payload: WebhookPayload): Promise<RenderService> {
-    const res = await fetch(`${renderAPIURL}/services/${payload.data.serviceId}`, {
+    const res = await fetch(buildRenderApiUrl(`/services/${payload.data.serviceId}`), {
         method: "get",
         headers: {"Content-Type": "application/json", Accept: "application/json", Authorization: "Bearer " + renderAPIToken},
     });

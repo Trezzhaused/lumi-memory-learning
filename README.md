@@ -181,7 +181,7 @@ All requests pass through the **Adaptive Content & Access Manager**:
 - **Rate limiting** — configurable per-minute per-IP (default: 60 req/min)
 - **Origin enforcement** — optional allow-list via `ACAM_ALLOWED_ORIGINS`
 - **Content safety** — heuristic filters for unsafe categories
-- **Token auth** — optional ****** auth (`ACAM_REQUIRE_AUTH=true`)
+- **Token auth** — optional bearer token auth (`ACAM_REQUIRE_AUTH=true`)
 - **Audit log** — every security event is logged (query at `GET /api/lumi/audit`)
 
 ---

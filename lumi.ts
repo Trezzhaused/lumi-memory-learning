@@ -174,12 +174,12 @@ export async function getOllamaStatus(): Promise<{
         if (!res.ok) throw new Error("unreachable");
         const json: any = await res.json();
         const models: Array<{name: string}> = json.models || [];
-        const superGemmaReady = models.some(m =>
+        const localModelReady = models.some(m =>
             m.name.toLowerCase().includes("gemma") || m.name.toLowerCase().includes("mistral")
         );
         return {
             available: true, host: OLLAMA_HOST, localModels: models,
-            superGemmaReady,
+            superGemmaReady: localModelReady,
             installHint: "Ollama is running.",
         };
     } catch {

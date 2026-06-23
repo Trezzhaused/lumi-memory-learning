@@ -65,15 +65,49 @@ export interface GenerationResult {
 }
 
 // ---------------------------------------------------------------------------
-// Image Generation
+// Model name validation — prevents SSRF via crafted model identifiers
 // ---------------------------------------------------------------------------
+
+/**
+ * Validate that a model identifier is safe to use as a URL path segment.
+ * Accepts only alphanumeric characters, hyphens, underscores, dots, slashes,
+ * and colons (e.g. "black-forest-labs/FLUX.1-schnell", "mistral:7b").
+ * Rejects anything that looks like a URL, absolute path, or traversal attempt.
+ */
+function validateModelId(model: string): string {
+    if (!/^[\w./:@-]{1,200}$/.test(model)) {
+        throw new Error(`Invalid model identifier: "${model}"`);
+    }
+    // Reject anything that starts with a protocol or path traversal
+    if (/^(https?|ftp):\/\//i.test(model) || model.includes("..")) {
+        throw new Error(`Model identifier must not be a URL or contain path traversal: "${model}"`);
+    }
+    return model;
+}
+
+/**
+ * Validate that a URL returned by an external API belongs to an expected host.
+ * Used to guard against open-redirect and SSRF via API-returned callback URLs.
+ */
+function validateApiCallbackUrl(url: string, allowedHosts: string[]): string {
+    let parsed: URL;
+    try {
+        parsed = new URL(url);
+    } catch {
+        throw new Error(`Invalid callback URL: "${url}"`);
+    }
+    if (!allowedHosts.some(h => parsed.hostname === h || parsed.hostname.endsWith("." + h))) {
+        throw new Error(`Callback URL host "${parsed.hostname}" is not in the allowed list`);
+    }
+    return url;
+}
 
 /**
  * Generate an image via the Hugging Face Inference API (free tier).
  * Uses FLUX.1-schnell by default – one of the fastest free models.
  */
 export async function generateImageHF(req: GenerationRequest): Promise<GenerationResult> {
-    const model = req.model || "black-forest-labs/FLUX.1-schnell";
+    const model = validateModelId(req.model || "black-forest-labs/FLUX.1-schnell");
     const payload: Record<string, any> = {
         inputs: req.prompt,
         parameters: {
@@ -118,7 +152,7 @@ export async function generateImageHF(req: GenerationRequest): Promise<Generatio
  * Generate an image via Stability AI (free credits available).
  */
 export async function generateImageStability(req: GenerationRequest): Promise<GenerationResult> {
-    const model = req.model || "stable-diffusion-xl-1024-v1-0";
+    const model = validateModelId(req.model || "stable-diffusion-xl-1024-v1-0");
     const body: Record<string, any> = {
         text_prompts: [
             {text: req.prompt, weight: 1},
@@ -195,9 +229,9 @@ export async function generateImage(req: GenerationRequest): Promise<GenerationR
 export async function generateVideoFal(req: GenerationRequest): Promise<GenerationResult> {
     if (!FAL_API_KEY) throw new Error("FAL_KEY is not configured.");
 
-    const model = req.model || "fal-ai/wan/t2v-14b";
+    const model = validateModelId(req.model || "fal-ai/wan/t2v-14b");
 
-    // Submit request
+    // Submit request — URL is built entirely from our validated constants + model id
     const submitRes = await fetch(`${FAL_API_URL}/${model}`, {
         method: "POST",
         headers: {
@@ -218,10 +252,15 @@ export async function generateVideoFal(req: GenerationRequest): Promise<Generati
     }
 
     const submitted: any = await submitRes.json();
-    const requestId: string = submitted.request_id || submitted.id;
-    if (!requestId) throw new Error("FAL did not return a request_id");
+    // Validate the request ID is a safe identifier (no path traversal)
+    const rawId: string = submitted.request_id || submitted.id || "";
+    if (!/^[\w-]{1,200}$/.test(rawId)) throw new Error("FAL returned an invalid request_id");
+    const requestId = rawId;
 
+    // All polling URLs are constructed from our constant base + validated segments
     const statusUrl = `${FAL_API_URL}/${model}/requests/${requestId}/status`;
+
+    const FAL_ALLOWED_HOSTS = ["fal.run", "fal.ai", "fal.media"];
 
     // Poll until complete (max 300 s)
     const deadline = Date.now() + 300_000;
@@ -238,7 +277,9 @@ export async function generateVideoFal(req: GenerationRequest): Promise<Generati
                 {headers: {Authorization: "Key " + FAL_API_KEY}}
             );
             const result: any = await resultRes.json();
-            const url: string = result.video?.url || result.output?.video?.url || "";
+            const rawUrl: string = result.video?.url || result.output?.video?.url || "";
+            // Validate that the output URL is from a trusted FAL domain
+            const url = rawUrl ? validateApiCallbackUrl(rawUrl, FAL_ALLOWED_HOSTS) : "";
             return {
                 type: "video",
                 backend: "fal-ai",
@@ -265,9 +306,13 @@ export async function generateVideoReplicate(req: GenerationRequest): Promise<Ge
         throw new Error("REPLICATE_API_KEY is not configured.");
     }
 
-    const model = req.model || "anotherjesse/zeroscope-v2-xl:9f747673945c62801b13b84701c783929c0ee784e4748ec062204894dda1a351";
+    const model = validateModelId(
+        req.model || "anotherjesse/zeroscope-v2-xl:9f747673945c62801b13b84701c783929c0ee784e4748ec062204894dda1a351"
+    );
 
-    // Start the prediction
+    const REPLICATE_ALLOWED_HOSTS = ["replicate.com", "replicate.delivery"];
+
+    // Start the prediction — URL is our constant endpoint, no user data in host
     const startRes = await fetch(`${REPLICATE_API_URL}/predictions`, {
         method: "POST",
         headers: {
@@ -292,8 +337,10 @@ export async function generateVideoReplicate(req: GenerationRequest): Promise<Ge
     }
 
     const prediction: any = await startRes.json();
-    const pollUrl = prediction.urls?.get;
-    if (!pollUrl) throw new Error("Replicate did not return a poll URL");
+    const rawPollUrl: string = prediction.urls?.get || "";
+    if (!rawPollUrl) throw new Error("Replicate did not return a poll URL");
+    // Validate the poll URL is on an expected Replicate domain
+    const pollUrl = validateApiCallbackUrl(rawPollUrl, REPLICATE_ALLOWED_HOSTS);
 
     // Poll until complete (max 120 s)
     const deadline = Date.now() + 120_000;
@@ -304,9 +351,11 @@ export async function generateVideoReplicate(req: GenerationRequest): Promise<Ge
         });
         const pollData: any = await pollRes.json();
         if (pollData.status === "succeeded") {
-            const url: string = Array.isArray(pollData.output)
+            const rawUrl: string = Array.isArray(pollData.output)
                 ? pollData.output[0]
                 : pollData.output;
+            // Validate the output URL is on an expected Replicate domain
+            const url = rawUrl ? validateApiCallbackUrl(rawUrl, REPLICATE_ALLOWED_HOSTS) : "";
             return {
                 type: "video",
                 backend: "replicate",
@@ -346,7 +395,7 @@ export async function generateAudio(req: GenerationRequest): Promise<GenerationR
         throw new Error("HUGGINGFACE_API_KEY is not configured.");
     }
 
-    const model = req.model || "facebook/musicgen-small";
+    const model = validateModelId(req.model || "facebook/musicgen-small");
     const res = await fetch(`${HF_API_URL}/${model}`, {
         method: "POST",
         headers: {
@@ -384,7 +433,7 @@ export async function generateCode(req: GenerationRequest): Promise<GenerationRe
         throw new Error("OPENROUTER_API_KEY is not configured.");
     }
 
-    const model = req.model || "mistralai/devstral-small:free";
+    const model = validateModelId(req.model || "mistralai/devstral-small:free");
     const systemPrompt =
         `You are Lumi, an expert programmer for the Trezzhaus platform. ` +
         `Write clean, complete, well-commented ${req.language || "TypeScript"} code. ` +

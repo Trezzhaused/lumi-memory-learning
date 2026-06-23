@@ -152,7 +152,7 @@ export interface AcamConfig {
     allowedOrigins: string[];
     blockedCategories: string[];
     rateLimitPerMinute: number;
-    /** If true, every request must carry a valid ****** */
+    /** If true, every request must carry a valid bearer token. */
     requireAuth: boolean;
 }
 
