@@ -1,20 +1,63 @@
 services:
 - type: web
-  name: webhook-github-action
+  name: lumi-intelligence-center
   runtime: node
   plan: starter
   envVars:
+  # ── Lumi / AI ───────────────────────────────────────────────────────────────
+  - key: OPENROUTER_API_KEY
+    sync: false
+  - key: LUMI_CHAT_MODEL
+    value: mistralai/mistral-7b-instruct:free
+  # ── Optional local model support (Ollama) ───────────────────────────────────
+  - key: OLLAMA_HOST
+    sync: false
+  # ── Image generation ────────────────────────────────────────────────────────
+  - key: HUGGINGFACE_API_KEY
+    sync: false
+  - key: STABILITY_API_KEY
+    sync: false
+  # ── Video generation (FAL.ai primary, Replicate fallback) ───────────────────
+  - key: FAL_KEY
+    sync: false
+  - key: REPLICATE_API_KEY
+    sync: false
+  # ── Roblox publishing ────────────────────────────────────────────────────────
+  - key: ROBLOX_API_KEY
+    sync: false
+  - key: ROBLOX_UNIVERSE_ID
+    sync: false
+  - key: ROBLOX_PLACE_ID
+    sync: false
+  - key: ROBLOX_OAUTH_CLIENT_ID
+    sync: false
+  - key: ROBLOX_OAUTH_CLIENT_SECRET
+    sync: false
+  # ── GitHub (memory via Gists + webhook triggers) ─────────────────────────────
+  - key: GITHUB_API_TOKEN
+    sync: false
   - key: GITHUB_OWNER_NAME
     sync: false
   - key: GITHUB_REPO_NAME
     sync: false
   - key: GITHUB_WORKFLOW_ID
     sync: false
+  # ── Render Webhook (optional — webhook functionality) ──────────────────────
   - key: RENDER_WEBHOOK_SECRET
     sync: false
   - key: RENDER_API_KEY
     sync: false
-  - key: GITHUB_API_TOKEN
+  # ── ACAM security ────────────────────────────────────────────────────────────
+  - key: ACAM_ENABLED
+    value: "true"
+  - key: ACAM_RATE_LIMIT
+    value: "60"
+  - key: ACAM_REQUIRE_AUTH
+    value: "false"
+  - key: ACAM_ALLOWED_ORIGINS
+    sync: false
+  # ── Persistent storage ───────────────────────────────────────────────────────
+  - key: DATA_DIR
     sync: false
   region: oregon
   buildCommand: pnpm install && pnpm run build
