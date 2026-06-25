@@ -156,11 +156,48 @@ export interface AcamConfig {
     requireAuth: boolean;
 }
 
+const DEFAULT_ALLOWED_ORIGINS = [
+    "https://studio.trezzhaus.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+];
+
+function normalizeOrigin(origin: string): string | null {
+    try {
+        return new URL(origin).origin;
+    } catch {
+        return null;
+    }
+}
+
+function normalizeAllowedOrigins(origins: string[]): string[] {
+    return origins
+        .map(origin => normalizeOrigin(origin))
+        .filter((origin): origin is string => !!origin);
+}
+
+export function getRequestOrigin(headers: Record<string, unknown>): string | null {
+    const rawOrigin = typeof headers.origin === "string"
+        ? headers.origin
+        : typeof headers.referer === "string"
+            ? headers.referer
+            : "";
+    return rawOrigin ? normalizeOrigin(rawOrigin) : null;
+}
+
+export function isOriginAllowed(origin: string, allowedOrigins: string[]): boolean {
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (!normalizedOrigin) return false;
+    return normalizeAllowedOrigins(allowedOrigins).includes(normalizedOrigin);
+}
+
 export const defaultAcamConfig: AcamConfig = {
     enabled: process.env.ACAM_ENABLED !== "false",
     allowedOrigins: process.env.ACAM_ALLOWED_ORIGINS
         ? process.env.ACAM_ALLOWED_ORIGINS.split(",").map(s => s.trim())
-        : [],
+        : DEFAULT_ALLOWED_ORIGINS,
     blockedCategories: ["violence", "self-harm", "illegal-activity", "personal-data-exfiltration"],
     rateLimitPerMinute: parseInt(process.env.ACAM_RATE_LIMIT || "60", 10),
     requireAuth: process.env.ACAM_REQUIRE_AUTH === "true",
@@ -226,9 +263,8 @@ export function acamMiddleware(config: AcamConfig = defaultAcamConfig) {
 
         // Origin check
         if (config.allowedOrigins.length > 0) {
-            const origin = req.headers.origin || req.headers.referer || "";
-            const allowed = config.allowedOrigins.some(o => origin.startsWith(o));
-            if (!allowed) {
+            const origin = getRequestOrigin(req.headers);
+            if (origin && !isOriginAllowed(origin, config.allowedOrigins)) {
                 auditLog.log(ip, "origin_blocked", {
                     resource: req.path,
                     details: {origin},

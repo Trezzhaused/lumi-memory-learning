@@ -24,6 +24,8 @@ import {ConversationManager, ConversationSession, ConversationMessage} from "./l
 import {remember, recall, search as memSearch} from "./lumi-memory";
 import {checkContentSafety, AcamConfig, defaultAcamConfig} from "./lumi-acam";
 import {generate, GenerationRequest} from "./lumi-generators";
+import {promises as fs} from "node:fs";
+import path from "node:path";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -126,11 +128,19 @@ export interface PromptEnhanceResult {
     systemPromptPreview: string;
 }
 
+export interface FineTuneStatus {
+    ready: boolean;
+    seed_dataset: string | null;
+    datasets: string[];
+}
+
 // ---------------------------------------------------------------------------
 // Active mission store
 // ---------------------------------------------------------------------------
 
 const missions = new Map<string, MissionStatus>();
+const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), ".data");
+const FINETUNE_DIR = path.join(DATA_DIR, "finetune");
 
 function generateId(): string {
     return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -497,6 +507,50 @@ export function getPipelineStatus(missionId: string): MissionStatus {
 
 export function listMissions(): MissionStatus[] {
     return [...missions.values()].map(m => ({...m, jobs: m.jobs.map(j => ({...j}))}));
+}
+
+async function listFineTuneDatasets(): Promise<string[]> {
+    try {
+        const entries = await fs.readdir(FINETUNE_DIR, {withFileTypes: true});
+        return entries
+            .filter(entry => entry.isFile() && entry.name.endsWith(".jsonl"))
+            .map(entry => path.join(FINETUNE_DIR, entry.name))
+            .sort();
+    } catch {
+        return [];
+    }
+}
+
+export async function getFineTuneStatus(): Promise<FineTuneStatus> {
+    const datasets = await listFineTuneDatasets();
+    const seedDataset = datasets.length > 0 ? datasets[datasets.length - 1] : null;
+    return {
+        ready: datasets.length > 0,
+        seed_dataset: seedDataset,
+        datasets,
+    };
+}
+
+export async function assembleFineTuneDataset(): Promise<{path: string; example_count: number}> {
+    const examples = conversationManager
+        .list()
+        .map(session => ({
+            messages: session.messages
+                .filter(message => message.role === "user" || message.role === "assistant")
+                .map(message => ({role: message.role, content: message.content})),
+        }))
+        .filter(example => example.messages.length >= 2);
+
+    await fs.mkdir(FINETUNE_DIR, {recursive: true});
+
+    const datasetPath = path.join(FINETUNE_DIR, `lumi-seed-${Date.now()}.jsonl`);
+    const fileContent = examples.map(example => JSON.stringify(example)).join("\n");
+    await fs.writeFile(datasetPath, fileContent ? `${fileContent}\n` : "", "utf8");
+
+    return {
+        path: datasetPath,
+        example_count: examples.length,
+    };
 }
 
 // ---------------------------------------------------------------------------

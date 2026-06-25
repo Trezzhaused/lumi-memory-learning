@@ -2,13 +2,16 @@ import {Octokit} from "@octokit/core";
 import express, {NextFunction, Request, Response} from "express";
 import {Webhook, WebhookUnbrandedRequiredHeaders, WebhookVerificationError} from "standardwebhooks"
 import {RenderDeploy, RenderEvent, RenderService, WebhookPayload} from "./render";
-import {acamMiddleware, acamContentGuard, defaultAcamConfig, auditLog} from "./lumi-acam";
+import {
+    acamMiddleware, acamContentGuard, defaultAcamConfig, auditLog,
+    getRequestOrigin, isOriginAllowed,
+} from "./lumi-acam";
 import {remember, recall, forget, memoryStats, search as memSearch} from "./lumi-memory";
 import {generate} from "./lumi-generators";
 import {buildProject} from "./lumi-studio";
 import {
     lumiChat, getChatHistory, getModelCascade, enhancePrompt,
-    bootMission, getPipelineStatus, listMissions, getLumiStatus,
+    bootMission, getPipelineStatus, listMissions, getLumiStatus, getFineTuneStatus, assembleFineTuneDataset,
     getOllamaStatus, conversationManager,
 } from "./lumi";
 
@@ -18,6 +21,32 @@ import {
 
 const app = express();
 const port = process.env.PORT || 3001;
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+    const requestOrigin = getRequestOrigin(req.headers);
+    const originAllowed = requestOrigin
+        ? isOriginAllowed(requestOrigin, defaultAcamConfig.allowedOrigins)
+        : true;
+
+    if (requestOrigin && originAllowed) {
+        res.setHeader("Access-Control-Allow-Origin", requestOrigin);
+        res.setHeader("Vary", "Origin");
+        res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Session-Id");
+        res.setHeader("Access-Control-Expose-Headers", "Content-Type");
+    }
+
+    if (req.method === "OPTIONS") {
+        if (!originAllowed) {
+            res.status(403).json({error: "Origin not permitted by ACAM policy"});
+            return;
+        }
+        res.status(204).end();
+        return;
+    }
+
+    next();
+});
 
 // Apply ACAM middleware globally (rate-limit + origin check)
 app.use(acamMiddleware(defaultAcamConfig));
@@ -133,6 +162,20 @@ lumiRouter.post("/enhance-prompt", async (req: Request, res: Response, next: Nex
         if (!prompt) { res.status(400).json({error: "prompt is required"}); return; }
         const result = await enhancePrompt(prompt, domain);
         res.json(result);
+    } catch (err) { next(err); }
+});
+
+// GET /api/lumi/finetune/status
+lumiRouter.get("/finetune/status", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        res.json(await getFineTuneStatus());
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/finetune/assemble
+lumiRouter.post("/finetune/assemble", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        res.json(await assembleFineTuneDataset());
     } catch (err) { next(err); }
 });
 
