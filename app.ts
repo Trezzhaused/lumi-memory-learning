@@ -38,7 +38,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
     if (req.method === "OPTIONS") {
         if (!originAllowed) {
-            res.status(403).json({error: "Origin not permitted by ACAM policy"});
+            res.status(403).json({error: "Origin not allowed"});
             return;
         }
         res.status(204).end();

@@ -523,10 +523,10 @@ async function listFineTuneDatasets(): Promise<string[]> {
 
 export async function getFineTuneStatus(): Promise<FineTuneStatus> {
     const datasets = await listFineTuneDatasets();
-    const seedDataset = datasets.length > 0 ? datasets[datasets.length - 1] : null;
+    const latestDataset = datasets.length > 0 ? datasets[datasets.length - 1] : null;
     return {
         ready: datasets.length > 0,
-        seed_dataset: seedDataset,
+        seed_dataset: latestDataset,
         datasets,
     };
 }
@@ -543,7 +543,7 @@ export async function assembleFineTuneDataset(): Promise<{path: string; example_
 
     await fs.mkdir(FINETUNE_DIR, {recursive: true});
 
-    const datasetPath = path.join(FINETUNE_DIR, `lumi-seed-${Date.now()}.jsonl`);
+    const datasetPath = path.join(FINETUNE_DIR, `lumi-finetune-${Date.now()}.jsonl`);
     const fileContent = examples.map(example => JSON.stringify(example)).join("\n");
     await fs.writeFile(datasetPath, fileContent ? `${fileContent}\n` : "", "utf8");
 
