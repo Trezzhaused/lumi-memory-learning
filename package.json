@@ -16,6 +16,7 @@
   "keywords": [],
   "dependencies": {
     "@octokit/core": "^6.1.4",
+    "@openrouter/sdk": "^0.13.16",
     "express": "^5.0.1",
     "standardwebhooks": "^1.0.0"
   },

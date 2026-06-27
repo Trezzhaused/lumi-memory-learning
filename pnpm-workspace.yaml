@@ -1,0 +1,2 @@
+allowBuilds:
+  '@openrouter/sdk': set this to true or false
