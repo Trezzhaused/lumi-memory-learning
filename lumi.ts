@@ -247,6 +247,22 @@ const DOMAIN_SYSTEM_PROMPTS: Record<string, string> = {
         "and structure Roblox experiences using best practices for the Roblox platform.",
 };
 
+const MODULE_SPECIALTIES: Record<string, {name: string; specialty: string; keywords: string[]}> = {
+    chat: {name: "Chat", specialty: "Conversational orchestration, multi-model responses, and prompt refinement.", keywords: ["chat", "conversation", "history", "assistant"]},
+    memory: {name: "Memory", specialty: "Persistent recall, prior solutions, and learned context retrieval.", keywords: ["memory", "recall", "remember", "learn", "knowledge"]},
+    studio: {name: "Studio", specialty: "Mission planning, pipeline orchestration, and workflow assembly.", keywords: ["studio", "mission", "pipeline", "project", "workflow"]},
+    video: {name: "Video", specialty: "Storyboard planning, video generation, rendering, and motion asset workflows.", keywords: ["video", "render", "movie", "animation", "scene", "clip"]},
+    image: {name: "Image", specialty: "Image generation, concept art, visual design, and prompt crafting.", keywords: ["image", "art", "visual", "design", "prompt", "diffusion"]},
+    audio: {name: "Audio", specialty: "Music, sound design, voice, and audio generation workflows.", keywords: ["audio", "music", "sound", "voice", "track"]},
+    code: {name: "Code", specialty: "Production-ready code generation for TypeScript, Python, APIs, scripts, and Luau.", keywords: ["code", "typescript", "python", "script", "function", "class", "api", "luau"]},
+    roblox: {name: "Roblox", specialty: "Luau scripting, Roblox gameplay logic, and Open Cloud publishing workflows.", keywords: ["roblox", "luau", "place", "universe", "baseplate", "avatar"]},
+    acam: {name: "ACAM", specialty: "Security, safety, auth, rate limits, origins, and audit logging.", keywords: ["acam", "security", "auth", "rate limit", "origin", "audit", "safe"]},
+};
+
+function escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function detectDomain(message: string): string {
     const lower = message.toLowerCase();
     if (/\b(roblox|luau|place|baseplate|studio)\b/.test(lower)) return "roblox";
@@ -254,6 +270,48 @@ function detectDomain(message: string): string {
     if (/\b(code|function|class|api|typescript|python|script)\b/.test(lower)) return "code";
     if (/\b(image|draw|paint|music|audio|video|animate|render)\b/.test(lower)) return "creative";
     return "default";
+}
+
+function detectModuleFocus(message: string): string[] {
+    const lower = message.toLowerCase();
+    return Object.entries(MODULE_SPECIALTIES)
+        .filter(([, meta]) => meta.keywords.some(keyword => new RegExp(`\\b${escapeRegex(keyword)}\\b`).test(lower)))
+        .map(([key]) => key);
+}
+
+async function getRelevantMemoryContext(message: string, limit = 3): Promise<string | null> {
+    try {
+        const results = await memSearch(message, limit);
+        if (!results.length) return null;
+        const snippets = results
+            .slice(0, limit)
+            .map(entry => `- [${entry.type}] ${entry.content.replace(/\s+/g, " ").slice(0, 140)}`);
+        return `Relevant past memory:\n${snippets.join("\n")}`;
+    } catch {
+        return null;
+    }
+}
+
+async function buildSystemPrompt(message: string, domain: string): Promise<string> {
+    const basePrompt = DOMAIN_SYSTEM_PROMPTS[domain] || DOMAIN_SYSTEM_PROMPTS.default;
+    const moduleFocus = detectModuleFocus(message);
+    const moduleContext = moduleFocus.length > 0
+        ? moduleFocus.map(moduleKey => `${MODULE_SPECIALTIES[moduleKey].name}: ${MODULE_SPECIALTIES[moduleKey].specialty}`).join(" | ")
+        : "General platform assistance across chat, memory, studio, generation, and security modules.";
+    const memoryContext = await getRelevantMemoryContext(message);
+
+    let prompt = `${basePrompt}\n\n`;
+    prompt += `You are operating inside the Lumi Intelligence Center for Trezzhaus and TrezzWorld. `;
+    prompt += `Your repository-aware specialty modules are: chat, memory, studio, video, image, audio, code, Roblox, and ACAM. `;
+    prompt += `Current focus: ${moduleContext}.\n\n`;
+    prompt += "When a request touches a module, tab, or workflow, use that module's specialty first and stay aligned with the repo's implemented capabilities. ";
+    prompt += "If the user asks for anything that can be created autonomously, build it when possible, keep the experience safe, and persist helpful context to memory for future recall.";
+
+    if (memoryContext) {
+        prompt += `\n\n${memoryContext}`;
+    }
+
+    return prompt;
 }
 
 // ---------------------------------------------------------------------------
@@ -269,7 +327,7 @@ export async function lumiChat(
     if (!safety.safe) throw new Error(`ACAM: ${safety.reason}`);
 
     const domain = req.domain || detectDomain(req.message);
-    const systemPrompt = DOMAIN_SYSTEM_PROMPTS[domain] || DOMAIN_SYSTEM_PROMPTS.default;
+    const systemPrompt = await buildSystemPrompt(req.message, domain);
 
     const messages: Array<{role: string; content: string}> = [
         {role: "system", content: systemPrompt},
@@ -349,7 +407,7 @@ export async function enhancePrompt(
     domain?: string
 ): Promise<PromptEnhanceResult> {
     const detectedDomain = domain || detectDomain(prompt);
-    const systemPrompt = DOMAIN_SYSTEM_PROMPTS[detectedDomain] || DOMAIN_SYSTEM_PROMPTS.default;
+    const systemPrompt = await buildSystemPrompt(prompt, detectedDomain);
     return {
         domain: detectedDomain,
         detectedDomain,
