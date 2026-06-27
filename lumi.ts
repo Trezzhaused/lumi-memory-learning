@@ -26,6 +26,7 @@ import {checkContentSafety, AcamConfig, defaultAcamConfig} from "./lumi-acam";
 import {generate, GenerationRequest} from "./lumi-generators";
 import {promises as fs} from "node:fs";
 import path from "node:path";
+import {callOpenRouterChat} from "./openrouter";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -215,19 +216,12 @@ async function openRouterChat(
             "OPENROUTER_API_KEY to activate my full intelligence. I'm here and ready to help!"
         );
     }
-    const res = await fetch(`${OPENROUTER_API_URL}/chat/completions`, {
-        method: "POST",
-        headers: {
-            Authorization: "Bearer " + OPENROUTER_API_KEY,
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://trezzhaus.com",
-            "X-Title": "Lumi \u2013 Trezzhaus AI",
-        },
-        body: JSON.stringify({model, messages}),
+    return callOpenRouterChat(messages, model, {
+        apiKey: OPENROUTER_API_KEY,
+        httpReferer: "https://trezzhaus.com",
+        appTitle: "Lumi – Trezzhaus AI",
+        appCategories: "cli-agent,cloud-agent",
     });
-    if (!res.ok) throw new Error(`OpenRouter error (${res.status}): ${await res.text()}`);
-    const json: any = await res.json();
-    return json.choices?.[0]?.message?.content || "(no response)";
 }
 
 // ---------------------------------------------------------------------------

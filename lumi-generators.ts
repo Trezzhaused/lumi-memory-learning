@@ -13,6 +13,8 @@
  * depending on the backend.
  */
 
+import {callOpenRouterChat} from "./openrouter";
+
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
@@ -439,36 +441,25 @@ export async function generateCode(req: GenerationRequest): Promise<GenerationRe
         `Write clean, complete, well-commented ${req.language || "TypeScript"} code. ` +
         `Return ONLY the code, no markdown fences.`;
 
-    const res = await fetch(`${OPENROUTER_API_URL}/chat/completions`, {
-        method: "POST",
-        headers: {
-            Authorization: "Bearer " + OPENROUTER_API_KEY,
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://trezzhaus.com",
-            "X-Title": "Lumi \u2013 Trezzhaus AI",
-        },
-        body: JSON.stringify({
-            model,
-            messages: [
-                {role: "system", content: systemPrompt},
-                {role: "user", content: req.prompt},
-            ],
-        }),
-    });
-
-    if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(`OpenRouter code generation failed (${res.status}): ${msg}`);
-    }
-
-    const json: any = await res.json();
-    const text: string = json.choices?.[0]?.message?.content || "";
+    const responseText = await callOpenRouterChat(
+        [
+            {role: "system", content: systemPrompt},
+            {role: "user", content: req.prompt},
+        ],
+        model,
+        {
+            apiKey: OPENROUTER_API_KEY,
+            httpReferer: "https://trezzhaus.com",
+            appTitle: "Lumi – Trezzhaus AI",
+            appCategories: "cli-agent,cloud-agent",
+        }
+    );
 
     return {
         type: "code",
         backend: "openrouter",
         model,
-        text,
+        text: responseText,
         prompt: req.prompt,
         createdAt: new Date().toISOString(),
     };
