@@ -286,7 +286,7 @@ export async function lumiChat(
     // Persist to session if sessionId provided
     if (sessionId) {
         let session = conversationManager.get(sessionId);
-        if (!session) session = conversationManager.create("Lumi Chat", {domain});
+        if (!session) session = conversationManager.create("Lumi Chat", {domain}, sessionId);
         conversationManager.addMessage(session.id, "user", req.message);
     }
 
