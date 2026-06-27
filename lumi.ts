@@ -1,5 +1,5 @@
 /**
- * Lumi – Core AI Module
+ * Lumi — Core AI Module
  *
  * Primary intelligence layer for the Trezzhaus platform.
  * Architecture mirrors the TrezzWorld Production Studio (trezzworld-production-studio)
@@ -36,7 +36,7 @@ export const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 export const OPENROUTER_API_URL = "https://openrouter.ai/api/v1";
 export const OLLAMA_HOST = process.env.OLLAMA_HOST || "";
 
-/** Default chat model – free tier on OpenRouter */
+/** Default chat model — free tier on OpenRouter */
 export const DEFAULT_CHAT_MODEL =
     process.env.LUMI_CHAT_MODEL || "mistralai/mistral-7b-instruct:free";
 
@@ -219,7 +219,7 @@ async function openRouterChat(
     return callOpenRouterChat(messages, model, {
         apiKey: OPENROUTER_API_KEY,
         httpReferer: "https://trezzhaus.com",
-        appTitle: "Lumi – Trezzhaus AI",
+        appTitle: "Lumi — Trezzhaus AI",
         appCategories: "cli-agent,cloud-agent",
     });
 }
@@ -263,6 +263,15 @@ function escapeRegex(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function containsKeyword(text: string, keyword: string): boolean {
+    const normalizedText = text.toLowerCase();
+    const normalizedKeyword = keyword.toLowerCase();
+    if (normalizedKeyword.includes(" ")) {
+        return normalizedText.includes(normalizedKeyword);
+    }
+    return new RegExp(`(^|[^a-z0-9])${escapeRegex(normalizedKeyword)}($|[^a-z0-9])`).test(normalizedText);
+}
+
 function detectDomain(message: string): string {
     const lower = message.toLowerCase();
     if (/\b(roblox|luau|place|baseplate|studio)\b/.test(lower)) return "roblox";
@@ -273,9 +282,8 @@ function detectDomain(message: string): string {
 }
 
 function detectModuleFocus(message: string): string[] {
-    const lower = message.toLowerCase();
     return Object.entries(MODULE_SPECIALTIES)
-        .filter(([, meta]) => meta.keywords.some(keyword => new RegExp(`\\b${escapeRegex(keyword)}\\b`).test(lower)))
+        .filter(([, meta]) => meta.keywords.some(keyword => containsKeyword(message, keyword)))
         .map(([key]) => key);
 }
 
@@ -296,7 +304,10 @@ async function buildSystemPrompt(message: string, domain: string): Promise<strin
     const basePrompt = DOMAIN_SYSTEM_PROMPTS[domain] || DOMAIN_SYSTEM_PROMPTS.default;
     const moduleFocus = detectModuleFocus(message);
     const moduleContext = moduleFocus.length > 0
-        ? moduleFocus.map(moduleKey => `${MODULE_SPECIALTIES[moduleKey].name}: ${MODULE_SPECIALTIES[moduleKey].specialty}`).join(" | ")
+        ? moduleFocus.map(moduleKey => {
+            const moduleSpec = MODULE_SPECIALTIES[moduleKey];
+            return `${moduleSpec.name}: ${moduleSpec.specialty}`;
+        }).join(" | ")
         : "General platform assistance across chat, memory, studio, generation, and security modules.";
     const memoryContext = await getRelevantMemoryContext(message);
 
@@ -381,7 +392,7 @@ export async function getChatHistory(
 export async function getModelCascade(): Promise<ModelCascadeEntry[]> {
     const cascade: ModelCascadeEntry[] = [
         {id: "mistralai/mistral-7b-instruct:free", provider: "openrouter", label: "Mistral 7B (Free)", free: true, contextWindow: 32768},
-        {id: "mistralai/devstral-small:free",      provider: "openrouter", label: "Devstral Small – Code (Free)", free: true, contextWindow: 32768},
+        {id: "mistralai/devstral-small:free",      provider: "openrouter", label: "Devstral Small — Code (Free)", free: true, contextWindow: 32768},
         {id: "google/gemma-3-4b-it:free",          provider: "openrouter", label: "Gemma 3 4B (Free)", free: true, contextWindow: 8192},
         {id: "meta-llama/llama-3.2-3b-instruct:free", provider: "openrouter", label: "Llama 3.2 3B (Free)", free: true, contextWindow: 131072},
         {id: "deepseek/deepseek-r1:free",          provider: "openrouter", label: "DeepSeek R1 (Free)", free: true, contextWindow: 65536},
@@ -595,12 +606,12 @@ export async function assembleFineTuneDataset(): Promise<{path: string; example_
 
     await fs.mkdir(FINETUNE_DIR, {recursive: true});
 
-    const datasetPath = path.join(FINETUNE_DIR, `lumi-finetune-${Date.now()}.jsonl`);
+    const fineTuneDatasetPath = path.join(FINETUNE_DIR, `lumi-finetune-${Date.now()}.jsonl`);
     const fileContent = examples.map(example => JSON.stringify(example)).join("\n");
-    await fs.writeFile(datasetPath, fileContent ? `${fileContent}\n` : "", "utf8");
+    await fs.writeFile(fineTuneDatasetPath, fileContent ? `${fileContent}\n` : "", "utf8");
 
     return {
-        path: datasetPath,
+        path: fineTuneDatasetPath,
         example_count: examples.length,
     };
 }

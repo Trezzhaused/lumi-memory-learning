@@ -106,7 +106,7 @@ function validateApiCallbackUrl(url: string, allowedHosts: string[]): string {
 
 /**
  * Generate an image via the Hugging Face Inference API (free tier).
- * Uses FLUX.1-schnell by default – one of the fastest free models.
+ * Uses FLUX.1-schnell by default — one of the fastest free models.
  */
 export async function generateImageHF(req: GenerationRequest): Promise<GenerationResult> {
     const model = validateModelId(req.model || "black-forest-labs/FLUX.1-schnell");
@@ -389,7 +389,7 @@ export async function generateVideo(req: GenerationRequest): Promise<GenerationR
 }
 
 // ---------------------------------------------------------------------------
-// Audio Generation (Hugging Face – facebook/musicgen-small)
+// Audio Generation (Hugging Face — facebook/musicgen-small)
 // ---------------------------------------------------------------------------
 
 export async function generateAudio(req: GenerationRequest): Promise<GenerationResult> {
@@ -427,7 +427,7 @@ export async function generateAudio(req: GenerationRequest): Promise<GenerationR
 }
 
 // ---------------------------------------------------------------------------
-// Code Generation (OpenRouter – routed to best free model)
+// Code Generation (OpenRouter — routed to best free model)
 // ---------------------------------------------------------------------------
 
 export async function generateCode(req: GenerationRequest): Promise<GenerationResult> {
@@ -450,7 +450,7 @@ export async function generateCode(req: GenerationRequest): Promise<GenerationRe
         {
             apiKey: OPENROUTER_API_KEY,
             httpReferer: "https://trezzhaus.com",
-            appTitle: "Lumi – Trezzhaus AI",
+            appTitle: "Lumi — Trezzhaus AI",
             appCategories: "cli-agent,cloud-agent",
         }
     );

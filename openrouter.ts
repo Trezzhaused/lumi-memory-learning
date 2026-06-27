@@ -30,17 +30,16 @@ export async function callOpenRouterChat(
     }
 
     const {OpenRouter} = await import("@openrouter/sdk");
-    const client = new OpenRouter({
+    const clientOptions = {
         apiKey,
         httpReferer: options.httpReferer || "https://trezzhaus.com",
-        appTitle: options.appTitle || "Lumi – Trezzhaus AI",
+        appTitle: options.appTitle || "Lumi — Trezzhaus AI",
         appCategories: options.appCategories || "cli-agent,cloud-agent",
-    });
+    };
+    const client = new OpenRouter(clientOptions);
 
     const result = await client.chat.send({
-        httpReferer: options.httpReferer || "https://trezzhaus.com",
-        appTitle: options.appTitle || "Lumi – Trezzhaus AI",
-        appCategories: options.appCategories || "cli-agent,cloud-agent",
+        ...clientOptions,
         chatRequest: {
             model,
             messages: messages.map(message => ({
