@@ -14,6 +14,7 @@
  */
 
 import {callOpenRouterChat} from "./openrouter";
+import {storeArtifact, StoredArtifact} from "./lumi-storage";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -35,7 +36,7 @@ const OPENROUTER_API_URL = "https://openrouter.ai/api/v1";
 // Types
 // ---------------------------------------------------------------------------
 
-export type GeneratorType = "image" | "video" | "audio" | "code" | "3d";
+export type GeneratorType = "image" | "video" | "audio" | "code" | "3d" | "text" | "document";
 
 export interface GenerationRequest {
     type: GeneratorType;
@@ -60,10 +61,11 @@ export interface GenerationResult {
     mimeType?: string;
     /** URL to hosted output (video, replicate outputs) */
     url?: string;
-    /** Generated text (code) */
+    /** Generated text (code, text, document) */
     text?: string;
     prompt: string;
     createdAt: string;
+    artifact?: StoredArtifact;
 }
 
 // ---------------------------------------------------------------------------
@@ -427,6 +429,84 @@ export async function generateAudio(req: GenerationRequest): Promise<GenerationR
 }
 
 // ---------------------------------------------------------------------------
+// Text Generation (OpenRouter — plain text)
+// ---------------------------------------------------------------------------
+
+export async function generateText(req: GenerationRequest): Promise<GenerationResult> {
+    if (!OPENROUTER_API_KEY) {
+        throw new Error("OPENROUTER_API_KEY is not configured.");
+    }
+
+    const model = validateModelId(req.model || "mistralai/mistral-7b-instruct:free");
+    const systemPrompt =
+        `You are Lumi, a polished writing assistant for the Trezzhaus platform. ` +
+        `Write concise, high-quality text for the user's request. ` +
+        `Return only the requested text, no markdown fences.`;
+
+    const responseText = await callOpenRouterChat(
+        [
+            {role: "system", content: systemPrompt},
+            {role: "user", content: req.prompt},
+        ],
+        model,
+        {
+            apiKey: OPENROUTER_API_KEY,
+            httpReferer: "https://trezzhaus.com",
+            appTitle: "Lumi — Trezzhaus AI",
+            appCategories: "cli-agent,cloud-agent",
+        }
+    );
+
+    return {
+        type: "text",
+        backend: "openrouter",
+        model,
+        text: responseText,
+        prompt: req.prompt,
+        createdAt: new Date().toISOString(),
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Document Generation (OpenRouter — markdown documents)
+// ---------------------------------------------------------------------------
+
+export async function generateDocument(req: GenerationRequest): Promise<GenerationResult> {
+    if (!OPENROUTER_API_KEY) {
+        throw new Error("OPENROUTER_API_KEY is not configured.");
+    }
+
+    const model = validateModelId(req.model || "mistralai/devstral-small:free");
+    const systemPrompt =
+        `You are Lumi, an expert document writer for the Trezzhaus platform. ` +
+        `Create a polished Markdown document that fulfills the request. ` +
+        `Return only the Markdown document, no markdown fences.`;
+
+    const responseText = await callOpenRouterChat(
+        [
+            {role: "system", content: systemPrompt},
+            {role: "user", content: req.prompt},
+        ],
+        model,
+        {
+            apiKey: OPENROUTER_API_KEY,
+            httpReferer: "https://trezzhaus.com",
+            appTitle: "Lumi — Trezzhaus AI",
+            appCategories: "cli-agent,cloud-agent",
+        }
+    );
+
+    return {
+        type: "document",
+        backend: "openrouter",
+        model,
+        text: responseText,
+        prompt: req.prompt,
+        createdAt: new Date().toISOString(),
+    };
+}
+
+// ---------------------------------------------------------------------------
 // Code Generation (OpenRouter — routed to best free model)
 // ---------------------------------------------------------------------------
 
@@ -465,17 +545,73 @@ export async function generateCode(req: GenerationRequest): Promise<GenerationRe
     };
 }
 
+async function persistGenerationResult(result: GenerationResult): Promise<GenerationResult> {
+    try {
+        if (result.type === "image" || result.type === "audio") {
+            if (!result.data) return result;
+            const artifact = await storeArtifact({
+                kind: result.type,
+                filename: `${result.type}-${Date.now()}`,
+                mimeType: result.mimeType || (result.type === "image" ? "image/png" : "audio/flac"),
+                buffer: Buffer.from(result.data, "base64"),
+            });
+            return {
+                ...result,
+                artifact: artifact || undefined,
+            };
+        }
+
+        if (result.type === "video" && result.url) {
+            const artifact = await storeArtifact({
+                kind: "video",
+                filename: `video-${Date.now()}`,
+                mimeType: result.mimeType || "video/mp4",
+                sourceUrl: result.url,
+            });
+            return {
+                ...result,
+                artifact: artifact || undefined,
+            };
+        }
+
+        if ((result.type === "text" || result.type === "document" || result.type === "code") && result.text) {
+            const mimeType = result.type === "document" ? "text/markdown" : "text/plain";
+            const artifact = await storeArtifact({
+                kind: result.type,
+                filename: `${result.type}-${Date.now()}`,
+                mimeType,
+                content: result.text,
+            });
+            return {
+                ...result,
+                artifact: artifact || undefined,
+            };
+        }
+    } catch (error) {
+        console.warn("[Lumi Generators] Failed to persist generated artifact:", error);
+    }
+
+    return result;
+}
+
 // ---------------------------------------------------------------------------
 // Dispatch helper
 // ---------------------------------------------------------------------------
 
 export async function generate(req: GenerationRequest): Promise<GenerationResult> {
+    let result: GenerationResult | undefined;
     switch (req.type) {
-        case "image": return generateImage(req);
-        case "video": return generateVideo(req);
-        case "audio": return generateAudio(req);
-        case "code":  return generateCode(req);
+        case "image": result = await generateImage(req); break;
+        case "video": result = await generateVideo(req); break;
+        case "audio": result = await generateAudio(req); break;
+        case "code":  result = await generateCode(req); break;
+        case "text": result = await generateText(req); break;
+        case "document": result = await generateDocument(req); break;
         default:
             throw new Error(`Unsupported generation type: ${req.type}`);
     }
+    if (!result) {
+        throw new Error(`Unsupported generation type: ${req.type}`);
+    }
+    return persistGenerationResult(result);
 }

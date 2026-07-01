@@ -15,6 +15,7 @@
   },
   "keywords": [],
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1076.0",
     "@octokit/core": "^6.1.4",
     "@openrouter/sdk": "^0.13.16",
     "express": "^5.0.1",

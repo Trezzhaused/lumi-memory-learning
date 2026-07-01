@@ -8,6 +8,8 @@
 | Capability | Detail |
 |---|---|
 | **Chat** | Multi-model conversations via OpenRouter (free-tier cascade) |
+| **Text Generation** | Plain-text content generation and document drafting |
+| **Document Generation** | Markdown / document outputs saved as artifacts |
 | **Memory** | Persistent memory backed by GitHub Gists (free cloud storage) |
 | **Code Generation** | Full programs, scripts, games in any language |
 | **Image Generation** | Stability AI / Hugging Face FLUX.1-schnell |
@@ -71,9 +73,12 @@ GET  /api/video/jobs          → { jobs: [VideoJob] }
 ### Generation (direct)
 ```
 POST /api/lumi/generate
-Body: { type: "image"|"video"|"audio"|"code", prompt, ...options }
-→ GenerationResult
+Body: { type: "image"|"video"|"audio"|"code"|"text"|"document", prompt, ...options }
+→ GenerationResult { ..., artifact }
 ```
+
+GET /api/lumi/artifacts/:artifactId
+→ downloads the stored artifact from local storage or redirects to R2
 
 ### Memory
 ```
@@ -120,6 +125,14 @@ STABILITY_API_KEY=sk-...         # https://platform.stability.ai
 # Video generation
 FAL_KEY=...                      # https://fal.ai/dashboard/keys  ← primary (mirrors Studio)
 REPLICATE_API_KEY=r8_...         # https://replicate.com          ← fallback
+
+# Artifact storage (local by default, Cloudflare R2 optional)
+DATA_DIR=./.data
+CLOUDFLARE_R2_ACCOUNT_ID=...
+CLOUDFLARE_R2_ACCESS_KEY_ID=...
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=...
+CLOUDFLARE_R2_BUCKET=...
+CLOUDFLARE_R2_PUBLIC_URL=https://assets.example.com
 
 # Roblox publishing
 ROBLOX_API_KEY=...

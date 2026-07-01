@@ -9,6 +9,7 @@ import {
 import {remember, recall, forget, memoryStats, search as memSearch} from "./lumi-memory";
 import {generate} from "./lumi-generators";
 import {buildProject} from "./lumi-studio";
+import {getArtifact, readArtifactBuffer} from "./lumi-storage";
 import {
     lumiChat, getChatHistory, getModelCascade, enhancePrompt,
     bootMission, getPipelineStatus, listMissions, getLumiStatus, getFineTuneStatus, assembleFineTuneDataset,
@@ -219,11 +220,34 @@ lumiRouter.post("/memory/search", async (req: Request, res: Response, next: Next
     } catch (err) { next(err); }
 });
 
-// POST /api/lumi/generate  (image / video / audio / code)
+// POST /api/lumi/generate  (image / video / audio / code / text / document)
 lumiRouter.post("/generate", async (req: Request, res: Response, next: NextFunction) => {
     try {
         const result = await generate(req.body);
         res.json(result);
+    } catch (err) { next(err); }
+});
+
+// GET /api/lumi/artifacts/:artifactId
+lumiRouter.get("/artifacts/:artifactId", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const artifact = await getArtifact(req.params.artifactId);
+        if (!artifact) {
+            res.status(404).json({error: "artifact not found"});
+            return;
+        }
+        if (artifact.storage === "r2" && artifact.url) {
+            res.redirect(artifact.url);
+            return;
+        }
+        const content = await readArtifactBuffer(req.params.artifactId);
+        if (!content) {
+            res.status(404).json({error: "artifact not found"});
+            return;
+        }
+        res.setHeader("Content-Type", artifact.mimeType);
+        res.setHeader("Content-Disposition", `attachment; filename="${artifact.filename}"`);
+        res.send(content.buffer);
     } catch (err) { next(err); }
 });
 
