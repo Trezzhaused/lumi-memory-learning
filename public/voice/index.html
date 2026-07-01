@@ -46,8 +46,27 @@
     let recognition;
     let isListening = false;
 
+    async function parseJsonResponse(response, fallbackMessage) {
+      const rawText = await response.text();
+      if (!rawText) {
+        throw new Error(fallbackMessage);
+      }
+      try {
+        const parsed = JSON.parse(rawText);
+        if (!response.ok) {
+          throw new Error(parsed.error || parsed.message || `${response.status} ${fallbackMessage}`);
+        }
+        return parsed;
+      } catch (error) {
+        if (error instanceof Error && error.message) {
+          throw error;
+        }
+        throw new Error(rawText || fallbackMessage);
+      }
+    }
+
     if (!SpeechRecognition) {
-      statusEl.textContent = 'Speech recognition is not available in this browser.';
+      statusEl.textContent = 'Speech recognition is not available in this browser. Please try Chrome or Edge.';
       listenBtn.disabled = true;
       stopBtn.disabled = true;
     } else {
@@ -86,8 +105,8 @@
             },
             body: JSON.stringify({ message: transcript, domain: 'default' })
           });
-          const chatData = await chatRes.json();
-          const reply = chatData.content || 'No response.';
+          const chatData = await parseJsonResponse(chatRes, 'Lumi chat request failed');
+          const reply = chatData.content || chatData.reply || 'No response.';
           replyBox.textContent = reply;
 
           const brailleRes = await fetch('/api/lumi/speech/braille', {
@@ -95,7 +114,7 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: reply })
           });
-          const brailleData = await brailleRes.json();
+          const brailleData = await parseJsonResponse(brailleRes, 'Braille conversion failed');
           brailleBox.textContent = brailleData.braille || reply;
 
           try {
@@ -104,7 +123,7 @@
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ text: reply })
             });
-            const speechData = await speechRes.json();
+            const speechData = await parseJsonResponse(speechRes, 'Speech synthesis failed');
             if (speechData.ok && speechData.audioDataUrl) {
               const audio = new Audio(speechData.audioDataUrl);
               await audio.play();
@@ -121,7 +140,9 @@
 
           statusEl.textContent = 'Reply ready.';
         } catch (error) {
-          statusEl.textContent = `Request failed: ${error.message}`;
+          const message = error instanceof Error ? error.message : 'Unknown request error';
+          statusEl.textContent = `Request failed: ${message}`;
+          replyBox.textContent = `Request failed: ${message}`;
         }
       };
     }
