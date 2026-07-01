@@ -21,9 +21,10 @@
  */
 
 import {ConversationManager, ConversationSession, ConversationMessage} from "./lumi-conversation";
-import {remember, recall, search as memSearch} from "./lumi-memory";
+import {remember, recall, search as memSearch, getMemoryStorageStatus} from "./lumi-memory";
 import {checkContentSafety, AcamConfig, defaultAcamConfig} from "./lumi-acam";
 import {generate, GenerationRequest} from "./lumi-generators";
+import {getArtifactStorageStatus} from "./lumi-storage";
 import {promises as fs} from "node:fs";
 import path from "node:path";
 import {callOpenRouterChat} from "./openrouter";
@@ -630,6 +631,10 @@ export interface LumiStatus {
     openRouterConnected: boolean;
     ollamaConnected: boolean;
     memoryBackend: string;
+    storage: {
+        artifacts: {backend: string; configured: boolean; bucket?: string};
+        memory: {backend: string; configured: boolean; bucket?: string; key?: string};
+    };
     availableCapabilities: string[];
     acamEnabled: boolean;
     activeMissions: number;
@@ -638,6 +643,8 @@ export interface LumiStatus {
 
 export async function getLumiStatus(): Promise<LumiStatus> {
     const ollamaStatus = await getOllamaStatus();
+    const artifactStorage = getArtifactStorageStatus();
+    const memoryStorage = getMemoryStorageStatus();
     const capabilities: string[] = ["chat"];
     if (OPENROUTER_API_KEY) capabilities.push("multi-model-chat", "code-generation", "prompt-enhancement");
     if (process.env.HUGGINGFACE_API_KEY) capabilities.push("image-generation-hf", "audio-generation");
@@ -646,6 +653,7 @@ export async function getLumiStatus(): Promise<LumiStatus> {
     if (process.env.REPLICATE_API_KEY) capabilities.push("video-generation-replicate");
     if (ollamaStatus.available) capabilities.push("local-model-ollama");
     if (process.env.ROBLOX_API_KEY) capabilities.push("roblox-publishing");
+    if (artifactStorage.configured) capabilities.push("artifact-storage-r2");
 
     return {
         name: "Lumi",
@@ -654,7 +662,20 @@ export async function getLumiStatus(): Promise<LumiStatus> {
         studioUrl: "https://studio.trezzhaus.com",
         openRouterConnected: !!OPENROUTER_API_KEY,
         ollamaConnected: ollamaStatus.available,
-        memoryBackend: process.env.GITHUB_API_TOKEN ? "github-gists" : "in-memory",
+        memoryBackend: memoryStorage.backend,
+        storage: {
+            artifacts: {
+                backend: artifactStorage.backend,
+                configured: artifactStorage.configured,
+                bucket: artifactStorage.bucket,
+            },
+            memory: {
+                backend: memoryStorage.backend,
+                configured: memoryStorage.configured,
+                bucket: memoryStorage.bucket,
+                key: memoryStorage.key,
+            },
+        },
         availableCapabilities: capabilities,
         acamEnabled: defaultAcamConfig.enabled,
         activeMissions: [...missions.values()].filter(m => m.status === "running").length,

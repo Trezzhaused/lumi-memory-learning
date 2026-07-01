@@ -6,10 +6,10 @@ import {
     acamMiddleware, acamContentGuard, defaultAcamConfig, auditLog,
     getRequestOrigin, isOriginAllowed,
 } from "./lumi-acam";
-import {remember, recall, forget, memoryStats, search as memSearch} from "./lumi-memory";
+import {remember, recall, forget, memoryStats, search as memSearch, getMemoryStorageStatus} from "./lumi-memory";
 import {generate} from "./lumi-generators";
 import {buildProject} from "./lumi-studio";
-import {getArtifact, readArtifactBuffer} from "./lumi-storage";
+import {getArtifact, readArtifactBuffer, getArtifactStorageStatus} from "./lumi-storage";
 import {
     lumiChat, getChatHistory, getModelCascade, enhancePrompt,
     bootMission, getPipelineStatus, listMissions, getLumiStatus, getFineTuneStatus, assembleFineTuneDataset,
@@ -192,6 +192,14 @@ lumiRouter.get("/memory/stats", async (_req: Request, res: Response, next: NextF
     try {
         res.json(await memoryStats());
     } catch (err) { next(err); }
+});
+
+// GET /api/lumi/storage
+lumiRouter.get("/storage", (_req: Request, res: Response) => {
+    res.json({
+        artifacts: getArtifactStorageStatus(),
+        memory: getMemoryStorageStatus(),
+    });
 });
 
 // GET /api/lumi/memory/:sessionId

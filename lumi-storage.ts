@@ -15,6 +15,12 @@ export interface StoredArtifact {
     createdAt: string;
 }
 
+export interface ArtifactStorageStatus {
+    backend: "local" | "r2";
+    configured: boolean;
+    bucket?: string;
+}
+
 interface StoreArtifactInput {
     kind: string;
     filename?: string;
@@ -109,6 +115,15 @@ function getR2Config(): {client?: S3Client; bucket?: string; endpoint?: string; 
         },
     });
     return {client, bucket: R2_BUCKET, endpoint, publicUrl: R2_PUBLIC_URL || ""};
+}
+
+export function getArtifactStorageStatus(): ArtifactStorageStatus {
+    const {client, bucket} = getR2Config();
+    return {
+        backend: client && bucket ? "r2" : "local",
+        configured: !!(client && bucket),
+        bucket: bucket || undefined,
+    };
 }
 
 export async function storeArtifact(input: StoreArtifactInput): Promise<StoredArtifact | null> {

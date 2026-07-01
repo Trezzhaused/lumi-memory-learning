@@ -10,7 +10,7 @@
 | **Chat** | Multi-model conversations via OpenRouter (free-tier cascade) |
 | **Text Generation** | Plain-text content generation and document drafting |
 | **Document Generation** | Markdown / document outputs saved as artifacts |
-| **Memory** | Persistent memory backed by GitHub Gists (free cloud storage) |
+| **Memory** | Persistent memory backed by Cloudflare R2 when configured, with GitHub Gists and in-memory fallback |
 | **Code Generation** | Full programs, scripts, games in any language |
 | **Image Generation** | Stability AI / Hugging Face FLUX.1-schnell |
 | **Video Generation** | FAL.ai (Wan 2.2 / Kling) with Replicate fallback |
@@ -88,6 +88,12 @@ DELETE /api/lumi/memory/:sessionId
 GET    /api/lumi/memory/stats
 ```
 
+### Storage
+```
+GET /api/lumi/storage
+→ { artifacts: {backend, configured, bucket}, memory: {backend, configured, bucket, key} }
+```
+
 ### System
 ```
 GET /api/lumi/status        → LumiStatus
@@ -133,6 +139,8 @@ CLOUDFLARE_R2_ACCESS_KEY_ID=...
 CLOUDFLARE_R2_SECRET_ACCESS_KEY=...
 CLOUDFLARE_R2_BUCKET=...
 CLOUDFLARE_R2_PUBLIC_URL=https://assets.example.com
+# Optional: override the object key used for memory snapshots in R2
+CLOUDFLARE_R2_MEMORY_KEY=lumi/memory/lumi-memory.json
 
 # Roblox publishing
 ROBLOX_API_KEY=...
