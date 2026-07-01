@@ -18,6 +18,7 @@ import {
 } from "./lumi";
 import {converseSpeech, formatBraille, speakText, transcribeAudio} from "./lumi-speech";
 import {buildPromptTrainer} from "./lumi-prompt-trainer";
+import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 
 // ============================================================================
 // App setup
@@ -290,6 +291,21 @@ lumiRouter.post("/speech/braille", async (req: Request, res: Response, next: Nex
             return;
         }
         res.json({text, braille: formatBraille(text)});
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/training-resources
+lumiRouter.post("/training-resources", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const sessionId = (req.headers["x-session-id"] as string | undefined) || "default";
+        const analysis = buildTrainingResourceAnalysis(req.body);
+        const summary = [
+            analysis.overview,
+            analysis.knowledgeBankSummary,
+            `Priority resources: ${analysis.priorityResources.join(", ")}`,
+        ].join("\n\n");
+        await remember(sessionId, "assistant", summary, ["training", "knowledge-bank", "resources"], "knowledge");
+        res.json(analysis);
     } catch (err) { next(err); }
 });
 

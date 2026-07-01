@@ -17,6 +17,7 @@
 | **Audio Generation** | Hugging Face MusicGen |
 | **Mission Execution** | Multi-step autonomous task pipelines |
 | **Roblox Publishing** | Publish games to Roblox via Open Cloud API |
+| **Knowledge Bank** | Curated training-resource analysis for expanding Lumi's capabilities and memory |
 | **ACAM Security** | Adaptive Content & Access Manager — rate limiting, audit log, auth |
 
 ---
@@ -109,6 +110,15 @@ Body: { topic?, audience?, goal?, context? }
 ```
 
 This endpoint turns enterprise AI adoption material into a reusable prompt-training brief with success metrics, guardrails, and evaluation questions.
+
+### Training resources / knowledge bank
+```
+POST /api/lumi/training-resources
+Body: { resources?, goals? }
+→ { generatedAt, overview, capabilityTargets, priorityResources, recommendedIngestionPlan, knowledgeBankSummary, resources }
+```
+
+This endpoint analyzes the curated training-resource catalog for Lumi and stores a knowledge-bank summary in memory for later recall.
 
 ### Memory
 ```
