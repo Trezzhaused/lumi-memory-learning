@@ -208,6 +208,29 @@ export async function getArtifact(id: string): Promise<StoredArtifact | null> {
     }
 }
 
+export async function listArtifacts(limit = 50): Promise<StoredArtifact[]> {
+    try {
+        const entries = await fs.readdir(INDEX_DIR, {withFileTypes: true});
+        const artifacts = await Promise.all(entries
+            .filter(entry => entry.isFile() && entry.name.endsWith(".json"))
+            .map(async entry => {
+                try {
+                    const metadata = await fs.readFile(path.join(INDEX_DIR, entry.name), "utf8");
+                    return JSON.parse(metadata) as StoredArtifact;
+                } catch {
+                    return null;
+                }
+            }));
+
+        return artifacts
+            .filter((artifact): artifact is StoredArtifact => !!artifact)
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .slice(0, limit);
+    } catch {
+        return [];
+    }
+}
+
 export async function readArtifactBuffer(id: string): Promise<{artifact: StoredArtifact; buffer: Buffer} | null> {
     const artifact = await getArtifact(id);
     if (!artifact) return null;

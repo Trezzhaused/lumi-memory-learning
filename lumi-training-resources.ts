@@ -16,6 +16,7 @@ export interface TrainingResourceAnalysis {
     priorityResources: string[];
     recommendedIngestionPlan: string[];
     knowledgeBankSummary: string;
+    aiMaturityFramework: Array<{label: string; summary: string; useCase: string}>;
     resources: TrainingResource[];
 }
 
@@ -204,6 +205,24 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
         "For production use, ingest only curated subsets first and keep provenance, licensing, and deduplication metadata attached to each dataset entry.",
     ].join(" ");
 
+    const aiMaturityFramework = [
+        {
+            label: "Artificial Narrow Intelligence (ANI)",
+            summary: "Specialized AI that is excellent at defined tasks such as search, automation, classification, and workflow support.",
+            useCase: "Best for immediate business impact and production-ready automation.",
+        },
+        {
+            label: "Artificial General Intelligence (AGI)",
+            summary: "A future class of AI that can transfer skills across domains, reason broadly, and adapt to new contexts.",
+            useCase: "Best as a long-term roadmap for autonomous work across planning, research, and execution.",
+        },
+        {
+            label: "Artificial Superintelligence (ASI)",
+            summary: "A speculative layer of intelligence that would exceed human capabilities across most domains and require strict safety controls.",
+            useCase: "Best treated as a governance and strategic planning horizon rather than an immediate implementation target.",
+        },
+    ];
+
     return {
         generatedAt: new Date().toISOString(),
         overview: "This resource set covers learning materials, open-weight models, web-scale corpora, multimodal datasets, robotics simulators, and reasoning benchmarks, giving Lumi a strong foundation for broader capabilities.",
@@ -211,6 +230,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
         priorityResources,
         recommendedIngestionPlan,
         knowledgeBankSummary,
+        aiMaturityFramework,
         resources: selectedResources,
     };
 }

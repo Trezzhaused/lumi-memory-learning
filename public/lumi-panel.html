@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lumi Control Panel</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { font-family: Inter, system-ui, sans-serif; margin: 0; background: #07111f; color: #f5f7ff; }
+    main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 16px; padding: 16px; margin-bottom: 16px; }
+    textarea, input, button { font: inherit; }
+    textarea { width: 100%; min-height: 120px; border-radius: 12px; padding: 12px; border: 1px solid #2a3b57; background: #0f1d31; color: #f5f7ff; }
+    button { padding: 10px 14px; border: none; border-radius: 999px; background: linear-gradient(90deg, #4f8cff, #6f5bff); color: white; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: wait; }
+    .meta { color: #8ea3c3; font-size: 0.95rem; }
+    .status { margin-top: 8px; padding: 8px 10px; background: rgba(79,140,255,0.15); border-radius: 10px; }
+    .event { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .progress-bar { width: 100%; height: 10px; background: rgba(255,255,255,0.12); border-radius: 999px; overflow: hidden; }
+    .progress-bar > div { height: 100%; background: linear-gradient(90deg, #4f8cff, #3edc7b); width: 0%; transition: width 0.3s ease; }
+    .artifact { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    a { color: #8ab6ff; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="card">
+      <h1>Lumi autonomous work panel</h1>
+      <p class="meta">Launch tasks, watch Lumi plan and execute them, and download finished artifacts.</p>
+      <textarea id="prompt" placeholder="Example: Build a polished landing page for a future AI studio, create supporting docs, and prepare a short video concept."></textarea>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:12px;">
+        <button id="launch">Launch Lumi mission</button>
+        <span id="status" class="meta">Idle</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Mission status</h2>
+      <div id="summary" class="meta">No mission started yet.</div>
+      <div class="status" id="progressSummary">Waiting for a mission.</div>
+      <div class="progress-bar" style="margin-top:12px;"><div id="progressFill"></div></div>
+      <div id="queue" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Live transcript</h2>
+      <div id="events"></div>
+    </div>
+
+    <div class="card">
+      <h2>Finished creations</h2>
+      <div id="artifacts"></div>
+    </div>
+  </main>
+
+  <script>
+    const promptEl = document.getElementById('prompt');
+    const launchBtn = document.getElementById('launch');
+    const statusEl = document.getElementById('status');
+    const summaryEl = document.getElementById('summary');
+    const progressSummaryEl = document.getElementById('progressSummary');
+    const progressFillEl = document.getElementById('progressFill');
+    const queueEl = document.getElementById('queue');
+    const eventsEl = document.getElementById('events');
+    const artifactsEl = document.getElementById('artifacts');
+    let activeMissionId = null;
+    let pollTimer = null;
+
+    async function refreshArtifacts() {
+      const res = await fetch('/api/lumi/artifacts');
+      const json = await res.json();
+      const artifacts = json.artifacts || [];
+      if (!artifacts.length) {
+        artifactsEl.innerHTML = '<div class="meta">No artifacts have been created yet.</div>';
+        return;
+      }
+      artifactsEl.innerHTML = artifacts.map(a => `
+        <div class="artifact">
+          <div>
+            <strong>${a.filename || a.kind}</strong><br />
+            <span class="meta">${a.kind} • ${a.mimeType} • ${new Date(a.createdAt).toLocaleString()}</span>
+          </div>
+          <a href="/api/lumi/artifacts/${a.id}" target="_blank" rel="noreferrer">Download</a>
+        </div>
+      `).join('');
+    }
+
+    async function refreshMission() {
+      if (!activeMissionId) return;
+      const res = await fetch(`/api/lumi/missions/${activeMissionId}/events`);
+      if (!res.ok) return;
+      const json = await res.json();
+      const mission = json.mission || {};
+      const events = json.events || [];
+      summaryEl.innerText = mission.summary || 'Mission running';
+      const progress = mission.progress || {};
+      progressSummaryEl.innerHTML = `Status: <strong>${mission.status}</strong> • ${progress.completed || 0}/${progress.total || 0} completed • ${progress.running || 0} running`;
+      progressFillEl.style.width = `${progress.percent || 0}%`;
+      queueEl.innerHTML = (mission.jobs || []).map(job => `
+        <div class="event">
+          <strong>${job.title}</strong> — ${job.capability} — <span class="meta">${job.status}</span>
+        </div>
+      `).join('');
+      eventsEl.innerHTML = events.slice(-10).reverse().map(ev => `
+        <div class="event">
+          <div><strong>${ev.message}</strong></div>
+          <div class="meta">${new Date(ev.createdAt).toLocaleTimeString()}${ev.detail ? ` • ${ev.detail}` : ''}</div>
+        </div>
+      `).join('');
+      if (mission.status === 'completed' || mission.status === 'failed') {
+        statusEl.innerText = mission.status === 'completed' ? 'Completed' : 'Failed';
+        clearInterval(pollTimer);
+        pollTimer = null;
+      } else {
+        statusEl.innerText = 'Running';
+      }
+    }
+
+    async function launchMission() {
+      const prompt = promptEl.value.trim();
+      if (!prompt) return;
+      launchBtn.disabled = true;
+      statusEl.innerText = 'Booting mission...';
+      const res = await fetch('/api/lumi/mission/boot', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({prompt})
+      });
+      const json = await res.json();
+      activeMissionId = json.missionId;
+      statusEl.innerText = 'Mission started';
+      launchBtn.disabled = false;
+      await refreshMission();
+      await refreshArtifacts();
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(refreshMission, 1500);
+    }
+
+    launchBtn.addEventListener('click', launchMission);
+    refreshArtifacts();
+  </script>
+</body>
+</html>

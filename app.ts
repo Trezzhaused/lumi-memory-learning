@@ -10,10 +10,10 @@ import {
 import {remember, recall, forget, memoryStats, search as memSearch, getMemoryStorageStatus} from "./lumi-memory";
 import {generate} from "./lumi-generators";
 import {buildProject} from "./lumi-studio";
-import {getArtifact, readArtifactBuffer, getArtifactStorageStatus} from "./lumi-storage";
+import {getArtifact, readArtifactBuffer, getArtifactStorageStatus, listArtifacts} from "./lumi-storage";
 import {
     lumiChat, getChatHistory, getModelCascade, enhancePrompt,
-    bootMission, getPipelineStatus, listMissions, getLumiStatus, getFineTuneStatus, assembleFineTuneDataset,
+    bootMission, getPipelineStatus, getMissionTimeline, listMissions, getLumiStatus, getFineTuneStatus, assembleFineTuneDataset,
     getOllamaStatus, conversationManager,
 } from "./lumi";
 import {converseSpeech, formatBraille, speakText, transcribeAudio} from "./lumi-speech";
@@ -309,11 +309,37 @@ lumiRouter.post("/training-resources", async (req: Request, res: Response, next:
     } catch (err) { next(err); }
 });
 
+// POST /api/lumi/mission/boot
+lumiRouter.post("/mission/boot", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {prompt} = req.body;
+        if (!prompt) { res.status(400).json({error: "prompt is required"}); return; }
+        const result = await bootMission(prompt);
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// GET /api/lumi/missions/:missionId/events
+lumiRouter.get("/missions/:missionId/events", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const timeline = getMissionTimeline(req.params.missionId);
+        res.json(timeline);
+    } catch (err) { next(err); }
+});
+
 // POST /api/lumi/prompt-trainer
 lumiRouter.post("/prompt-trainer", async (req: Request, res: Response, next: NextFunction) => {
     try {
         const result = buildPromptTrainer(req.body);
         res.json(result);
+    } catch (err) { next(err); }
+});
+
+// GET /api/lumi/artifacts
+lumiRouter.get("/artifacts", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        const artifacts = await listArtifacts(50);
+        res.json({artifacts});
     } catch (err) { next(err); }
 });
 

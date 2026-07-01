@@ -102,6 +102,8 @@ Body: { text }
 
 Open `/voice` in a browser to try a simple voice demo that uses browser speech recognition and the Lumi chat API.
 
+Open `/lumi-panel.html` to launch autonomous missions, track Lumi's live progress, and download finished artifacts.
+
 ### Prompt trainer
 ```
 POST /api/lumi/prompt-trainer
@@ -115,10 +117,25 @@ This endpoint turns enterprise AI adoption material into a reusable prompt-train
 ```
 POST /api/lumi/training-resources
 Body: { resources?, goals? }
-→ { generatedAt, overview, capabilityTargets, priorityResources, recommendedIngestionPlan, knowledgeBankSummary, resources }
+→ { generatedAt, overview, capabilityTargets, priorityResources, recommendedIngestionPlan, knowledgeBankSummary, aiMaturityFramework, resources }
 ```
 
 This endpoint analyzes the curated training-resource catalog for Lumi and stores a knowledge-bank summary in memory for later recall.
+
+### Autonomous missions
+```
+POST /api/lumi/mission/boot
+Body: { prompt }
+→ { missionId, objective, status, summary, plannerModel, executionQueue, streamUrl }
+
+GET /api/lumi/missions/:missionId/events
+→ { mission, events }
+
+GET /api/lumi/artifacts
+→ { artifacts: [StoredArtifact] }
+```
+
+These endpoints let Lumi plan and execute multi-step work, publish progress into a live transcript, and expose generated artifacts for download.
 
 ### Memory
 ```
