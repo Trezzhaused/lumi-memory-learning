@@ -1,5 +1,6 @@
 import {Octokit} from "@octokit/core";
 import express, {NextFunction, Request, Response} from "express";
+import path from "node:path";
 import {Webhook, WebhookUnbrandedRequiredHeaders, WebhookVerificationError} from "standardwebhooks"
 import {RenderDeploy, RenderEvent, RenderService, WebhookPayload} from "./render";
 import {
@@ -15,6 +16,8 @@ import {
     bootMission, getPipelineStatus, listMissions, getLumiStatus, getFineTuneStatus, assembleFineTuneDataset,
     getOllamaStatus, conversationManager,
 } from "./lumi";
+import {converseSpeech, formatBraille, speakText, transcribeAudio} from "./lumi-speech";
+import {buildPromptTrainer} from "./lumi-prompt-trainer";
 
 // ============================================================================
 // App setup
@@ -22,6 +25,8 @@ import {
 
 const app = express();
 const port = process.env.PORT || 3001;
+
+app.use(express.static(path.join(process.cwd(), "public")));
 
 app.use((req: Request, res: Response, next: NextFunction) => {
     const requestOrigin = getRequestOrigin(req.headers);
@@ -232,6 +237,66 @@ lumiRouter.post("/memory/search", async (req: Request, res: Response, next: Next
 lumiRouter.post("/generate", async (req: Request, res: Response, next: NextFunction) => {
     try {
         const result = await generate(req.body);
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/speech/transcribe
+lumiRouter.post("/speech/transcribe", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {audioBase64, mimeType} = req.body;
+        if (!audioBase64) {
+            res.status(400).json({error: "audioBase64 is required"});
+            return;
+        }
+        const result = await transcribeAudio(audioBase64, mimeType || "audio/webm");
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/speech/speak
+lumiRouter.post("/speech/speak", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {text, voice, format} = req.body;
+        if (!text) {
+            res.status(400).json({error: "text is required"});
+            return;
+        }
+        const result = await speakText(text, {voice, format});
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/speech/converse
+lumiRouter.post("/speech/converse", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {audioBase64, mimeType, domain, missionId} = req.body;
+        if (!audioBase64) {
+            res.status(400).json({error: "audioBase64 is required"});
+            return;
+        }
+        const sessionId = (req.headers["x-session-id"] as string | undefined) || "default";
+        const result = await converseSpeech(audioBase64, mimeType || "audio/webm", sessionId, {domain, missionId});
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/speech/braille
+lumiRouter.post("/speech/braille", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {text} = req.body;
+        if (!text) {
+            res.status(400).json({error: "text is required"});
+            return;
+        }
+        res.json({text, braille: formatBraille(text)});
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/prompt-trainer
+lumiRouter.post("/prompt-trainer", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = buildPromptTrainer(req.body);
         res.json(result);
     } catch (err) { next(err); }
 });

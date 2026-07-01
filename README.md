@@ -80,6 +80,36 @@ Body: { type: "image"|"video"|"audio"|"code"|"text"|"document", prompt, ...optio
 GET /api/lumi/artifacts/:artifactId
 → downloads the stored artifact from local storage or redirects to R2
 
+### Voice / Speech
+```
+POST /api/lumi/speech/transcribe
+Body: { audioBase64, mimeType? }
+→ { ok, text?, error? }
+
+POST /api/lumi/speech/speak
+Body: { text, voice?, format? }
+→ { ok, audioDataUrl?, mimeType?, error? }
+
+POST /api/lumi/speech/converse
+Body: { audioBase64, mimeType?, domain?, missionId? }
+→ { ok, transcript?, reply?, braille?, audio? }
+
+POST /api/lumi/speech/braille
+Body: { text }
+→ { text, braille }
+```
+
+Open `/voice` in a browser to try a simple voice demo that uses browser speech recognition and the Lumi chat API.
+
+### Prompt trainer
+```
+POST /api/lumi/prompt-trainer
+Body: { topic?, audience?, goal?, context? }
+→ { title, objective, successMetrics, promptTemplate, evaluationChecklist, followUpQuestions }
+```
+
+This endpoint turns enterprise AI adoption material into a reusable prompt-training brief with success metrics, guardrails, and evaluation questions.
+
 ### Memory
 ```
 GET    /api/lumi/memory/:sessionId
@@ -120,6 +150,12 @@ Copy and fill in `.env`:
 ```bash
 # Required for chat
 OPENROUTER_API_KEY=sk-or-...     # https://openrouter.ai
+
+# Optional — voice / speech support
+OPENAI_API_KEY=sk-...            # https://platform.openai.com
+OPENAI_API_URL=https://api.openai.com/v1
+OPENAI_STT_MODEL=whisper-1
+OPENAI_TTS_MODEL=gpt-4o-mini-tts
 
 # Optional — local model support
 OLLAMA_HOST=http://localhost:11434
