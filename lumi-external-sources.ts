@@ -71,8 +71,33 @@ function isKnownExternalSource(sourceId: unknown): boolean {
     return DEFAULT_EXTERNAL_SOURCES.some(source => source.id === normalizedSourceId);
 }
 
+function hasExplicitExternalSourceSelection(requestedSources: unknown): boolean {
+    if (requestedSources === undefined || requestedSources === null) return false;
+    if (typeof requestedSources === "string") return requestedSources.trim() !== "";
+    if (Array.isArray(requestedSources)) return requestedSources.some(sourceId => {
+        if (typeof sourceId === "string") return sourceId.trim() !== "";
+        return sourceId !== undefined && sourceId !== null;
+    });
+    return false;
+}
+
 function getKnownRequestedSources(requestedSources: unknown): string[] {
     return normalizeExternalSourceIds(requestedSources).filter(sourceId => isKnownExternalSource(sourceId));
+}
+
+function selectExternalSources(requestedSources: unknown): ExternalBrowserSource[] {
+    const hasExplicitSelection = hasExplicitExternalSourceSelection(requestedSources);
+    const knownRequestedSources = getKnownRequestedSources(requestedSources);
+
+    if (!hasExplicitSelection) {
+        return getExternalBrowserSources();
+    }
+
+    if (!knownRequestedSources.length) {
+        return [];
+    }
+
+    return getExternalBrowserSources().filter(source => knownRequestedSources.includes(source.id));
 }
 
 function isAutomationConfigured(): boolean {
@@ -187,11 +212,7 @@ export function getExternalBrowserSources(): ExternalBrowserSource[] {
 }
 
 export function buildExternalBrowserSourceContext(requestedSources: unknown = []): string | null {
-    const normalizedRequestedSources = getKnownRequestedSources(requestedSources);
-    const selectedSources = getExternalBrowserSources().filter(source => {
-        if (!normalizedRequestedSources.length) return true;
-        return normalizedRequestedSources.includes(source.id);
-    });
+    const selectedSources = selectExternalSources(requestedSources);
 
     if (!selectedSources.length) return null;
 
@@ -216,10 +237,7 @@ export function planExternalBrowserSources(
     options: {goal?: string; sessionMode?: string} = {}
 ): ExternalBrowserSourcePlan {
     const normalizedRequestedSources = getKnownRequestedSources(requestedSources);
-    const sources = getExternalBrowserSources().filter(source => {
-        if (!normalizedRequestedSources.length) return true;
-        return normalizedRequestedSources.includes(source.id);
-    });
+    const sources = selectExternalSources(requestedSources);
 
     const automationConfigured = isAutomationConfigured();
     const workflowNote = automationConfigured

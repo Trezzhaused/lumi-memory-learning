@@ -3,7 +3,7 @@ const {execFileSync} = require("node:child_process");
 const path = require("node:path");
 const {test} = require("node:test");
 
-const {getExternalBrowserSources, queryExternalBrowserSource} = require("../dist/lumi-external-sources");
+const {buildExternalBrowserSourceContext, getExternalBrowserSources, queryExternalBrowserSource} = require("../dist/lumi-external-sources");
 
 test("Yuanbao is catalogued as the Tencent browser source", () => {
   const sources = getExternalBrowserSources();
@@ -46,6 +46,15 @@ test("source planning accepts a single source string", () => {
 
   assert.deepEqual(plan.requestedSources, ["yuanbao"]);
   assert.equal(plan.sources[0].id, "yuanbao");
+});
+
+test("unknown source selections return no sources", () => {
+  const plan = require("../dist/lumi-external-sources").planExternalBrowserSources(["not-a-real-source"]);
+  const context = buildExternalBrowserSourceContext(["not-a-real-source"]);
+
+  assert.deepEqual(plan.requestedSources, []);
+  assert.deepEqual(plan.sources, []);
+  assert.equal(context, null);
 });
 
 test("prompt enhancement includes Yuanbao source context", () => {
