@@ -80,6 +80,24 @@ services:
     networks: [ai_net]
     depends_on: [comfyui, rvc_server, redis]
 
+  neo4j:
+    image: neo4j:5.26
+    container_name: ai_neo4j
+    ports:
+      - "${HOST_PORT_NEO4J_HTTP:-7474}:7474"
+      - "${HOST_PORT_NEO4J_BOLT:-7687}:7687"
+    environment:
+      - NEO4J_AUTH=${NEO4J_AUTH:?Set NEO4J_AUTH to a username/password pair such as 'neo4j/YourStrongPassword' before starting Neo4j}
+      - NEO4J_ACCEPT_LICENSE_AGREEMENT=yes
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    networks: [ai_net]
+
 networks:
   ai_net:
     driver: bridge
+
+volumes:
+  neo4j_data:
+  neo4j_logs:

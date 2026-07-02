@@ -27,12 +27,15 @@ export interface IngestionResult {
     moved?: boolean;
     finalPath?: string;
     sourcePath?: string;
+    graphStatus?: "ok" | "skipped" | "error";
+    graphMessage?: string;
 }
 
 const INGESTION_ROOT = process.env.LUMI_INGESTION_ROOT || path.join(process.cwd(), ".data", "ingestion");
 const INCOMING_DIR = path.join(INGESTION_ROOT, "incoming");
 const CATEGORY_DIRS = ["Financials", "Manuscripts", "System_Logs", "General_Reference"] as const;
 const CHUNK_SIZE = 3000;
+const GRAPH_INJECTOR_SCRIPT = path.join(process.cwd(), "scripts", "graph_injector.py");
 
 function sanitizeFilename(value: string): string {
     return value
@@ -61,6 +64,39 @@ function chunkText(text: string, size = CHUNK_SIZE): string[] {
 
 function resolvePythonBin(): string {
     return process.env.PYTHON_BIN || process.env.PYTHON || (process.platform === "win32" ? "python" : "python3");
+}
+
+/**
+ * Optional graph-memory side effects are enabled by default for ingested files.
+ * Set LUMI_ENABLE_GRAPH=false to opt out, or ensure the Neo4j-backed injector is
+ * configured before using the feature.
+ */
+async function injectGraphRelationship(entityA: string, relType: string, entityB: string): Promise<{status: "ok" | "skipped" | "error"; message: string}> {
+    if (process.env.LUMI_ENABLE_GRAPH === "false") {
+        return {status: "skipped", message: "Graph injection disabled by configuration."};
+    }
+
+    const pythonBin = resolvePythonBin();
+    const result = spawnSync(pythonBin, [GRAPH_INJECTOR_SCRIPT, entityA, relType, entityB], {encoding: "utf8"});
+    if (result.error) {
+        return {status: "error", message: `Graph injector could not be launched: ${result.error.message}`};
+    }
+    if (result.status !== 0 && !result.stdout) {
+        return {status: "error", message: result.stderr || "Graph injection failed without output."};
+    }
+    if (!result.stdout) {
+        return {status: "error", message: result.stderr || "Graph injection failed without output."};
+    }
+
+    try {
+        const parsed = JSON.parse(result.stdout) as {status?: string; message?: string};
+        if (parsed?.status === "success") {
+            return {status: "ok", message: parsed.message || "Graph injection completed."};
+        }
+        return {status: parsed?.status === "error" ? "error" : "skipped", message: parsed?.message || "Graph injection failed."};
+    } catch {
+        return {status: "error", message: `Graph injector returned unexpected output: ${result.stderr || result.stdout}`};
+    }
 }
 
 async function ensureWorkspaceDirs(): Promise<void> {
@@ -163,6 +199,7 @@ export async function ingestFile(payload: IngestionRequest): Promise<IngestionRe
 
     const chunks = chunkText(extractedText);
     await remember(sessionId, "assistant", `[ingestion] ${safeName}: ${extractedText.slice(0, 4000)}`, ["ingestion", category.toLowerCase()], "knowledge");
+    const graphResult = await injectGraphRelationship(safeName, "CLASSIFIED_AS", category);
 
     let finalPath: string | undefined;
     let moved = false;
@@ -185,6 +222,8 @@ export async function ingestFile(payload: IngestionRequest): Promise<IngestionRe
         moved,
         finalPath,
         sourcePath: sourceFilePath,
+        graphStatus: graphResult.status,
+        graphMessage: graphResult.message,
     };
 }
 
