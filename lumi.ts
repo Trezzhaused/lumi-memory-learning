@@ -25,7 +25,7 @@ import {remember, recall, search as memSearch, getMemoryStorageStatus} from "./l
 import {checkContentSafety, AcamConfig, defaultAcamConfig} from "./lumi-acam";
 import {generate, GenerationRequest} from "./lumi-generators";
 import {getArtifactStorageStatus} from "./lumi-storage";
-import {existsSync, mkdirSync, promises as fs, readFileSync, writeFileSync} from "node:fs";
+import {existsSync, mkdirSync, promises as fs, readdirSync, readFileSync, writeFileSync} from "node:fs";
 import path from "node:path";
 import {callOpenRouterChat} from "./openrouter";
 import {buildExternalBrowserSourceContext, queryExternalBrowserSource} from "./lumi-external-sources";
@@ -422,7 +422,8 @@ async function buildSystemPrompt(message: string, domain: string, externalSource
 // ---------------------------------------------------------------------------
 
 export function resolveChatBackendSelection(req: LumiChatRequest): {kind: "ollama" | "nvidia" | "openrouter" | "degraded"; model: string} {
-    if (req.useOllama && OLLAMA_HOST) {
+    const prefersLocal = Boolean(req.useOllama || req.runtime === "local" || process.env.LUMI_LOCAL_FIRST === "true");
+    if (prefersLocal && OLLAMA_HOST) {
         return {kind: "ollama", model: req.ollamaModel || "mistral"};
     }
     if (NVIDIA_API_BASE) {
@@ -509,8 +510,8 @@ export async function lumiChat(
                 failures.push(detail);
                 console.warn("[Lumi] OpenRouter chat failed, using degraded fallback:", error);
                 responseText = failures.length > 0
-                    ? `Lumi is running in degraded mode. The providers were unavailable: ${failures.join(" | ")}`
-                    : "Lumi is running in degraded mode because no chat provider is available right now.";
+                    ? buildLocalFallbackReply(req.message, domain)
+                    : buildLocalFallbackReply(req.message, domain);
                 usedModel = "degraded-fallback";
             }
         }
@@ -620,6 +621,7 @@ const missionEvents = new Map<string, MissionEvent[]>();
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), ".data");
 const FINETUNE_DIR = path.join(DATA_DIR, "finetune");
 const MISSION_STORE_PATH = path.join(DATA_DIR, "missions", "missions.json");
+const MISSION_CHECKPOINT_DIR = path.join(DATA_DIR, "missions", "checkpoints");
 const MISSION_STALLED_TIMEOUT_MS = Number(process.env.LUMI_MISSION_STALLED_TIMEOUT_MS || "30000");
 const MISSION_WORKER_INTERVAL_MS = Number(process.env.LUMI_MISSION_WORKER_INTERVAL_MS || "2000");
 let missionStoreLoaded = false;
@@ -653,12 +655,52 @@ function buildArtifactUrl(artifactId?: string): string | undefined {
     return artifactId ? `/api/lumi/artifacts/${artifactId}` : undefined;
 }
 
+function persistMissionCheckpoint(mission: MissionStatus): void {
+    try {
+        mkdirSync(MISSION_CHECKPOINT_DIR, {recursive: true});
+        const checkpointPath = path.join(MISSION_CHECKPOINT_DIR, `${mission.id}.json`);
+        writeFileSync(checkpointPath, JSON.stringify({
+            ...mission,
+            jobs: mission.jobs.map(job => ({...job})),
+            events: mission.events.map(event => ({...event})),
+            artifacts: mission.artifacts.map(artifact => ({...artifact})),
+            plan: mission.plan.map(step => ({...step})),
+        }, null, 2), "utf8");
+    } catch (error) {
+        console.warn("[Lumi] Failed to persist mission checkpoint:", error);
+    }
+}
+
 function persistMissionStore(): void {
     try {
         mkdirSync(path.dirname(MISSION_STORE_PATH), {recursive: true});
         writeFileSync(MISSION_STORE_PATH, JSON.stringify([...missions.values()], null, 2), "utf8");
+        for (const mission of missions.values()) {
+            persistMissionCheckpoint(mission);
+        }
     } catch (error) {
         console.warn("[Lumi] Failed to persist mission store:", error);
+    }
+}
+
+function loadMissionCheckpoints(): MissionStatus[] {
+    try {
+        const entries = readdirSync(MISSION_CHECKPOINT_DIR, {withFileTypes: true})
+            .filter(entry => entry.isFile() && entry.name.endsWith(".json"))
+            .map(entry => path.join(MISSION_CHECKPOINT_DIR, entry.name))
+            .sort();
+        return entries
+            .map(filePath => {
+                try {
+                    const raw = readFileSync(filePath, "utf8");
+                    return JSON.parse(raw) as MissionStatus;
+                } catch {
+                    return null;
+                }
+            })
+            .filter((mission): mission is MissionStatus => Boolean(mission));
+    } catch {
+        return [];
     }
 }
 
@@ -671,6 +713,9 @@ function ensureMissionStoreLoaded(): void {
             if (Array.isArray(parsed)) {
                 parsed.forEach(mission => missions.set(mission.id, mission));
             }
+        } else {
+            const checkpointMissions = loadMissionCheckpoints();
+            checkpointMissions.forEach(mission => missions.set(mission.id, mission));
         }
     } catch (error) {
         console.warn("[Lumi] Failed to load mission store:", error);
@@ -948,6 +993,36 @@ export function approveMission(missionId: string): MissionStatus {
     mission.status = "pending";
     mission.updatedAt = new Date().toISOString();
     emitMissionEvent(mission, "Mission approved by supervisor", "Execution resumed.", "status");
+    persistMissionStore();
+    void processMissionQueue();
+    return mission;
+}
+
+export function resumeMission(missionId: string): MissionStatus {
+    ensureMissionStoreLoaded();
+    const mission = missions.get(missionId);
+    if (!mission) throw new Error(`Mission not found: ${missionId}`);
+    if (mission.status === "running") return mission;
+    if (mission.status === "completed" || mission.status === "awaiting-approval") return mission;
+
+    mission.status = "pending";
+    mission.updatedAt = new Date().toISOString();
+    mission.lastHeartbeatAt = new Date().toISOString();
+    mission.completedAt = undefined;
+    mission.plan.forEach(step => {
+        if (step.status === "failed" || step.status === "blocked" || step.status === "retrying" || step.status === "running") {
+            step.status = "planned";
+            step.lastResult = undefined;
+        }
+    });
+    mission.jobs.forEach(job => {
+        if (job.status === "error" || job.status === "warn" || job.status === "running") {
+            job.status = "queued";
+            delete job.error;
+        }
+    });
+    emitMissionEvent(mission, "Mission resumed", "The mission was queued for another execution pass.", "status");
+    persistMissionStore();
     void processMissionQueue();
     return mission;
 }
@@ -1227,6 +1302,17 @@ export async function assembleFineTuneDataset(): Promise<{path: string; example_
 
 const startTime = Date.now();
 
+export interface IndependentModeStatus {
+    ready: boolean;
+    localInferenceAvailable: boolean;
+    localGenerationAvailable: boolean;
+    localStorageAvailable: boolean;
+    bridgeReady: boolean;
+    reasons: string[];
+    chatBackend: string;
+    generationBackend: string;
+}
+
 export interface LumiStatus {
     name: string;
     version: string;
@@ -1243,12 +1329,67 @@ export interface LumiStatus {
     acamEnabled: boolean;
     activeMissions: number;
     uptime: number;
+    independentMode: IndependentModeStatus;
+}
+
+function buildLocalFallbackReply(message: string, domain: string): string {
+    const briefMessage = (message || "").trim().replace(/\s+/g, " ").slice(0, 140);
+    const subject = briefMessage || "your request";
+    return [
+        `Lumi is running in local fallback mode for ${domain}.`,
+        `I can still help with a structured plan for: ${subject}`,
+        "Suggested next steps:",
+        "- Break the request into 3 concrete tasks.",
+        "- Save notes and drafts into local workspace artifacts.",
+        "- Re-run with an installed local model or provider key when you want richer responses.",
+    ].join("\n");
+}
+
+function buildLocalGenerationFallback(type: string, prompt: string): string {
+    const briefPrompt = (prompt || "").trim().replace(/\s+/g, " ").slice(0, 160);
+    switch (type) {
+        case "code":
+            return `// Local fallback generated by Lumi\n// Request: ${briefPrompt || "implement the requested feature"}\nexport function localFallback() {\n  return "Implemented with local fallback";\n}\n`;
+        case "document":
+            return `# Local fallback document\n\nRequest: ${briefPrompt || "Create a document"}\n\n- Summary: captured locally and ready for refinement.\n- Next step: expand the outline with more detail.\n`;
+        case "text":
+            return `Local fallback draft for: ${briefPrompt || "your request"}\n\nThis response was generated without a remote provider so you can keep working locally. Add more context to refine the output.`;
+        default:
+            return `Local fallback output for: ${briefPrompt || "your request"}`;
+    }
+}
+
+export async function getIndependentModeStatus(): Promise<IndependentModeStatus> {
+    const ollamaStatus = await getOllamaStatus();
+    const artifactStorage = getArtifactStorageStatus();
+    const memoryStorage = getMemoryStorageStatus();
+    const localInferenceAvailable = Boolean(ollamaStatus.available || process.env.LUMI_ALLOW_LOCAL_TOOL_EXECUTION === "true");
+    const localGenerationAvailable = true;
+    const localStorageAvailable = Boolean(memoryStorage.backend !== "error");
+    const bridgeReady = process.env.LUMI_ALLOW_LOCAL_TOOL_EXECUTION === "true" && Boolean(process.env.LUMI_BRIDGE_SECRET);
+    const reasons: string[] = [];
+    if (!localInferenceAvailable) reasons.push("No local inference endpoint is currently available.");
+    if (!localGenerationAvailable) reasons.push("Local generation fallback is not enabled.");
+    if (!localStorageAvailable) reasons.push("Local storage is unavailable.");
+    if (!bridgeReady) reasons.push("Bridge execution is not fully enabled.");
+
+    return {
+        ready: localInferenceAvailable && localGenerationAvailable && localStorageAvailable && bridgeReady,
+        localInferenceAvailable,
+        localGenerationAvailable,
+        localStorageAvailable,
+        bridgeReady,
+        reasons,
+        chatBackend: ollamaStatus.available ? "ollama" : (process.env.LUMI_ALLOW_LOCAL_TOOL_EXECUTION === "true" ? "local-fallback" : "external-only"),
+        generationBackend: localGenerationAvailable ? "local-fallback" : "external-only",
+    };
 }
 
 export async function getLumiStatus(): Promise<LumiStatus> {
     const ollamaStatus = await getOllamaStatus();
     const artifactStorage = getArtifactStorageStatus();
     const memoryStorage = getMemoryStorageStatus();
+    const independentMode = await getIndependentModeStatus();
     const capabilities: string[] = ["chat"];
     if (OPENROUTER_API_KEY) capabilities.push("multi-model-chat", "code-generation", "prompt-enhancement");
     if (process.env.HUGGINGFACE_API_KEY) capabilities.push("image-generation-hf", "audio-generation");
@@ -1285,5 +1426,6 @@ export async function getLumiStatus(): Promise<LumiStatus> {
         acamEnabled: defaultAcamConfig.enabled,
         activeMissions: [...missions.values()].filter(m => m.status === "running").length,
         uptime: Math.floor((Date.now() - startTime) / 1000),
+        independentMode,
     };
 }
