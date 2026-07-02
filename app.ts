@@ -21,6 +21,7 @@ import {buildPromptTrainer} from "./lumi-prompt-trainer";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 import {getExternalBrowserSources, planExternalBrowserSources, queryExternalBrowserSource} from "./lumi-external-sources";
 import {runLocalStudioPipeline} from "./lumi-local-studio";
+import {buildAutonomyPlan, buildComparativeResearchContext} from "./lumi-autonomy";
 
 // ============================================================================
 // App setup
@@ -171,6 +172,25 @@ lumiRouter.post("/enhance-prompt", async (req: Request, res: Response, next: Nex
         if (!prompt) { res.status(400).json({error: "prompt is required"}); return; }
         const result = await enhancePrompt(prompt, domain, externalSources);
         res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/autonomy/plan
+lumiRouter.post("/autonomy/plan", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {prompt, workspaceRoot} = req.body;
+        if (!prompt) { res.status(400).json({error: "prompt is required"}); return; }
+        res.json(buildAutonomyPlan(prompt, {workspaceRoot}));
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/autonomy/research
+lumiRouter.post("/autonomy/research", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {prompt} = req.body;
+        if (!prompt) { res.status(400).json({error: "prompt is required"}); return; }
+        const context = await buildComparativeResearchContext(prompt);
+        res.json({prompt, ok: Boolean(context), context});
     } catch (err) { next(err); }
 });
 

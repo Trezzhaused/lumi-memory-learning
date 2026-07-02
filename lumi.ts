@@ -34,6 +34,7 @@ import {isLocalToolExecutionEnabled, runWorkspaceCommand, writeWorkspaceFile} fr
 import {callNvidiaChat} from "./nvidia";
 import {buildGuardrailSystemPrompt, evaluateGuardrailRequest, logGuardrailDecision, normalizeGuardedResponse} from "./lumi-guardrails";
 import {formatProviderError} from "./lumi-runtime";
+import {buildAutonomyPlan, buildComparativeResearchContext} from "./lumi-autonomy";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -376,6 +377,17 @@ async function buildSystemPrompt(message: string, domain: string, externalSource
         }).join(" | ")
         : "General platform assistance across chat, memory, studio, generation, and security modules.";
     const memoryContext = await getRelevantMemoryContext(message);
+    const autonomyPlan = buildAutonomyPlan(message);
+    const autonomyContext = autonomyPlan.mode !== "general"
+        ? [
+            `Autonomy plan (${autonomyPlan.mode}): ${autonomyPlan.summary}`,
+            ...autonomyPlan.steps.slice(0, 3).map(step => `- ${step.title}: ${step.detail}`),
+            ...(autonomyPlan.safetyNotes.length ? ["Safety notes:", ...autonomyPlan.safetyNotes.map(note => `- ${note}`)] : []),
+        ].join("\n")
+        : null;
+    const comparativeResearchContext = autonomyPlan.mode === "research-before-create"
+        ? await buildComparativeResearchContext(message)
+        : null;
 
     let prompt = `${basePrompt}\n\n`;
     prompt += `You are operating inside the Lumi Intelligence Center for Trezzhaus and TrezzWorld. `;
@@ -383,6 +395,14 @@ async function buildSystemPrompt(message: string, domain: string, externalSource
     prompt += `Current focus: ${moduleContext}.\n\n`;
     prompt += "When a request touches a module, tab, or workflow, use that module's specialty first and stay aligned with the repo's implemented capabilities. ";
     prompt += "If the user asks for anything that can be created autonomously, build it when possible, keep the experience safe, and persist helpful context to memory for future recall.";
+
+    if (autonomyContext) {
+        prompt += `\n\n${autonomyContext}`;
+    }
+
+    if (comparativeResearchContext) {
+        prompt += `\n\n${comparativeResearchContext}`;
+    }
 
     if (externalSourceContext) {
         prompt += `\n\n${externalSourceContext}`;
@@ -668,11 +688,27 @@ function getMissionPolicy(prompt: string): MissionPolicy {
 }
 
 async function buildMissionPlan(prompt: string, policy: MissionPolicy): Promise<MissionPlanStep[]> {
+    const autonomyPlan = buildAutonomyPlan(prompt);
+    const fallbackPlan = autonomyPlan.mode === "research-before-create"
+        ? [
+            {name: autonomyPlan.steps[0].title, capability: "search", workerId: "lumi-core", targetFiles: []},
+            {name: "Create a concrete deliverable", capability: "document", workerId: "lumi-core", targetFiles: []},
+        ]
+        : autonomyPlan.mode === "business-automation"
+            ? [
+                {name: autonomyPlan.steps[0].title, capability: "search", workerId: "lumi-core", targetFiles: []},
+                {name: "Implement the automation workflow", capability: "document", workerId: "lumi-core", targetFiles: []},
+            ]
+            : [
+                {name: "Inspect the request", capability: "search", workerId: "lumi-core", targetFiles: []},
+                {name: "Create a concrete deliverable", capability: "document", workerId: "lumi-core", targetFiles: []},
+            ];
+
     const planPrompt =
         `You are a mission planner. Decompose the following objective into ${Math.max(1, policy.maxSteps)} concrete jobs. ` +
         `For each job return JSON with fields: name, capability (one of: code, image, audio, video, document, search, build, text, roblox), ` +
         `workerId (agent name), targetFiles (array of filename strings). Return ONLY a JSON array, no markdown fences.\n\nObjective: ${prompt}`;
-
+ 
     let rawPlan = "[]";
     try {
         rawPlan = await openRouterChat(
@@ -693,10 +729,7 @@ async function buildMissionPlan(prompt: string, policy: MissionPolicy): Promise<
     }
 
     if (!jobDefs.length) {
-        jobDefs = [
-            {name: "Inspect the request", capability: "search", workerId: "lumi-core", targetFiles: []},
-            {name: "Create a concrete deliverable", capability: "document", workerId: "lumi-core", targetFiles: []},
-        ];
+        jobDefs = fallbackPlan;
     }
 
     return jobDefs.slice(0, policy.maxSteps).map((job: any, index: number) => ({
