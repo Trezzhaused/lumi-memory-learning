@@ -28,6 +28,7 @@ test("Yuanbao lookups are case-insensitive", async () => {
   assert.equal(result.ok, false);
   assert.equal(result.status, 503);
   assert.equal(result.usedBackend, "manual");
+  assert.equal(result.sourceId, "yuanbao");
   assert.match(result.error, /No browser automation endpoint is configured/i);
 });
 

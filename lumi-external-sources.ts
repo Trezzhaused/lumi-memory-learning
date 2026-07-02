@@ -43,18 +43,30 @@ const DEFAULT_EXTERNAL_SOURCES: ExternalBrowserSource[] = [
     },
 ];
 
-function normalizeExternalSourceId(sourceId: string): string {
+function normalizeExternalSourceId(sourceId: unknown): string {
     return typeof sourceId === "string" ? sourceId.trim().toLowerCase() : "";
 }
 
-function getSourceIdForError(sourceId: string): string {
+function normalizeExternalSourceIds(sourceIds: unknown[]): string[] {
+    return Array.from(new Set(
+        (Array.isArray(sourceIds) ? sourceIds : [])
+            .map(sourceId => normalizeExternalSourceId(sourceId))
+            .filter(Boolean)
+    ));
+}
+
+function getSourceIdForError(sourceId: unknown): string {
     const normalizedSourceId = normalizeExternalSourceId(sourceId);
     return normalizedSourceId || (typeof sourceId === "string" ? sourceId : "");
 }
 
-function isKnownExternalSource(sourceId: string): boolean {
+function isKnownExternalSource(sourceId: unknown): boolean {
     const normalizedSourceId = normalizeExternalSourceId(sourceId);
     return DEFAULT_EXTERNAL_SOURCES.some(source => source.id === normalizedSourceId);
+}
+
+function getKnownRequestedSources(requestedSources: unknown[]): string[] {
+    return normalizeExternalSourceIds(requestedSources).filter(sourceId => isKnownExternalSource(sourceId));
 }
 
 function isAutomationConfigured(): boolean {
@@ -112,7 +124,7 @@ export async function queryExternalBrowserSource(
         method: "POST",
         headers,
         body: JSON.stringify({
-            sourceId,
+            sourceId: normalizedSourceId,
             query,
             goal: options.goal,
             sessionMode: options.sessionMode,
@@ -122,7 +134,7 @@ export async function queryExternalBrowserSource(
     if (!response.ok) {
         const errorText = await response.text();
         return {
-            sourceId,
+            sourceId: normalizedSourceId,
             ok: false,
             status: response.status,
             usedBackend: "proxy",
@@ -135,7 +147,7 @@ export async function queryExternalBrowserSource(
         payload = await response.json();
     } catch (error) {
         return {
-            sourceId,
+            sourceId: normalizedSourceId,
             ok: false,
             status: response.status,
             usedBackend: "proxy",
@@ -152,7 +164,7 @@ export async function queryExternalBrowserSource(
                 : "";
 
     return {
-        sourceId,
+        sourceId: normalizedSourceId,
         ok: true,
         status: response.status,
         usedBackend: "proxy",
@@ -169,7 +181,7 @@ export function getExternalBrowserSources(): ExternalBrowserSource[] {
 }
 
 export function buildExternalBrowserSourceContext(requestedSources: string[] = []): string | null {
-    const normalizedRequestedSources = requestedSources.map(source => normalizeExternalSourceId(source));
+    const normalizedRequestedSources = getKnownRequestedSources(requestedSources);
     const selectedSources = getExternalBrowserSources().filter(source => {
         if (!normalizedRequestedSources.length) return true;
         return normalizedRequestedSources.includes(source.id);
@@ -197,7 +209,7 @@ export function planExternalBrowserSources(
     requestedSources: string[] = [],
     options: {goal?: string; sessionMode?: string} = {}
 ): ExternalBrowserSourcePlan {
-    const normalizedRequestedSources = requestedSources.map(source => normalizeExternalSourceId(source));
+    const normalizedRequestedSources = getKnownRequestedSources(requestedSources);
     const sources = getExternalBrowserSources().filter(source => {
         if (!normalizedRequestedSources.length) return true;
         return normalizedRequestedSources.includes(source.id);
