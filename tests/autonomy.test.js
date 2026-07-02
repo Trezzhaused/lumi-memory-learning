@@ -1,7 +1,9 @@
 const assert = require("assert/strict");
+const {existsSync} = require("node:fs");
+const path = require("node:path");
 const {test} = require("node:test");
 
-const {buildAutonomyPlan, buildComparativeResearchContext} = require("../dist/lumi-autonomy");
+const {buildAutonomyPlan, buildComparativeResearchContext, executeSelfDirectedDirective} = require("../dist/lumi-autonomy");
 
 test("research-before-create prompts produce a research-first plan", async () => {
   const plan = buildAutonomyPlan("Create a website like Shopify for a new coffee brand");
@@ -42,4 +44,20 @@ test("finance and maintenance prompts produce a guardrailed audit plan", () => {
   assert.ok(plan.steps.some(step => /execution|workflow/i.test(step.title)));
   assert.ok(plan.steps.some(step => /review/i.test(step.title)));
   assert.ok(plan.safetyNotes.some(note => /approval/i.test(note)));
+});
+
+test("self-directed directives create a reviewable local artifact", () => {
+  const artifactRoot = path.join(__dirname, "..", ".tmp", "self-directed-tests");
+  const result = executeSelfDirectedDirective({
+    activeProjects: ["lumi-memory-learning"],
+    focus: "audit the local maintenance state and prepare a bounded review note",
+    notes: ["Keep the change local and reviewable."],
+  }, {workspaceRoot: artifactRoot});
+
+  assert.equal(result.ok, true);
+  assert.equal(result.blocked, false);
+  assert.ok(result.directive);
+  assert.ok(result.artifactPath);
+  assert.ok(existsSync(result.artifactPath));
+  assert.match(result.message, /Self-directed autonomy report written/i);
 });

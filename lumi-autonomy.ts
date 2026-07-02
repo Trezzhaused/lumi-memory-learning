@@ -1,4 +1,7 @@
+import {mkdirSync, writeFileSync} from "node:fs";
+import path from "node:path";
 import {queryExternalBrowserSource} from "./lumi-external-sources";
+import {evaluateGuardrailRequest, logGuardrailDecision} from "./lumi-guardrails";
 
 export type AutonomyMode = "research-before-create" | "business-automation" | "local-maintenance" | "finance-maintenance" | "sovereign-autonomy" | "scheduled-automation" | "general";
 
@@ -20,8 +23,48 @@ export interface AutonomyPlan {
     comparativeTarget?: string | null;
 }
 
+export interface SelfDirectedState {
+    activeProjects?: string[];
+    projects?: string[];
+    focus?: string;
+    notes?: string[];
+    ledger?: Record<string, unknown>;
+    financialRunwayDays?: number;
+    context?: Record<string, unknown>;
+    [key: string]: unknown;
+}
+
+export interface SelfDirectedDirective {
+    objective: string;
+    rationale: string;
+    artifactPath: string;
+    planMode: AutonomyMode;
+    safe: boolean;
+    requiresApproval: boolean;
+}
+
+export interface SelfDirectedExecutionResult {
+    ok: boolean;
+    blocked: boolean;
+    message: string;
+    directive: SelfDirectedDirective | null;
+    artifactPath?: string;
+    guardrailReason?: string;
+    detail?: string;
+}
+
 function slug(value: string): string {
     return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+function resolveWorkspaceArtifactPath(workspaceRoot: string, relativePath: string): string {
+    const normalizedWorkspaceRoot = path.resolve(workspaceRoot || process.cwd());
+    const candidatePath = path.resolve(normalizedWorkspaceRoot, relativePath);
+    const relative = path.relative(normalizedWorkspaceRoot, candidatePath);
+    if (relative.startsWith("..") || path.isAbsolute(relative)) {
+        throw new Error(`Refusing to write outside workspace root: ${relativePath}`);
+    }
+    return candidatePath;
 }
 
 function isScheduledAutomationPrompt(prompt: string): boolean {
@@ -362,6 +405,111 @@ export function buildAutonomyPlan(prompt: string, options: {workspaceRoot?: stri
         ],
         requiresExternalResearch: false,
     };
+}
+
+export function buildSelfDirectedDirective(state: SelfDirectedState = {}, options: {workspaceRoot?: string} = {}): SelfDirectedDirective {
+    const workspaceRoot = options.workspaceRoot || process.cwd();
+    const projects = Array.isArray(state.activeProjects) && state.activeProjects.length
+        ? state.activeProjects
+        : Array.isArray(state.projects) && state.projects.length
+            ? state.projects
+            : ["the workspace"];
+    const focus = (state.focus || "").trim();
+    const notes = Array.isArray(state.notes) ? state.notes.filter(Boolean) : [];
+    const ledger = state.ledger && typeof state.ledger === "object" ? state.ledger as Record<string, unknown> : {};
+    const runway = typeof state.financialRunwayDays === "number"
+        ? state.financialRunwayDays
+        : typeof ledger.financial_runway_days === "number"
+            ? ledger.financial_runway_days as number
+            : undefined;
+
+    const projectSummary = projects.slice(0, 3).join(", ");
+    const objective = focus
+        ? `Review the current state for ${projectSummary} and write a bounded review note for: ${focus}`
+        : `Review the current state for ${projectSummary} and write a bounded review note for the next safe maintenance step`;
+    const rationale = runway !== undefined
+        ? `The current state includes ${projects.length} active project(s) and a runway estimate of ${runway} days, so the safest next action is to document the next reviewable step without changing any protected systems.`
+        : `The current state includes ${projects.length} active project(s), so the safest next action is to document the next reviewable step without changing any protected systems.`;
+    const artifactPath = resolveWorkspaceArtifactPath(workspaceRoot, path.join(".data", "self-directed-autonomy.md"));
+    const planMode = /\b(ledger|finance|wallet|audit|scan|maintenance|bug|syntax)\b/i.test(focus)
+        ? "finance-maintenance"
+        : /\b(cron|schedule|social|publish|brief|loop)\b/i.test(focus)
+            ? "scheduled-automation"
+            : /\b(sovereign|self-hosted|mesh|n8n|secure|auth|token|windows)\b/i.test(focus)
+                ? "sovereign-autonomy"
+                : /\b(inventory|pricing|business|market|sales)\b/i.test(focus)
+                    ? "business-automation"
+                    : /\b(clean|repair|optimize|restore|maintenance|filesystem|disk)\b/i.test(focus)
+                        ? "local-maintenance"
+                        : "general";
+
+    return {
+        objective,
+        rationale,
+        artifactPath,
+        planMode,
+        safe: true,
+        requiresApproval: false,
+    };
+}
+
+export function executeSelfDirectedDirective(state: SelfDirectedState = {}, options: {workspaceRoot?: string} = {}): SelfDirectedExecutionResult {
+    const directive = buildSelfDirectedDirective(state, options);
+    const guardrailDecision = evaluateGuardrailRequest(directive.objective);
+    if (!guardrailDecision.shouldCallModel) {
+        const reason = guardrailDecision.reason;
+        logGuardrailDecision({
+            event: "self-directed-autonomy-blocked",
+            reason,
+            objective: directive.objective,
+        });
+        return {
+            ok: false,
+            blocked: true,
+            message: guardrailDecision.fallbackContent,
+            directive,
+            guardrailReason: reason,
+            detail: "The self-directed objective was blocked by the guardrail evaluator.",
+        };
+    }
+
+    const report = [
+        "# Self-directed autonomy review",
+        "",
+        `- Objective: ${directive.objective}`,
+        `- Rationale: ${directive.rationale}`,
+        `- Plan mode: ${directive.planMode}`,
+        "- Safety: This action is limited to a reviewable local artifact and does not modify protected systems.",
+        "",
+        "## Notes",
+        ...(Array.isArray(state.notes) && state.notes.length ? state.notes.map(note => `- ${note}`) : ["- No additional notes were supplied."]),
+    ].join("\n");
+
+    try {
+        mkdirSync(path.dirname(directive.artifactPath), {recursive: true});
+        writeFileSync(directive.artifactPath, report, "utf8");
+        logGuardrailDecision({
+            event: "self-directed-autonomy-executed",
+            objective: directive.objective,
+            artifactPath: directive.artifactPath,
+        });
+        return {
+            ok: true,
+            blocked: false,
+            message: `Self-directed autonomy report written to ${directive.artifactPath}`,
+            directive,
+            artifactPath: directive.artifactPath,
+        };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown file write error";
+        return {
+            ok: false,
+            blocked: false,
+            message,
+            directive,
+            detail: "The self-directed autonomy artifact could not be written.",
+        };
+    }
 }
 
 function extractComparativeTarget(prompt: string): string | null {

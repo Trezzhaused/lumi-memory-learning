@@ -21,7 +21,7 @@ import {buildPromptTrainer} from "./lumi-prompt-trainer";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 import {getExternalBrowserSources, planExternalBrowserSources, queryExternalBrowserSource} from "./lumi-external-sources";
 import {runLocalStudioPipeline} from "./lumi-local-studio";
-import {buildAutonomyPlan, buildComparativeResearchContext} from "./lumi-autonomy";
+import {buildAutonomyPlan, buildComparativeResearchContext, buildSelfDirectedDirective, executeSelfDirectedDirective} from "./lumi-autonomy";
 import {generateUserGuide, ingestFile} from "./lumi-ingestion";
 import {evaluateToolExecutionPolicy, executeApprovedAction, getExecutionPolicySnapshot, getRemoteOwnerRuntimeStatus} from "./lumi-tools";
 
@@ -281,6 +281,16 @@ lumiRouter.post("/autonomy/research", async (req: Request, res: Response, next: 
         if (!prompt) { res.status(400).json({error: "prompt is required"}); return; }
         const context = await buildComparativeResearchContext(prompt);
         res.json({prompt, ok: Boolean(context), context});
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/autonomy/self-direct
+lumiRouter.post("/autonomy/self-direct", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {state, workspaceRoot} = req.body || {};
+        const directive = buildSelfDirectedDirective(state || {}, {workspaceRoot});
+        const result = executeSelfDirectedDirective(state || {}, {workspaceRoot});
+        res.json({directive, result});
     } catch (err) { next(err); }
 });
 
