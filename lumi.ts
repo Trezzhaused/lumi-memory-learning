@@ -28,6 +28,7 @@ import {getArtifactStorageStatus} from "./lumi-storage";
 import {promises as fs} from "node:fs";
 import path from "node:path";
 import {callOpenRouterChat} from "./openrouter";
+import {buildExternalBrowserSourceContext} from "./lumi-external-sources";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 
 // ---------------------------------------------------------------------------
@@ -59,6 +60,7 @@ export interface LumiChatRequest {
     useOllama?: boolean;
     ollamaModel?: string | null;
     domain?: string | null;
+    externalSources?: string[] | null;
 }
 
 export interface LumiChatResponse {
@@ -342,7 +344,7 @@ async function getRelevantMemoryContext(message: string, limit = 3): Promise<str
     }
 }
 
-async function buildSystemPrompt(message: string, domain: string): Promise<string> {
+async function buildSystemPrompt(message: string, domain: string, externalSourceContext?: string | null): Promise<string> {
     const basePrompt = DOMAIN_SYSTEM_PROMPTS[domain] || DOMAIN_SYSTEM_PROMPTS.default;
     const moduleFocus = detectModuleFocus(message);
     const moduleContext = moduleFocus.length > 0
@@ -359,6 +361,10 @@ async function buildSystemPrompt(message: string, domain: string): Promise<strin
     prompt += `Current focus: ${moduleContext}.\n\n`;
     prompt += "When a request touches a module, tab, or workflow, use that module's specialty first and stay aligned with the repo's implemented capabilities. ";
     prompt += "If the user asks for anything that can be created autonomously, build it when possible, keep the experience safe, and persist helpful context to memory for future recall.";
+
+    if (externalSourceContext) {
+        prompt += `\n\n${externalSourceContext}`;
+    }
 
     if (memoryContext) {
         prompt += `\n\n${memoryContext}`;
@@ -380,7 +386,8 @@ export async function lumiChat(
     if (!safety.safe) throw new Error(`ACAM: ${safety.reason}`);
 
     const domain = req.domain || detectDomain(req.message);
-    const systemPrompt = await buildSystemPrompt(req.message, domain);
+    const externalSourceContext = buildExternalBrowserSourceContext(req.externalSources || []);
+    const systemPrompt = await buildSystemPrompt(req.message, domain, externalSourceContext);
 
     const messages: Array<{role: string; content: string}> = [
         {role: "system", content: systemPrompt},
@@ -457,10 +464,12 @@ export async function getModelCascade(): Promise<ModelCascadeEntry[]> {
 
 export async function enhancePrompt(
     prompt: string,
-    domain?: string
+    domain?: string,
+    externalSources?: string[]
 ): Promise<PromptEnhanceResult> {
     const detectedDomain = domain || detectDomain(prompt);
-    const systemPrompt = await buildSystemPrompt(prompt, detectedDomain);
+    const externalSourceContext = buildExternalBrowserSourceContext(externalSources || []);
+    const systemPrompt = await buildSystemPrompt(prompt, detectedDomain, externalSourceContext);
     return {
         domain: detectedDomain,
         detectedDomain,

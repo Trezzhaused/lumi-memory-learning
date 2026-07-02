@@ -19,6 +19,7 @@ import {
 import {converseSpeech, formatBraille, speakText, transcribeAudio} from "./lumi-speech";
 import {buildPromptTrainer} from "./lumi-prompt-trainer";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
+import {getExternalBrowserSources, planExternalBrowserSources} from "./lumi-external-sources";
 
 // ============================================================================
 // App setup
@@ -165,9 +166,9 @@ lumiRouter.get("/models", async (_req: Request, res: Response, next: NextFunctio
 // POST /api/lumi/enhance-prompt
 lumiRouter.post("/enhance-prompt", async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const {prompt, domain} = req.body;
+        const {prompt, domain, externalSources} = req.body;
         if (!prompt) { res.status(400).json({error: "prompt is required"}); return; }
-        const result = await enhancePrompt(prompt, domain);
+        const result = await enhancePrompt(prompt, domain, externalSources);
         res.json(result);
     } catch (err) { next(err); }
 });
@@ -307,6 +308,17 @@ lumiRouter.post("/training-resources", async (req: Request, res: Response, next:
         await remember(sessionId, "assistant", summary, ["training", "knowledge-bank", "resources"], "knowledge");
         res.json(analysis);
     } catch (err) { next(err); }
+});
+
+// GET /api/lumi/external-sources
+lumiRouter.get("/external-sources", (_req: Request, res: Response) => {
+    res.json({sources: getExternalBrowserSources()});
+});
+
+// POST /api/lumi/external-sources/plan
+lumiRouter.post("/external-sources/plan", (req: Request, res: Response) => {
+    const {sources, goal, sessionMode} = req.body || {};
+    res.json(planExternalBrowserSources(Array.isArray(sources) ? sources : [], {goal, sessionMode}));
 });
 
 // POST /api/lumi/mission/boot

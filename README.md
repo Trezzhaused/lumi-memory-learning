@@ -18,6 +18,7 @@
 | **Mission Execution** | Multi-step autonomous task pipelines |
 | **Roblox Publishing** | Publish games to Roblox via Open Cloud API |
 | **Knowledge Bank** | Curated training-resource analysis for expanding Lumi's capabilities and memory, including external browser-based sources such as Yuanbao |
+| **External browser sources** | A generic hook for browser-backed research and ideation sources, with a Yuanbao entry and a future-ready automation path |
 | **ACAM Security** | Adaptive Content & Access Manager — rate limiting, audit log, auth |
 
 ---
@@ -30,7 +31,7 @@ so the Studio's frontend can connect directly to this server.
 ### Lumi Chat
 ```
 POST /api/lumi/chat
-Body: { message, history?, missionId?, useOllama?, ollamaModel?, domain? }
+Body: { message, history?, missionId?, useOllama?, ollamaModel?, domain?, externalSources? }
 → { role: "assistant", content, model, ok }
 
 GET  /api/lumi/chat/history?limit=40&mission_id=<id>
@@ -43,9 +44,21 @@ GET  /api/lumi/models
 → { cascade: [{id, provider, label, free, contextWindow}] }
 
 POST /api/lumi/enhance-prompt
-Body: { prompt, domain? }
+Body: { prompt, domain?, externalSources? }
 → { domain, detectedDomain, enhancedMessages, systemPromptPreview }
 ```
+
+### External browser sources
+```
+GET  /api/lumi/external-sources
+→ { sources: [{id, name, url, category, requiresBrowserAutomation, backend, availability, notes, sessionHint}] }
+
+POST /api/lumi/external-sources/plan
+Body: { sources?, goal?, sessionMode? }
+→ { requestedSources, sources, automationConfigured, workflowNote, nextSteps }
+```
+
+These endpoints expose a generic hook for browser-based research sources such as Yuanbao. The current implementation is a workflow layer only; live retrieval still requires either an API or browser automation support.
 
 ### Mission / Pipeline (Studio Control Plane)
 ```
