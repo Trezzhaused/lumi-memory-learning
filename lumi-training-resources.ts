@@ -166,6 +166,16 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         priority: "high",
         notes: "Use as an eval set and a source of reasoning-style examples rather than a pure pretraining corpus.",
     },
+    {
+        id: "yuanbao",
+        name: "Yuanbao (Tencent)",
+        url: "https://www.yuanbao.tencent.com",
+        category: "learning",
+        rationale: "A web-based AI assistant surface that can serve as an additional brainstorming and research resource for creative, coding, and knowledge work.",
+        useCase: "Use as a supplemental browser-based ideation and research resource when Lumi needs alternate perspectives or rapid idea generation.",
+        priority: "medium",
+        notes: "Treat this as a manual or browser-driven knowledge source rather than an API-backed provider; for repeated usage, start from a fresh anonymous or non-persisted session and reinitialize between runs if the platform limits continuity.",
+    },
 ];
 
 export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisRequest = {}): TrainingResourceAnalysis {
@@ -196,7 +206,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
         `Start with broad text corpora (${selectedResources.filter(resource => ["redpajama", "openwebtext", "wikitext", "commoncrawl"].includes(resource.id)).map(resource => resource.name).join(", ")}) to improve natural language coverage and style diversity.`,
         `Add multimodal datasets (${selectedResources.filter(resource => ["openimages", "coco", "laion"].includes(resource.id)).map(resource => resource.name).join(", ")}) for image, caption, and retrieval-style understanding.`,
         `Incorporate simulation and control resources (${selectedResources.filter(resource => ["mujoco", "deepblue-datasets"].includes(resource.id)).map(resource => resource.name).join(", ")}) to teach embodied reasoning and physics-informed behavior.`,
-        `Use the reasoning and model resources (${selectedResources.filter(resource => ["gpt-oss", "arc-reasoning", "intellek-learning"].includes(resource.id)).map(resource => resource.name).join(", ")}) to strengthen agentic behavior, local deployment knowledge, and benchmark-driven evaluation.`,
+        `Use the reasoning and model resources (${selectedResources.filter(resource => ["gpt-oss", "arc-reasoning", "intellek-learning", "yuanbao"].includes(resource.id)).map(resource => resource.name).join(", ")}) to strengthen agentic behavior, local deployment knowledge, benchmark-driven evaluation, and alternate browser-based ideation.`,
     ];
 
     const knowledgeBankSummary = [
