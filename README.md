@@ -121,7 +121,7 @@ Body: { text }
 → { text, braille }
 ```
 
-Open `/voice` in a browser to try a simple voice demo that uses browser speech recognition and the Lumi chat API.
+Open `/voice` in a browser to try a microphone-driven voice demo that captures your speech, sends it to Lumi via the speech-converse endpoint, and plays the reply back while showing transcript and braille text on screen.
 
 Open `/lumi-panel.html` to launch autonomous missions, track Lumi's live progress, and download finished artifacts.
 

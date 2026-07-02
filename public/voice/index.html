@@ -15,6 +15,22 @@
     .output { margin-top: 16px; padding: 16px; border-radius: 12px; background: #020617; min-height: 120px; white-space: pre-wrap; }
     .braille { font-size: 28px; line-height: 1.5; letter-spacing: 0.2em; margin-top: 12px; }
     .controls { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+    .voice-overlay {
+      position: fixed;
+      left: 24px;
+      right: 24px;
+      bottom: 24px;
+      max-width: 720px;
+      padding: 16px 18px;
+      border-radius: 14px;
+      background: rgba(2, 6, 23, 0.92);
+      border: 1px solid #38bdf8;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      z-index: 1000;
+    }
+    .voice-overlay[hidden] { display: none; }
+    .voice-overlay-title { color: #38bdf8; font-weight: 700; margin-bottom: 6px; }
+    .voice-overlay-body { color: #e2e8f0; line-height: 1.45; }
   </style>
 </head>
 <body>
@@ -33,6 +49,11 @@
     </div>
   </div>
 
+  <div class="voice-overlay" id="voiceOverlay" hidden>
+    <div class="voice-overlay-title" id="voiceOverlayTitle">Lumi voice</div>
+    <div class="voice-overlay-body" id="voiceOverlayBody">Speak naturally and Lumi will reply.</div>
+  </div>
+
   <script>
     const listenBtn = document.getElementById('listenBtn');
     const stopBtn = document.getElementById('stopBtn');
@@ -40,11 +61,25 @@
     const transcriptBox = document.getElementById('transcriptBox');
     const replyBox = document.getElementById('replyBox');
     const brailleBox = document.getElementById('brailleBox');
+    const voiceOverlay = document.getElementById('voiceOverlay');
+    const voiceOverlayTitle = document.getElementById('voiceOverlayTitle');
+    const voiceOverlayBody = document.getElementById('voiceOverlayBody');
 
     const sessionId = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : `voice-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    let recognition;
-    let isListening = false;
+    let mediaRecorder = null;
+    let mediaStream = null;
+    let recordedChunks = [];
+    let isRecording = false;
+
+    function setOverlay(title, body) {
+      voiceOverlay.hidden = false;
+      voiceOverlayTitle.textContent = title;
+      voiceOverlayBody.textContent = body;
+    }
+
+    function hideOverlay() {
+      voiceOverlay.hidden = true;
+    }
 
     async function parseJsonResponse(response, fallbackMessage) {
       const rawText = await response.text();
@@ -65,106 +100,156 @@
       }
     }
 
-    if (!SpeechRecognition) {
-      statusEl.textContent = 'Speech recognition is not available in this browser. Please try Chrome or Edge.';
-      listenBtn.disabled = true;
-      stopBtn.disabled = true;
-    } else {
-      recognition = new SpeechRecognition();
-      recognition.lang = 'en-US';
-      recognition.continuous = false;
-      recognition.interimResults = false;
+    async function base64FromBlob(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            const payload = reader.result.split(',')[1] || '';
+            resolve(payload);
+          } else {
+            reject(new Error('Could not encode audio blob to base64.'));
+          }
+        };
+        reader.onerror = () => reject(new Error('Could not read audio blob.'));
+        reader.readAsDataURL(blob);
+      });
+    }
 
-      recognition.onstart = () => {
-        isListening = true;
-        listenBtn.textContent = 'Listening…';
-        statusEl.textContent = 'Listening for speech…';
-      };
+    async function startListening() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        statusEl.textContent = 'Microphone access is not available in this browser.';
+        return;
+      }
 
-      recognition.onend = () => {
-        isListening = false;
-        listenBtn.textContent = 'Start listening';
-        statusEl.textContent = 'Finished listening.';
-      };
+      if (isRecording) {
+        return;
+      }
 
-      recognition.onerror = (event) => {
-        statusEl.textContent = `Speech error: ${event.error}`;
-      };
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : 'audio/webm';
 
-      recognition.onresult = async (event) => {
-        const transcript = event.results[0][0].transcript.trim();
-        transcriptBox.textContent = transcript;
-        if (!transcript) return;
-        statusEl.textContent = 'Sending your message to Lumi…';
-        try {
-          const chatRes = await fetch('/api/lumi/chat', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Session-Id': sessionId
-            },
-            body: JSON.stringify({ message: transcript, domain: 'default' })
-          });
-          const chatData = await parseJsonResponse(chatRes, 'Lumi chat request failed');
-          const reply = chatData.content || chatData.reply || 'No response.';
-          replyBox.textContent = reply;
+        mediaRecorder = new MediaRecorder(mediaStream, mimeType ? { mimeType } : undefined);
+        recordedChunks = [];
 
-          const brailleRes = await fetch('/api/lumi/speech/braille', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: reply })
-          });
-          const brailleData = await parseJsonResponse(brailleRes, 'Braille conversion failed');
-          brailleBox.textContent = brailleData.braille || reply;
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            recordedChunks.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(recordedChunks, { type: mediaRecorder?.mimeType || 'audio/webm' });
+          if (!audioBlob.size) {
+            statusEl.textContent = 'No audio captured.';
+            hideOverlay();
+            return;
+          }
 
           try {
-            const speechRes = await fetch('/api/lumi/speech/speak', {
+            const audioBase64 = await base64FromBlob(audioBlob);
+            statusEl.textContent = 'Sending your voice to Lumi…';
+            setOverlay('Processing', 'Lumi is transcribing and replying.');
+
+            const response = await fetch('/api/lumi/speech/converse', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: reply })
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Session-Id': sessionId
+              },
+              body: JSON.stringify({
+                audioBase64,
+                mimeType: audioBlob.type || 'audio/webm',
+                domain: 'default'
+              })
             });
-            const speechData = await parseJsonResponse(speechRes, 'Speech synthesis failed');
-            if (speechData.ok && speechData.audioDataUrl) {
-              const audio = new Audio(speechData.audioDataUrl);
+
+            const data = await parseJsonResponse(response, 'Voice exchange failed');
+            const transcript = data.transcript || '';
+            const reply = data.reply || 'No response.';
+
+            transcriptBox.textContent = transcript;
+            replyBox.textContent = reply;
+            setOverlay('You said', transcript || '…');
+
+            try {
+              const brailleRes = await fetch('/api/lumi/speech/braille', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: reply })
+              });
+              const brailleData = await parseJsonResponse(brailleRes, 'Braille conversion failed');
+              brailleBox.textContent = brailleData.braille || reply;
+            } catch (brailleError) {
+              brailleBox.textContent = reply;
+            }
+
+            if (data.audio?.audioDataUrl) {
+              const audio = new Audio(data.audio.audioDataUrl);
               await audio.play();
             } else {
               const utterance = new SpeechSynthesisUtterance(reply);
               window.speechSynthesis.cancel();
               window.speechSynthesis.speak(utterance);
             }
-          } catch (speechError) {
-            const utterance = new SpeechSynthesisUtterance(reply);
-            window.speechSynthesis.cancel();
-            window.speechSynthesis.speak(utterance);
-          }
 
-          statusEl.textContent = 'Reply ready.';
-        } catch (error) {
-          const message = error instanceof Error ? error.message : 'Unknown request error';
-          statusEl.textContent = `Request failed: ${message}`;
-          replyBox.textContent = `Request failed: ${message}`;
-        }
-      };
+            statusEl.textContent = 'Reply ready.';
+            setOverlay('Lumi replied', reply);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unknown request error';
+            statusEl.textContent = `Request failed: ${message}`;
+            replyBox.textContent = `Request failed: ${message}`;
+            setOverlay('Voice error', message);
+          } finally {
+            mediaRecorder = null;
+            mediaStream?.getTracks().forEach((track) => track.stop());
+            mediaStream = null;
+            recordedChunks = [];
+            isRecording = false;
+            listenBtn.textContent = 'Start listening';
+          }
+        };
+
+        mediaRecorder.start();
+        isRecording = true;
+        listenBtn.textContent = 'Listening…';
+        stopBtn.disabled = false;
+        statusEl.textContent = 'Listening — speak now.';
+        setOverlay('Listening', 'Your microphone is live. Speak to Lumi and click Stop when you are done.');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Could not access microphone.';
+        statusEl.textContent = message;
+        setOverlay('Microphone error', message);
+      }
+    }
+
+    function stopListening() {
+      if (!mediaRecorder || !isRecording) {
+        window.speechSynthesis.cancel();
+        return;
+      }
+      mediaRecorder.stop();
+      listenBtn.textContent = 'Processing…';
+      statusEl.textContent = 'Processing your voice…';
     }
 
     listenBtn.addEventListener('click', () => {
-      if (!recognition) return;
-      if (isListening) {
-        recognition.stop();
-        return;
+      if (isRecording) {
+        stopListening();
+      } else {
+        startListening();
       }
-      transcriptBox.textContent = 'Listening…';
-      replyBox.textContent = 'Reply will appear here…';
-      brailleBox.textContent = '';
-      recognition.start();
     });
 
     stopBtn.addEventListener('click', () => {
-      if (recognition && isListening) {
-        recognition.stop();
-      }
+      stopListening();
       window.speechSynthesis.cancel();
     });
+
+    stopBtn.disabled = true;
   </script>
 </body>
 </html>
