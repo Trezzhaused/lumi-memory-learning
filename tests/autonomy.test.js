@@ -22,3 +22,15 @@ test("sovereign autonomy prompts produce a secure self-hosted execution plan", (
   assert.ok(plan.steps.some(step => /secure|schema|multi-modal|execution/i.test(step.title)));
   assert.ok(plan.safetyNotes.some(note => /authentication/i.test(note)));
 });
+
+test("scheduled automation prompts produce a reviewable workflow plan", () => {
+  const plan = buildAutonomyPlan("Set up a cron job for daily briefings and a social publishing loop that drafts posts and notifies the owner");
+  assert.equal(plan.mode, "scheduled-automation");
+  assert.ok(plan.steps.some(step => /state|persistence/i.test(step.title)));
+  assert.ok(plan.steps.some(step => /schedule|execution/i.test(step.title)));
+  assert.ok(plan.steps.some(step => /approval|review/i.test(step.title)));
+  assert.ok(plan.steps.some(step => /artifact/i.test(step.title)));
+  assert.ok(plan.steps.some(step => /notification|handoff/i.test(step.title)));
+  assert.ok(plan.safetyNotes.some(note => /approval/i.test(note)));
+  assert.ok(plan.safetyNotes.some(note => /publishing/i.test(note)));
+});

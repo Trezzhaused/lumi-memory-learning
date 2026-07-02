@@ -1,6 +1,6 @@
 import {queryExternalBrowserSource} from "./lumi-external-sources";
 
-export type AutonomyMode = "research-before-create" | "business-automation" | "local-maintenance" | "sovereign-autonomy" | "general";
+export type AutonomyMode = "research-before-create" | "business-automation" | "local-maintenance" | "sovereign-autonomy" | "scheduled-automation" | "general";
 
 export interface AutonomyPlanStep {
     id: string;
@@ -24,6 +24,24 @@ function slug(value: string): string {
     return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
+function isScheduledAutomationPrompt(prompt: string): boolean {
+    const normalized = (prompt || "").trim().toLowerCase();
+    if (!normalized) return false;
+
+    const markers = [
+        /\bcron\b/i,
+        /\bdaily brief(?:ing)?\b/i,
+        /\bbackground worker(?:s)?\b/i,
+        /\blife os\b/i,
+        /\bsocial publishing(?: loop)?\b/i,
+        /\bpublishing loop\b/i,
+        /\bscheduled automation\b/i,
+        /\bscheduler(?:s)?\b/i,
+    ];
+
+    return markers.some((marker) => marker.test(normalized));
+}
+
 function isSovereignAutonomyPrompt(prompt: string): boolean {
     const normalized = (prompt || "").trim().toLowerCase();
     if (!normalized) return false;
@@ -41,6 +59,7 @@ export function buildAutonomyPlan(prompt: string, options: {workspaceRoot?: stri
 
     const isResearchBeforeCreate = /\b(create|build|make|design|ship|launch|clone|prototype|draft|website|app|landing page|dashboard|product|system)\b/i.test(lower)
         && /\b(like|similar|inspired by|based on|clone of|modeled after|as|copy of)\b/i.test(lower);
+    const isScheduledAutomation = isScheduledAutomationPrompt(normalized);
     const isBusinessAutomation = /\b(inventory|pricing|price|stock|sales|business|crm|slack|airtable|competitor|market)\b/i.test(lower);
     const isLocalMaintenance = /\b(clean|defrag|disk|repair|virus|scan|maintenance|windows|computer|optimize|cleanup)\b/i.test(lower);
 
@@ -86,6 +105,57 @@ export function buildAutonomyPlan(prompt: string, options: {workspaceRoot?: stri
             ],
             requiresExternalResearch: process.env.LUMI_ALLOW_EXTERNAL_RESEARCH !== "false",
             comparativeTarget,
+        };
+    }
+
+    if (isScheduledAutomation) {
+        return {
+            mode: "scheduled-automation",
+            prompt: normalized,
+            summary: "Scheduled automation plan for recurring background workflows with reviewable handoffs.",
+            steps: [
+                {
+                    id: "scheduled-1",
+                    title: "Persist workflow state and inputs",
+                    kind: "analysis",
+                    detail: "Create a durable state store for run context, previous outputs, and recovery checkpoints so each cycle can resume safely.",
+                    safe: true,
+                },
+                {
+                    id: "scheduled-2",
+                    title: "Define the schedule and execution contract",
+                    kind: "business",
+                    detail: "Map the cadence, time zone, retry policy, and runtime assumptions; leave the actual scheduler or connector recipe as an optional deployment step for later.",
+                    safe: true,
+                },
+                {
+                    id: "scheduled-3",
+                    title: "Add review and approval gates",
+                    kind: "review",
+                    detail: "Require explicit approval before destructive actions, external publishing, or owner-side execution and preserve a clear audit trail.",
+                    safe: true,
+                },
+                {
+                    id: "scheduled-4",
+                    title: "Generate the scheduled artifacts",
+                    kind: "workspace",
+                    detail: "Produce the documents, media, or workflow outputs for each run and store them in a reviewable artifact path.",
+                    safe: true,
+                },
+                {
+                    id: "scheduled-5",
+                    title: "Hand off notifications and follow-up actions",
+                    kind: "review",
+                    detail: "Send concise summaries or approval requests to the owner and downstream systems without bypassing the safety gates.",
+                    safe: true,
+                },
+            ],
+            safetyNotes: [
+                "Do not perform destructive actions or unrestricted external publishing without explicit approval.",
+                "Do not execute owner-side actions without a review gate or owner confirmation.",
+                "Keep schedulers and connectors as optional deployment recipes until the workflow is validated.",
+            ],
+            requiresExternalResearch: false,
         };
     }
 
