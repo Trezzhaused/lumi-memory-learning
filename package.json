@@ -12,7 +12,8 @@
     "start": "node dist/app.js",
     "dev": "tsnd --respawn app.ts",
     "typecheck": "tsc --noEmit --pretty",
-    "test:guardrails": "pnpm run build && node --test tests/golden-eval.test.js"
+    "test:guardrails": "pnpm run build && node --test tests/golden-eval.test.js",
+    "test:resources": "pnpm run build && node --test tests/external-sources.test.js tests/training-resources.test.js"
   },
   "keywords": [],
   "dependencies": {
