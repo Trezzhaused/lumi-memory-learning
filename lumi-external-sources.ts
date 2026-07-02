@@ -41,6 +41,10 @@ const DEFAULT_EXTERNAL_SOURCES: ExternalBrowserSource[] = [
     },
 ];
 
+function isKnownExternalSource(sourceId: string): boolean {
+    return DEFAULT_EXTERNAL_SOURCES.some(source => source.id === sourceId);
+}
+
 function isAutomationConfigured(): boolean {
     return Boolean(
         process.env.EXTERNAL_BROWSER_PROXY_URL ||
@@ -66,10 +70,21 @@ export async function queryExternalBrowserSource(
     query: string,
     options: {goal?: string; sessionMode?: string} = {}
 ): Promise<ExternalBrowserSourceQueryResult> {
+    const normalizedSourceId = typeof sourceId === "string" ? sourceId.trim() : "";
+    if (!normalizedSourceId || !isKnownExternalSource(normalizedSourceId)) {
+        return {
+            sourceId: normalizedSourceId || (typeof sourceId === "string" ? sourceId : ""),
+            ok: false,
+            status: 404,
+            usedBackend: "manual",
+            error: `Unknown external browser source: ${normalizedSourceId || "<empty>"}`,
+        };
+    }
+
     const endpoint = getAutomationEndpoint();
     if (!endpoint) {
         return {
-            sourceId,
+            sourceId: normalizedSourceId,
             ok: false,
             status: 503,
             usedBackend: "manual",
