@@ -249,7 +249,9 @@ lumiRouter.post("/ingestion/process", async (req: Request, res: Response, next: 
             mimeType,
             content,
             contentBase64,
-            sessionId: typeof sessionId === "string" ? sessionId : undefined,
+            sessionId: typeof sessionId === "string"
+                ? sessionId
+                : (typeof req.headers["x-session-id"] === "string" ? req.headers["x-session-id"] : undefined),
         });
         res.json(result);
     } catch (err) { next(err); }
