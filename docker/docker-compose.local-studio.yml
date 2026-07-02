@@ -1,0 +1,68 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: ai_redis
+    networks: [ai_net]
+
+  comfyui:
+    image: yanwk/comfyui-boot:cu121
+    container_name: ai_comfyui
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - HF_ENDPOINT=${HF_ENDPOINT:-https://hf-mirror.com}
+    volumes:
+      - ../models:/root/models
+      - ../input:/root/ComfyUI/input
+      - ../output:/root/ComfyUI/output
+    ports:
+      - "${HOST_PORT_COMFYUI:-8188}:8188"
+    networks: [ai_net]
+    command: python main.py --listen 0.0.0.0 --lowvram
+
+  rvc_server:
+    image: ghcr.io/lj1995/retrieval-based-voice-conversion-webui:latest
+    container_name: ai_rvc
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - ../models/rvc:/app/Retrieval-based-Voice-Conversion-WebUI/assets/weights
+      - ../input:/app/input
+      - ../output:/app/output
+    ports:
+      - "${HOST_PORT_RVC:-5010}:7865"
+    networks: [ai_net]
+
+  whisper:
+    image: onerahmet/openai-whisper:latest-gpu
+    container_name: ai_whisper
+    runtime: nvidia
+    volumes:
+      - ../output:/data
+    networks: [ai_net]
+
+  webui:
+    build:
+      context: ./webui
+      dockerfile: Dockerfile
+    container_name: ai_webui
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - COMFYUI_URL=http://comfyui:8188
+      - RVC_URL=http://rvc_server:7865
+    volumes:
+      - ../input:/app/input
+      - ../output:/app/output
+      - ../models:/app/models
+    ports:
+      - "${HOST_PORT_WEBUI:-7860}:7860"
+    networks: [ai_net]
+    depends_on: [comfyui, rvc_server, redis]
+
+networks:
+  ai_net:
+    driver: bridge

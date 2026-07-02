@@ -1,0 +1,19 @@
+{
+  "title": "Neon Ghost",
+  "scenes": [
+    {
+      "startBeat": 0,
+      "endBeat": 16,
+      "character": "hero",
+      "faceVideo": "models/synthv/hero_idle.mp4",
+      "rvcModel": "models/rvc/hero.pth"
+    },
+    {
+      "startBeat": 16,
+      "endBeat": 32,
+      "character": "villain",
+      "faceVideo": "models/synthv/villain_closeup.mp4",
+      "rvcModel": "models/rvc/villain.pth"
+    }
+  ]
+}

@@ -190,8 +190,42 @@ For local ComfyUI-based video generation, the repository now includes ready-to-u
 - [`docs/comfyui/wan2.1_t2v.json`](docs/comfyui/wan2.1_t2v.json) — minimal Wan 2.1 T2V workflow for the 1.3B model
 - [`docs/comfyui/wan2.1_native_i2v.json`](docs/comfyui/wan2.1_native_i2v.json) — native Wan 2.1 I2V workflow for image-to-video
 - [`docker/docker-compose.muser.yml`](docker/docker-compose.muser.yml) — GPU-enabled compose example for ACE-Step, RVC, and The Muser UI
+- [`docker/docker-compose.local-studio.yml`](docker/docker-compose.local-studio.yml) — a local AI MV studio stack with Redis, ComfyUI, RVC, Whisper, and a lightweight web UI
 
 These files are intended as a starting point for local experimentation and can be adapted to your preferred model names and folder layout.
+
+### Local AI MV studio quick start
+
+1. Create local folders for `models/`, `input/`, and `output/` next to the compose file.
+2. Start the stack with PowerShell:
+
+```powershell
+docker compose -f docker/docker-compose.local-studio.yml up -d --build
+```
+
+3. Generate a local pipeline plan from the API:
+
+```powershell
+$body = @{
+  title = "Neon Ghost"
+  audioPath = "input/neon_ghost.wav"
+  sceneManifest = @{
+    title = "Neon Ghost"
+    scenes = @(
+      @{ startBeat = 0; endBeat = 16; character = "hero"; faceVideo = "models/synthv/hero_idle.mp4"; rvcModel = "models/rvc/hero.pth" },
+      @{ startBeat = 16; endBeat = 32; character = "villain"; faceVideo = "models/synthv/villain_closeup.mp4"; rvcModel = "models/rvc/villain.pth" }
+    )
+  }
+} | ConvertTo-Json -Depth 8
+
+Invoke-RestMethod -Method Post -Uri http://localhost:3001/api/lumi/local-studio/run -ContentType 'application/json' -Body $body
+```
+
+The endpoint writes a `scenes.json` manifest, a `pipeline-plan.json` file, and a `run-local-studio.sh` helper into `output/local-studio/` so the workflow can be reviewed before execution.
+
+### Autonomy note
+
+Lumi can orchestrate a fully self-hosted local studio workflow without Claude or OpenRouter, but not every step is truly "API-free" unless you also self-host the generation models. The new stack is designed for local-first execution with Docker containers and local model weights, while the existing `POST /api/lumi/generate` path still supports external providers when they are configured.
 
 ## Safety and certification
 

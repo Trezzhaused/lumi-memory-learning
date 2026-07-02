@@ -27,3 +27,7 @@ ComfyUI/models/
 4. Run the workflow and export the result.
 
 For lower-VRAM setups, prefer the FP8 I2V model and keep the latent resolution at 832x480 with 33 frames for the initial test run.
+
+## Local studio companion
+
+The repository also includes [`docker/docker-compose.local-studio.yml`](../../docker/docker-compose.local-studio.yml) for a Docker-based local AI MV workflow. It adds a lightweight web UI plus Redis/Whisper/RVC/ComfyUI services so you can assemble a fully local pipeline around these workflows.

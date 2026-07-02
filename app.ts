@@ -20,6 +20,7 @@ import {converseSpeech, formatBraille, speakText, transcribeAudio} from "./lumi-
 import {buildPromptTrainer} from "./lumi-prompt-trainer";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 import {getExternalBrowserSources, planExternalBrowserSources, queryExternalBrowserSource} from "./lumi-external-sources";
+import {runLocalStudioPipeline} from "./lumi-local-studio";
 
 // ============================================================================
 // App setup
@@ -239,6 +240,14 @@ lumiRouter.post("/memory/search", async (req: Request, res: Response, next: Next
 lumiRouter.post("/generate", async (req: Request, res: Response, next: NextFunction) => {
     try {
         const result = await generate(req.body);
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/local-studio/run
+lumiRouter.post("/local-studio/run", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = await runLocalStudioPipeline(req.body || {});
         res.json(result);
     } catch (err) { next(err); }
 });
