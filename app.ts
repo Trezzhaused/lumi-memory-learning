@@ -585,9 +585,14 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     console.error(err);
     if (err instanceof WebhookVerificationError) {
         res.status(400).json({error: "Webhook verification failed"});
-    } else {
-        res.status(500).json({error: err.message || "Internal server error"});
+        return;
     }
+
+    const statusCode = err.statusCode || (err.message?.includes("not configured") ? 503 : 500);
+    res.status(statusCode).json({
+        error: err.message || "Internal server error",
+        code: err.code || "internal_error",
+    });
 });
 
 // ============================================================================

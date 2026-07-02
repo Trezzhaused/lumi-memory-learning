@@ -18,6 +18,7 @@ import {callOpenRouterChat} from "./openrouter";
 import {callNvidiaChat, callNvidiaVideoGeneration, NvidiaVideoGenerationRequest} from "./nvidia";
 import {generateVideoComfyUI} from "./comfyui";
 import {storeArtifact, StoredArtifact} from "./lumi-storage";
+import {fetchWithRetry} from "./lumi-runtime";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -133,14 +134,14 @@ export async function generateImageHF(req: GenerationRequest): Promise<Generatio
     if (req.negativePrompt) payload.parameters.negative_prompt = req.negativePrompt;
     if (req.seed !== undefined) payload.parameters.seed = req.seed;
 
-    const res = await fetch(`${HF_API_URL}/${model}`, {
+    const res = await fetchWithRetry(`${HF_API_URL}/${model}`, {
         method: "POST",
         headers: {
             Authorization: "Bearer " + HF_API_KEY,
             "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
-    });
+    }, {provider: "huggingface", retries: 2, timeoutMs: 30_000});
 
     if (!res.ok) {
         const msg = await res.text();
@@ -181,7 +182,7 @@ export async function generateImageStability(req: GenerationRequest): Promise<Ge
     if (req.seed !== undefined) body.seed = req.seed;
     if (req.style) body.style_preset = req.style;
 
-    const res = await fetch(
+    const res = await fetchWithRetry(
         `${STABILITY_API_URL}/${model}/text-to-image`,
         {
             method: "POST",
@@ -191,7 +192,8 @@ export async function generateImageStability(req: GenerationRequest): Promise<Ge
                 "Content-Type": "application/json",
             },
             body: JSON.stringify(body),
-        }
+        },
+        {provider: "stability-ai", retries: 2, timeoutMs: 30_000}
     );
 
     if (!res.ok) {
@@ -219,15 +221,26 @@ export async function generateImageStability(req: GenerationRequest): Promise<Ge
  * then falls back to Hugging Face.
  */
 export async function generateImage(req: GenerationRequest): Promise<GenerationResult> {
+    const attempts: Array<{provider: string; error: string}> = [];
     if (STABILITY_API_KEY) {
-        return generateImageStability(req);
+        try {
+            return await generateImageStability(req);
+        } catch (error) {
+            attempts.push({provider: "stability-ai", error: error instanceof Error ? error.message : String(error)});
+        }
     }
     if (HF_API_KEY) {
-        return generateImageHF(req);
+        try {
+            return await generateImageHF(req);
+        } catch (error) {
+            attempts.push({provider: "huggingface", error: error instanceof Error ? error.message : String(error)});
+        }
     }
+    const detail = attempts.map(entry => `${entry.provider}: ${entry.error}`).join("; ");
     throw new Error(
-        "No image generation API key configured. " +
-        "Set STABILITY_API_KEY or HUGGINGFACE_API_KEY."
+        detail
+            ? `No image generation backend succeeded. ${detail}`
+            : "No image generation API key configured. Set STABILITY_API_KEY or HUGGINGFACE_API_KEY."
     );
 }
 
@@ -286,14 +299,14 @@ export async function generateVideoHF(req: GenerationRequest): Promise<Generatio
         },
     };
 
-    const res = await fetch(`${HF_API_URL}/${model}`, {
+    const res = await fetchWithRetry(`${HF_API_URL}/${model}`, {
         method: "POST",
         headers: {
             Authorization: "Bearer " + HF_API_KEY,
             "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
-    });
+    }, {provider: "huggingface", retries: 2, timeoutMs: 30_000});
 
     if (!res.ok) {
         const msg = await res.text();
@@ -325,7 +338,7 @@ export async function generateVideoFal(req: GenerationRequest): Promise<Generati
     const model = validateModelId(req.model || "fal-ai/wan/t2v-14b");
 
     // Submit request — URL is built entirely from our validated constants + model id
-    const submitRes = await fetch(`${FAL_API_URL}/${model}`, {
+    const submitRes = await fetchWithRetry(`${FAL_API_URL}/${model}`, {
         method: "POST",
         headers: {
             Authorization: "Key " + FAL_API_KEY,
@@ -337,7 +350,7 @@ export async function generateVideoFal(req: GenerationRequest): Promise<Generati
             resolution: `${req.width || 848}x${req.height || 480}`,
             num_inference_steps: req.steps || 30,
         }),
-    });
+    }, {provider: "fal-ai", retries: 2, timeoutMs: 30_000});
 
     if (!submitRes.ok) {
         const msg = await submitRes.text();
@@ -359,15 +372,16 @@ export async function generateVideoFal(req: GenerationRequest): Promise<Generati
     const deadline = Date.now() + 300_000;
     while (Date.now() < deadline) {
         await new Promise(r => setTimeout(r, 4000));
-        const pollRes = await fetch(statusUrl, {
+        const pollRes = await fetchWithRetry(statusUrl, {
             headers: {Authorization: "Key " + FAL_API_KEY},
-        });
+        }, {provider: "fal-ai", retries: 1, timeoutMs: 15_000});
         if (!pollRes.ok) continue;
         const pollData: any = await pollRes.json();
         if (pollData.status === "COMPLETED" || pollData.status === "completed") {
-            const resultRes = await fetch(
+            const resultRes = await fetchWithRetry(
                 `${FAL_API_URL}/${model}/requests/${requestId}`,
-                {headers: {Authorization: "Key " + FAL_API_KEY}}
+                {headers: {Authorization: "Key " + FAL_API_KEY}},
+                {provider: "fal-ai", retries: 1, timeoutMs: 15_000}
             );
             const result: any = await resultRes.json();
             const rawUrl: string = result.video?.url || result.output?.video?.url || "";
@@ -406,7 +420,7 @@ export async function generateVideoReplicate(req: GenerationRequest): Promise<Ge
     const REPLICATE_ALLOWED_HOSTS = ["replicate.com", "replicate.delivery"];
 
     // Start the prediction — URL is our constant endpoint, no user data in host
-    const startRes = await fetch(`${REPLICATE_API_URL}/predictions`, {
+    const startRes = await fetchWithRetry(`${REPLICATE_API_URL}/predictions`, {
         method: "POST",
         headers: {
             Authorization: `Token ${REPLICATE_API_KEY}`,
@@ -422,7 +436,7 @@ export async function generateVideoReplicate(req: GenerationRequest): Promise<Ge
                 num_inference_steps: req.steps || 25,
             },
         }),
-    });
+    }, {provider: "replicate", retries: 2, timeoutMs: 30_000});
 
     if (!startRes.ok) {
         const msg = await startRes.text();
@@ -439,9 +453,9 @@ export async function generateVideoReplicate(req: GenerationRequest): Promise<Ge
     const deadline = Date.now() + 120_000;
     while (Date.now() < deadline) {
         await new Promise(r => setTimeout(r, 3000));
-        const pollRes = await fetch(pollUrl, {
+        const pollRes = await fetchWithRetry(pollUrl, {
             headers: {Authorization: `Token ${REPLICATE_API_KEY}`},
-        });
+        }, {provider: "replicate", retries: 1, timeoutMs: 15_000});
         const pollData: any = await pollRes.json();
         if (pollData.status === "succeeded") {
             const rawUrl: string = Array.isArray(pollData.output)
@@ -519,18 +533,25 @@ export async function generateVideo(req: GenerationRequest): Promise<GenerationR
 
 export async function generateAudio(req: GenerationRequest): Promise<GenerationResult> {
     if (!HF_API_KEY) {
-        throw new Error("HUGGINGFACE_API_KEY is not configured.");
+        return {
+            type: "audio",
+            backend: "unavailable",
+            model: req.model || "facebook/musicgen-small",
+            text: "Audio generation is not available yet because HUGGINGFACE_API_KEY is not configured. Configure a backend to generate audio assets.",
+            prompt: req.prompt,
+            createdAt: new Date().toISOString(),
+        };
     }
 
     const model = validateModelId(req.model || "facebook/musicgen-small");
-    const res = await fetch(`${HF_API_URL}/${model}`, {
+    const res = await fetchWithRetry(`${HF_API_URL}/${model}`, {
         method: "POST",
         headers: {
             Authorization: "Bearer " + HF_API_KEY,
             "Content-Type": "application/json",
         },
         body: JSON.stringify({inputs: req.prompt}),
-    });
+    }, {provider: "huggingface", retries: 2, timeoutMs: 30_000});
 
     if (!res.ok) {
         const msg = await res.text();
@@ -552,33 +573,49 @@ export async function generateAudio(req: GenerationRequest): Promise<GenerationR
 }
 
 async function callFreeChat(messages: Array<{role: string; content: string}>, model: string): Promise<{text: string; backend: string}> {
+    const attempts: Array<{provider: string; error: string}> = [];
+
     if (OPENROUTER_API_KEY) {
-        return {
-            text: await callOpenRouterChat(
-                messages,
-                model,
-                {
-                    apiKey: OPENROUTER_API_KEY,
-                    httpReferer: "https://trezzhaus.com",
-                    appTitle: "Lumi — Trezzhaus AI",
-                    appCategories: "cli-agent,cloud-agent",
-                }
-            ),
-            backend: "openrouter",
-        };
+        try {
+            return {
+                text: await callOpenRouterChat(
+                    messages,
+                    model,
+                    {
+                        apiKey: OPENROUTER_API_KEY,
+                        httpReferer: "https://trezzhaus.com",
+                        appTitle: "Lumi — Trezzhaus AI",
+                        appCategories: "cli-agent,cloud-agent",
+                    }
+                ),
+                backend: "openrouter",
+            };
+        } catch (error) {
+            attempts.push({provider: "openrouter", error: error instanceof Error ? error.message : String(error)});
+        }
     }
 
     if (process.env.NVIDIA_API_BASE || process.env.NVIDIA_BASE_URL) {
-        return {
-            text: await callNvidiaChat(messages, model, {
-                apiKey: process.env.NVIDIA_API_KEY || "",
-                apiBase: process.env.NVIDIA_API_BASE || process.env.NVIDIA_BASE_URL || "",
-            }),
-            backend: "nvidia",
-        };
+        try {
+            return {
+                text: await callNvidiaChat(messages, model, {
+                    apiKey: process.env.NVIDIA_API_KEY || "",
+                    apiBase: process.env.NVIDIA_API_BASE || process.env.NVIDIA_BASE_URL || "",
+                }),
+                backend: "nvidia",
+            };
+        } catch (error) {
+            attempts.push({provider: "nvidia", error: error instanceof Error ? error.message : String(error)});
+        }
     }
 
-    throw new Error("No free chat provider configured. Set OPENROUTER_API_KEY or NVIDIA_API_BASE.");
+    const detail = attempts.map(entry => `${entry.provider}: ${entry.error}`).join("; ");
+    return {
+        text: detail
+            ? `Lumi is running in fallback mode because the primary chat providers failed: ${detail}`
+            : "Lumi is running in fallback mode because no free chat provider is configured. Configure OPENROUTER_API_KEY or NVIDIA_API_BASE for full chat responses.",
+        backend: "fallback",
+    };
 }
 
 // ---------------------------------------------------------------------------

@@ -1,3 +1,5 @@
+import {fetchWithRetry} from "./lumi-runtime";
+
 type NvidiaMessage = { role: string; content: string };
 
 export interface NvidiaChatOptions {
@@ -130,7 +132,7 @@ export async function callNvidiaChat(
     const headers: Record<string, string> = {"Content-Type": "application/json"};
     if (apiKey) headers.Authorization = "Bearer " + apiKey;
 
-    const response = await fetch(url, {
+    const response = await fetchWithRetry(url, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -140,7 +142,7 @@ export async function callNvidiaChat(
             temperature: 0,
             seed: 42,
         }),
-    });
+    }, {provider: "nvidia", retries: 2, timeoutMs: 20_000});
 
     if (!response.ok) {
         const text = await response.text();
@@ -175,7 +177,7 @@ export async function callNvidiaVideoGeneration(
 
     const endpoint = process.env.NVIDIA_VIDEO_PATH || "/video/generations";
     const url = buildNvidiaUrl(apiBase, endpoint);
-    const response = await fetch(url, {method: "POST", headers, body: JSON.stringify(payload)});
+    const response = await fetchWithRetry(url, {method: "POST", headers, body: JSON.stringify(payload)}, {provider: "nvidia", retries: 2, timeoutMs: 20_000});
 
     if (!response.ok) {
         const text = await response.text();

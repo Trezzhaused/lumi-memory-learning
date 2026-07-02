@@ -223,6 +223,16 @@ Invoke-RestMethod -Method Post -Uri http://localhost:3001/api/lumi/local-studio/
 
 The endpoint writes a `scenes.json` manifest, a `pipeline-plan.json` file, and a `run-local-studio.sh` helper into `output/local-studio/` so the workflow can be reviewed before execution. The Docker web UI also renders a scene-preview gallery with a character selector so you can inspect the manifest before launching the stack.
 
+### Production-ready quickstart
+
+- Local desktop use: start the default browser-friendly stack with `docker compose -f docker/docker-compose.local-studio.yml up -d --build`.
+- Cloud GPU / heavier voice workflows: add the `voice` profile with `docker compose -f docker/docker-compose.local-studio.yml --profile voice up -d --build` when you want Whisper and RVC services.
+- One-click deployment path: use the compose stack as the baseline for a cloud GPU host, then point the app at your cloud-hosted model endpoints (NVIDIA, OpenRouter, Hugging Face, etc.).
+
+Status summary:
+- Fully working now: chat routing, prompt enhancement, memory fallback, local-studio plan generation, speech formatting, and guardrails.
+- Experimental / requires external setup: full cloud-provider generation, GPU-backed local video generation, and voice-stack execution.
+
 ### Autonomy note
 
 Lumi can orchestrate a fully self-hosted local studio workflow without Claude or OpenRouter, but not every step is truly "API-free" unless you also self-host the generation models. The new stack is designed for local-first execution with Docker containers and local model weights, while the existing `POST /api/lumi/generate` path still supports external providers when they are configured.

@@ -1,3 +1,5 @@
+import {withRetry} from "./lumi-runtime";
+
 type OpenRouterMessage = { role: string; content: string };
 
 function extractTextContent(value: unknown): string {
@@ -38,7 +40,7 @@ export async function callOpenRouterChat(
     };
     const client = new OpenRouter(clientOptions);
 
-    const result = await client.chat.send({
+    const result = await withRetry(async () => client.chat.send({
         ...clientOptions,
         chatRequest: {
             model,
@@ -50,7 +52,7 @@ export async function callOpenRouterChat(
             temperature: 0,
             seed: 42,
         },
-    });
+    }), {provider: "openrouter", retries: 2, timeoutMs: 20_000});
 
     const choice = result.choices?.[0];
     return extractTextContent(choice?.message?.content);

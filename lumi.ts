@@ -33,6 +33,7 @@ import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 import {isLocalToolExecutionEnabled, runWorkspaceCommand, writeWorkspaceFile} from "./lumi-tools";
 import {callNvidiaChat} from "./nvidia";
 import {buildGuardrailSystemPrompt, evaluateGuardrailRequest, logGuardrailDecision, normalizeGuardedResponse} from "./lumi-guardrails";
+import {formatProviderError} from "./lumi-runtime";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -40,7 +41,7 @@ import {buildGuardrailSystemPrompt, evaluateGuardrailRequest, logGuardrailDecisi
 
 export const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 export const OPENROUTER_API_URL = "https://openrouter.ai/api/v1";
-export const OLLAMA_HOST = process.env.OLLAMA_HOST || "";
+export const OLLAMA_HOST = process.env.OLLAMA_HOST || "http://127.0.0.1:11434";
 export const NVIDIA_API_BASE = process.env.NVIDIA_API_BASE || process.env.NVIDIA_BASE_URL || "";
 export const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY || "";
 export const NVIDIA_CHAT_MODEL = process.env.NVIDIA_CHAT_MODEL || "";
@@ -256,16 +257,20 @@ async function openRouterChat(
 ): Promise<string> {
     if (!OPENROUTER_API_KEY) {
         return (
-            "Hi, I'm Lumi! I'm not yet fully connected — please configure " +
-            "OPENROUTER_API_KEY to activate my full intelligence. I'm here and ready to help!"
+            "Hi, I'm Lumi! I'm running in a degraded mode because OPENROUTER_API_KEY is not configured. " +
+            "I can still help with structured guidance, but full model-backed replies need a provider key."
         );
     }
-    return callOpenRouterChat(messages, model, {
-        apiKey: OPENROUTER_API_KEY,
-        httpReferer: "https://trezzhaus.com",
-        appTitle: "Lumi — Trezzhaus AI",
-        appCategories: "cli-agent,cloud-agent",
-    });
+    try {
+        return await callOpenRouterChat(messages, model, {
+            apiKey: OPENROUTER_API_KEY,
+            httpReferer: "https://trezzhaus.com",
+            appTitle: "Lumi — Trezzhaus AI",
+            appCategories: "cli-agent,cloud-agent",
+        });
+    } catch (error) {
+        throw new Error(formatProviderError(error, "openrouter"));
+    }
 }
 
 async function nvidiaChat(
@@ -275,10 +280,14 @@ async function nvidiaChat(
     if (!NVIDIA_API_BASE) {
         throw new Error("NVIDIA_API_BASE is not configured.");
     }
-    return callNvidiaChat(messages, model, {
-        apiKey: NVIDIA_API_KEY,
-        apiBase: NVIDIA_API_BASE,
-    });
+    try {
+        return await callNvidiaChat(messages, model, {
+            apiKey: NVIDIA_API_KEY,
+            apiBase: NVIDIA_API_BASE,
+        });
+    } catch (error) {
+        throw new Error(formatProviderError(error, "nvidia"));
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -390,6 +399,16 @@ async function buildSystemPrompt(message: string, domain: string, externalSource
 // Core chat function (Studio-compatible)
 // ---------------------------------------------------------------------------
 
+export function resolveChatBackendSelection(req: LumiChatRequest): {kind: "ollama" | "nvidia" | "openrouter" | "degraded"; model: string} {
+    if (req.useOllama && OLLAMA_HOST) {
+        return {kind: "ollama", model: req.ollamaModel || "mistral"};
+    }
+    if (NVIDIA_API_BASE) {
+        return {kind: "nvidia", model: NVIDIA_CHAT_MODEL || DEFAULT_CHAT_MODEL};
+    }
+    return {kind: OPENROUTER_API_KEY ? "openrouter" : "degraded", model: DEFAULT_CHAT_MODEL};
+}
+
 export async function lumiChat(
     req: LumiChatRequest,
     sessionId?: string,
@@ -438,24 +457,41 @@ export async function lumiChat(
         conversationManager.addMessage(session.id, "user", req.message);
     }
 
-    let responseText: string;
+    let responseText = "";
     let usedModel = DEFAULT_CHAT_MODEL;
+    const backendSelection = resolveChatBackendSelection(req);
 
-    if (req.useOllama && OLLAMA_HOST) {
-        usedModel = req.ollamaModel || "mistral";
+    if (backendSelection.kind === "ollama") {
+        usedModel = backendSelection.model;
         responseText = await ollamaChat(messages, usedModel);
-    } else if (NVIDIA_API_BASE) {
-        const nvidiaModel = NVIDIA_CHAT_MODEL || DEFAULT_CHAT_MODEL;
-        try {
-            responseText = await nvidiaChat(messages, nvidiaModel);
-            usedModel = nvidiaModel;
-        } catch (error) {
-            console.warn("[Lumi] NVIDIA chat failed, falling back to OpenRouter:", error);
-            responseText = await openRouterChat(messages, DEFAULT_CHAT_MODEL);
-            usedModel = DEFAULT_CHAT_MODEL;
-        }
     } else {
-        responseText = await openRouterChat(messages, usedModel);
+        const failures: string[] = [];
+
+        if (backendSelection.kind === "nvidia") {
+            try {
+                responseText = await nvidiaChat(messages, backendSelection.model);
+                usedModel = backendSelection.model;
+            } catch (error) {
+                const detail = error instanceof Error ? error.message : String(error);
+                failures.push(detail);
+                console.warn("[Lumi] NVIDIA chat failed, falling back to OpenRouter:", error);
+            }
+        }
+
+        if (!responseText) {
+            try {
+                responseText = await openRouterChat(messages, backendSelection.model);
+                usedModel = DEFAULT_CHAT_MODEL;
+            } catch (error) {
+                const detail = error instanceof Error ? error.message : String(error);
+                failures.push(detail);
+                console.warn("[Lumi] OpenRouter chat failed, using degraded fallback:", error);
+                responseText = failures.length > 0
+                    ? `Lumi is running in degraded mode. The providers were unavailable: ${failures.join(" | ")}`
+                    : "Lumi is running in degraded mode because no chat provider is available right now.";
+                usedModel = "degraded-fallback";
+            }
+        }
     }
 
     const normalizedResponse = normalizeGuardedResponse(responseText);

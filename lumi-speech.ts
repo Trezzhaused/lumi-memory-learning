@@ -1,6 +1,7 @@
 import {promises as fs} from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import {fetchWithRetry} from "./lumi-runtime";
 
 export interface SpeechTranscriptionResult {
     ok: boolean;
@@ -63,11 +64,11 @@ export async function transcribeAudio(audioBase64: string, mimeType = "audio/web
             formData.append("model", OPENAI_STT_MODEL);
             formData.append("response_format", "text");
 
-            const res = await fetch(`${OPENAI_API_URL}/audio/transcriptions`, {
+            const res = await fetchWithRetry(`${OPENAI_API_URL}/audio/transcriptions`, {
                 method: "POST",
                 headers: {Authorization: "Bearer " + OPENAI_API_KEY},
                 body: formData as any,
-            });
+            }, {provider: "openai-stt", retries: 2, timeoutMs: 30_000});
 
             if (!res.ok) {
                 const text = await res.text();
@@ -94,7 +95,7 @@ export async function speakText(text: string, options: {voice?: string; format?:
 
     if (OPENAI_API_KEY) {
         try {
-            const res = await fetch(`${OPENAI_API_URL}/audio/speech`, {
+            const res = await fetchWithRetry(`${OPENAI_API_URL}/audio/speech`, {
                 method: "POST",
                 headers: {
                     Authorization: "Bearer " + OPENAI_API_KEY,
@@ -106,7 +107,7 @@ export async function speakText(text: string, options: {voice?: string; format?:
                     voice: options.voice || "alloy",
                     response_format: options.format || "mp3",
                 }),
-            });
+            }, {provider: "openai-tts", retries: 2, timeoutMs: 30_000});
 
             if (!res.ok) {
                 const errorText = await res.text();
