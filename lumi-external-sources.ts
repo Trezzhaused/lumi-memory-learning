@@ -41,8 +41,13 @@ const DEFAULT_EXTERNAL_SOURCES: ExternalBrowserSource[] = [
     },
 ];
 
+function normalizeExternalSourceId(sourceId: string): string {
+    return typeof sourceId === "string" ? sourceId.trim().toLowerCase() : "";
+}
+
 function isKnownExternalSource(sourceId: string): boolean {
-    return DEFAULT_EXTERNAL_SOURCES.some(source => source.id === sourceId);
+    const normalizedSourceId = normalizeExternalSourceId(sourceId);
+    return DEFAULT_EXTERNAL_SOURCES.some(source => source.id === normalizedSourceId);
 }
 
 function isAutomationConfigured(): boolean {
@@ -70,7 +75,7 @@ export async function queryExternalBrowserSource(
     query: string,
     options: {goal?: string; sessionMode?: string} = {}
 ): Promise<ExternalBrowserSourceQueryResult> {
-    const normalizedSourceId = typeof sourceId === "string" ? sourceId.trim() : "";
+    const normalizedSourceId = normalizeExternalSourceId(sourceId);
     if (!normalizedSourceId || !isKnownExternalSource(normalizedSourceId)) {
         return {
             sourceId: normalizedSourceId || (typeof sourceId === "string" ? sourceId : ""),
@@ -157,9 +162,10 @@ export function getExternalBrowserSources(): ExternalBrowserSource[] {
 }
 
 export function buildExternalBrowserSourceContext(requestedSources: string[] = []): string | null {
+    const normalizedRequestedSources = requestedSources.map(source => normalizeExternalSourceId(source));
     const selectedSources = getExternalBrowserSources().filter(source => {
-        if (!requestedSources.length) return true;
-        return requestedSources.includes(source.id);
+        if (!normalizedRequestedSources.length) return true;
+        return normalizedRequestedSources.includes(source.id);
     });
 
     if (!selectedSources.length) return null;
@@ -184,9 +190,10 @@ export function planExternalBrowserSources(
     requestedSources: string[] = [],
     options: {goal?: string; sessionMode?: string} = {}
 ): ExternalBrowserSourcePlan {
+    const normalizedRequestedSources = requestedSources.map(source => normalizeExternalSourceId(source));
     const sources = getExternalBrowserSources().filter(source => {
-        if (!requestedSources.length) return true;
-        return requestedSources.includes(source.id);
+        if (!normalizedRequestedSources.length) return true;
+        return normalizedRequestedSources.includes(source.id);
     });
 
     const automationConfigured = isAutomationConfigured();
@@ -195,7 +202,7 @@ export function planExternalBrowserSources(
         : "No browser automation endpoint is configured yet; the workflow should treat these sources as manual or future-backed research steps.";
 
     return {
-        requestedSources: requestedSources.length ? requestedSources : sources.map(source => source.id),
+        requestedSources: normalizedRequestedSources.length ? normalizedRequestedSources : sources.map(source => source.id),
         sources,
         automationConfigured,
         workflowNote,

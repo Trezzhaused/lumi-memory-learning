@@ -21,3 +21,19 @@ test("unknown external browser sources fail cleanly", async () => {
   assert.equal(result.usedBackend, "manual");
   assert.match(result.error, /Unknown external browser source/i);
 });
+
+test("Yuanbao lookups are case-insensitive", async () => {
+  const result = await queryExternalBrowserSource("YUANBAO", "summarize this request");
+
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 503);
+  assert.equal(result.usedBackend, "manual");
+  assert.match(result.error, /No browser automation endpoint is configured/i);
+});
+
+test("source planning accepts mixed-case source IDs", () => {
+  const plan = require("../dist/lumi-external-sources").planExternalBrowserSources(["YUANBAO"]);
+
+  assert.deepEqual(plan.requestedSources, ["yuanbao"]);
+  assert.equal(plan.sources[0].id, "yuanbao");
+});
