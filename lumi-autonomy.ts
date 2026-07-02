@@ -1,6 +1,6 @@
 import {queryExternalBrowserSource} from "./lumi-external-sources";
 
-export type AutonomyMode = "research-before-create" | "business-automation" | "local-maintenance" | "sovereign-autonomy" | "scheduled-automation" | "general";
+export type AutonomyMode = "research-before-create" | "business-automation" | "local-maintenance" | "finance-maintenance" | "sovereign-autonomy" | "scheduled-automation" | "general";
 
 export interface AutonomyPlanStep {
     id: string;
@@ -42,14 +42,38 @@ function isScheduledAutomationPrompt(prompt: string): boolean {
     return markers.some((marker) => marker.test(normalized));
 }
 
-function isSovereignAutonomyPrompt(prompt: string): boolean {
+function isFinanceMaintenancePrompt(prompt: string): boolean {
     const normalized = (prompt || "").trim().toLowerCase();
     if (!normalized) return false;
 
-    const securityMarkers = /\b(sovereign|self-hosted|self hosted|independence|autonomy|secure|security|authentication|auth|webhook|token|n8n|windows|chat trigger|listener|offline|local-first|local first)\b/i;
-    const executionMarkers = /\b(audio|video|image|document|pdf|spreadsheet|voice|workflow|pipeline|tool|agent|database|schema|server|host|endpoint|mesh|loop|self-healing|self healing)\b/i;
+   const markers = [
+       /\bledger\b/i,
+       /\baudit\b/i,
+       /\bfinance\b/i,
+       /\bfinancial\b/i,
+       /\bwallet\b/i,
+       /\brunway\b/i,
+       /\bscan\b/i,
+       /\bfilesystem\b/i,
+       /\bfile system\b/i,
+       /\bsyntax\b/i,
+       /\bbug\b/i,
+       /\bmaintenance\b/i,
+       /\bcleanup\b/i,
+       /\bdefrag\b/i,
+   ];
 
-    return securityMarkers.test(normalized) && executionMarkers.test(normalized);
+   return markers.some((marker) => marker.test(normalized));
+}
+
+function isSovereignAutonomyPrompt(prompt: string): boolean {
+   const normalized = (prompt || "").trim().toLowerCase();
+   if (!normalized) return false;
+ 
+   const securityMarkers = /\b(sovereign|self-hosted|self hosted|independence|autonomy|secure|security|authentication|auth|webhook|token|n8n|windows|chat trigger|listener|offline|local-first|local first)\b/i;
+   const executionMarkers = /\b(audio|video|image|document|pdf|spreadsheet|voice|workflow|pipeline|tool|agent|database|schema|server|host|endpoint|mesh|loop|self-healing|self healing)\b/i;
+ 
+   return securityMarkers.test(normalized) && executionMarkers.test(normalized);
 }
 
 export function buildAutonomyPlan(prompt: string, options: {workspaceRoot?: string} = {}): AutonomyPlan {
@@ -60,6 +84,7 @@ export function buildAutonomyPlan(prompt: string, options: {workspaceRoot?: stri
     const isResearchBeforeCreate = /\b(create|build|make|design|ship|launch|clone|prototype|draft|website|app|landing page|dashboard|product|system)\b/i.test(lower)
         && /\b(like|similar|inspired by|based on|clone of|modeled after|as|copy of)\b/i.test(lower);
     const isScheduledAutomation = isScheduledAutomationPrompt(normalized);
+    const isFinanceMaintenance = isFinanceMaintenancePrompt(normalized);
     const isBusinessAutomation = /\b(inventory|pricing|price|stock|sales|business|crm|slack|airtable|competitor|market)\b/i.test(lower);
     const isLocalMaintenance = /\b(clean|defrag|disk|repair|virus|scan|maintenance|windows|computer|optimize|cleanup)\b/i.test(lower);
 
@@ -154,6 +179,50 @@ export function buildAutonomyPlan(prompt: string, options: {workspaceRoot?: stri
                 "Do not perform destructive actions or unrestricted external publishing without explicit approval.",
                 "Do not execute owner-side actions without a review gate or owner confirmation.",
                 "Keep schedulers and connectors as optional deployment recipes until the workflow is validated.",
+            ],
+            requiresExternalResearch: false,
+        };
+    }
+
+    if (isFinanceMaintenance) {
+        return {
+            mode: "finance-maintenance",
+            prompt: normalized,
+            summary: "Finance and maintenance plan for ledger audits, local scans, and reviewable upkeep loops.",
+            steps: [
+                {
+                    id: "finance-1",
+                    title: "Inspect the ledger or scan target",
+                    kind: "analysis",
+                    detail: "Confirm the target ledger file, folder, or data source before running any audit or scan workflow.",
+                    safe: true,
+                },
+                {
+                    id: "finance-2",
+                    title: "Prepare a bounded execution context",
+                    kind: "maintenance",
+                    detail: "Create or reuse a local output path and keep the execution scope limited to the approved example bundle.",
+                    safe: true,
+                },
+                {
+                    id: "finance-3",
+                    title: "Run the audit or scan workflow",
+                    kind: "workspace",
+                    detail: "Execute the approved local example script through the guardrailed action bridge and capture the results.",
+                    safe: true,
+                },
+                {
+                    id: "finance-4",
+                    title: "Review the result and decide the follow-up",
+                    kind: "review",
+                    detail: "Inspect the report, flag any follow-up work, and route repair or publication actions through the existing approval gates.",
+                    safe: true,
+                },
+            ],
+            safetyNotes: [
+                "Do not delete, overwrite, or publish files without explicit approval.",
+                "Keep file-system scans and ledger audits inside the approved workspace and example bundle.",
+                "Require owner confirmation before any owner-side repair or external publishing loop.",
             ],
             requiresExternalResearch: false,
         };

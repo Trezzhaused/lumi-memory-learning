@@ -706,10 +706,15 @@ async function buildMissionPlan(prompt: string, policy: MissionPolicy): Promise<
                     {name: autonomyPlan.steps[0].title, capability: "document", workerId: "lumi-core", targetFiles: []},
                     {name: "Prepare the automation handoff", capability: "document", workerId: "lumi-core", targetFiles: []},
                 ]
-                : [
-                    {name: "Inspect the request", capability: "search", workerId: "lumi-core", targetFiles: []},
-                    {name: "Create a concrete deliverable", capability: "document", workerId: "lumi-core", targetFiles: []},
-                ];
+                : autonomyPlan.mode === "finance-maintenance"
+                    ? [
+                        {name: autonomyPlan.steps[0].title, capability: "document", workerId: "lumi-core", targetFiles: []},
+                        {name: "Review the maintenance report", capability: "document", workerId: "lumi-core", targetFiles: []},
+                    ]
+                    : [
+                        {name: "Inspect the request", capability: "search", workerId: "lumi-core", targetFiles: []},
+                        {name: "Create a concrete deliverable", capability: "document", workerId: "lumi-core", targetFiles: []},
+                    ];
 
     const planPrompt =
         `You are a mission planner. Decompose the following objective into ${Math.max(1, policy.maxSteps)} concrete jobs. ` +

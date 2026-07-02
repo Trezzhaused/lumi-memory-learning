@@ -49,7 +49,7 @@ const EXECUTABLES = new Map<string, string>([
 const CLOUD_TOOL_REQUESTS_ENABLED = process.env.LUMI_ALLOW_CLOUD_TOOL_REQUESTS === "true";
 const REMOTE_OWNER_RUNTIME_URL = process.env.LUMI_REMOTE_OWNER_RUNTIME_URL || "";
 const REMOTE_OWNER_RUNTIME_TOKEN = process.env.LUMI_REMOTE_OWNER_RUNTIME_TOKEN || "";
-const ALLOWED_ACTIONS = new Set(["write-file", "run-command", "remote-owner-runtime"]);
+const ALLOWED_ACTIONS = new Set(["write-file", "run-command", "run-example-script", "remote-owner-runtime"]);
 
 function resolveWorkspacePath(relativePath: string): string {
     if (!relativePath || relativePath.includes("\0")) {
@@ -238,6 +238,36 @@ export async function runWorkspaceCommand(command: string, args: string[] = [], 
     });
 }
 
+export async function runExampleScript(scriptName: string, options: {cwd?: string; args?: string[]} = {}): Promise<LocalExecutionResult> {
+    if (!TOOL_EXECUTION_ENABLED) {
+        return {
+            ok: false,
+            blocked: true,
+            message: "Local tool execution is disabled. Set LUMI_ALLOW_LOCAL_TOOL_EXECUTION=true to enable it.",
+        };
+    }
+
+    const normalizedScriptName = path.basename(scriptName || "");
+    if (!normalizedScriptName || !normalizedScriptName.endsWith(".py")) {
+        return {ok: false, blocked: true, message: "scriptName must be a .py file."};
+    }
+
+    const examplesRoot = path.resolve(TOOL_EXECUTION_ROOT, ".data", "examples");
+    const candidateScriptPath = path.resolve(examplesRoot, normalizedScriptName);
+    const relativeToExamples = path.relative(examplesRoot, candidateScriptPath);
+    if (relativeToExamples.startsWith("..") || path.isAbsolute(relativeToExamples)) {
+        return {ok: false, blocked: true, message: "scriptName resolves outside of the example bundle."};
+    }
+
+    try {
+        await fs.access(candidateScriptPath);
+    } catch {
+        return {ok: false, blocked: true, message: `Example script ${normalizedScriptName} does not exist.`};
+    }
+
+    return runWorkspaceCommand("python", [candidateScriptPath, ...(options.args || [])], {cwd: options.cwd || TOOL_EXECUTION_ROOT});
+}
+
 export async function dispatchToRemoteOwnerRuntime(request: RuntimeActionRequest): Promise<LocalExecutionResult> {
     if (!REMOTE_OWNER_RUNTIME_URL) {
         return {
@@ -347,6 +377,19 @@ export async function executeApprovedAction(request: RuntimeActionRequest): Prom
             return {ok: false, blocked: true, message: "command is required for run-command actions."};
         }
         return runWorkspaceCommand(command, args, {cwd: typeof request.parameters?.cwd === "string" ? request.parameters.cwd : undefined});
+    }
+
+    if (request.action === "run-example-script") {
+        const scriptName = typeof request.parameters?.scriptName === "string"
+            ? request.parameters.scriptName
+            : "";
+        const args = Array.isArray(request.parameters?.args) && request.parameters.args.every(item => typeof item === "string")
+            ? request.parameters.args
+            : [];
+        if (!scriptName) {
+            return {ok: false, blocked: true, message: "scriptName is required for run-example-script actions."};
+        }
+        return runExampleScript(scriptName, {cwd: typeof request.parameters?.cwd === "string" ? request.parameters.cwd : undefined, args});
     }
 
     return {ok: false, blocked: true, message: `Unsupported action: ${request.action}`};

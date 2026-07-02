@@ -34,3 +34,12 @@ test("scheduled automation prompts produce a reviewable workflow plan", () => {
   assert.ok(plan.safetyNotes.some(note => /approval/i.test(note)));
   assert.ok(plan.safetyNotes.some(note => /publishing/i.test(note)));
 });
+
+test("finance and maintenance prompts produce a guardrailed audit plan", () => {
+  const plan = buildAutonomyPlan("Audit the ledger and scan local files for syntax bugs and maintenance issues");
+  assert.equal(plan.mode, "finance-maintenance");
+  assert.ok(plan.steps.some(step => /ledger|scan/i.test(step.title)));
+  assert.ok(plan.steps.some(step => /execution|workflow/i.test(step.title)));
+  assert.ok(plan.steps.some(step => /review/i.test(step.title)));
+  assert.ok(plan.safetyNotes.some(note => /approval/i.test(note)));
+});
