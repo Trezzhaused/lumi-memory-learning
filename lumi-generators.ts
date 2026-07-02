@@ -54,6 +54,7 @@ export interface GenerationRequest {
     model?: string;
     language?: string; // for code generation
     duration?: number; // seconds, for audio/video
+    provider?: "auto" | "fal" | "hunyuan" | "replicate";
 }
 
 export interface GenerationResult {
@@ -435,13 +436,28 @@ export async function generateVideoReplicate(req: GenerationRequest): Promise<Ge
  * then Hugging Face HunyuanVideo, then Replicate.
  */
 export async function generateVideo(req: GenerationRequest): Promise<GenerationResult> {
-    if (FAL_API_KEY) return generateVideoFal(req);
-    if (HF_API_KEY) return generateVideoHF(req);
-    if (REPLICATE_API_KEY) return generateVideoReplicate(req);
-    throw new Error(
-        "No video generation API key configured. " +
-        "Set FAL_KEY (primary), HUGGINGFACE_API_KEY (HunyuanVideo), or REPLICATE_API_KEY (fallback)."
-    );
+    switch (req.provider) {
+        case "fal":
+            if (!FAL_API_KEY) throw new Error("FAL_KEY is not configured.");
+            return generateVideoFal(req);
+        case "hunyuan":
+            if (!HF_API_KEY) throw new Error("HUGGINGFACE_API_KEY is not configured for HunyuanVideo.");
+            return generateVideoHF(req);
+        case "replicate":
+            if (!REPLICATE_API_KEY) throw new Error("REPLICATE_API_KEY is not configured.");
+            return generateVideoReplicate(req);
+        case undefined:
+        case "auto":
+            if (FAL_API_KEY) return generateVideoFal(req);
+            if (HF_API_KEY) return generateVideoHF(req);
+            if (REPLICATE_API_KEY) return generateVideoReplicate(req);
+            throw new Error(
+                "No video generation API key configured. " +
+                "Set FAL_KEY (primary), HUGGINGFACE_API_KEY (HunyuanVideo), or REPLICATE_API_KEY (fallback)."
+            );
+        default:
+            throw new Error(`Unsupported video provider: ${req.provider}`);
+    }
 }
 
 // ---------------------------------------------------------------------------

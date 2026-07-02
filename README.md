@@ -87,9 +87,12 @@ GET  /api/video/jobs          → { jobs: [VideoJob] }
 ### Generation (direct)
 ```
 POST /api/lumi/generate
-Body: { type: "image"|"video"|"audio"|"code"|"text"|"document", prompt, ...options }
+Body: { type: "image"|"video"|"audio"|"code"|"text"|"document", prompt, provider?, ...options }
 → GenerationResult { ..., artifact }
 ```
+
+For video requests, `provider` can be set to `"auto"` (default), `"fal"`, `"hunyuan"`, or `"replicate"`.
+Use `"hunyuan"` to explicitly target the Hugging Face-backed HunyuanVideo path when `HUGGINGFACE_API_KEY` is configured.
 
 GET /api/lumi/artifacts/:artifactId
 → downloads the stored artifact from local storage or redirects to R2
