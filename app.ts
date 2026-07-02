@@ -22,7 +22,7 @@ import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 import {getExternalBrowserSources, planExternalBrowserSources, queryExternalBrowserSource} from "./lumi-external-sources";
 import {runLocalStudioPipeline} from "./lumi-local-studio";
 import {buildAutonomyPlan, buildComparativeResearchContext} from "./lumi-autonomy";
-import {evaluateToolExecutionPolicy, executeApprovedAction, getExecutionPolicySnapshot} from "./lumi-tools";
+import {evaluateToolExecutionPolicy, executeApprovedAction, getExecutionPolicySnapshot, getRemoteOwnerRuntimeStatus} from "./lumi-tools";
 
 // ============================================================================
 // App setup
@@ -165,6 +165,7 @@ lumiRouter.get("/bridge/status", (_req: Request, res: Response) => {
     res.json({
         mode: process.env.LUMI_BRIDGE_MODE || "disabled",
         execution: getExecutionPolicySnapshot(),
+        remoteOwnerRuntime: getRemoteOwnerRuntimeStatus(),
         publicChatAvailable: true,
     });
 });

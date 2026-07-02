@@ -29,16 +29,46 @@ export interface RuntimeActionPolicy {
     reason?: string;
 }
 
+export interface RemoteOwnerRuntimeStatus {
+    enabled: boolean;
+    endpointConfigured: boolean;
+    tokenConfigured: boolean;
+}
+
 const DEFAULT_WORKSPACE_ROOT = process.cwd();
 const TOOL_EXECUTION_ENABLED = process.env.LUMI_ALLOW_LOCAL_TOOL_EXECUTION === "true";
 const TOOL_EXECUTION_ROOT = process.env.LUMI_WORKSPACE_DIR || DEFAULT_WORKSPACE_ROOT;
 const ALLOWED_COMMANDS = new Set((process.env.LUMI_ALLOWED_TOOL_COMMANDS || "node,npm,pnpm,python,python3").split(",").map(value => value.trim()).filter(Boolean));
+const EXECUTABLES = new Map<string, string>([
+    ["node", process.execPath],
+    ["npm", "npm"],
+    ["pnpm", "pnpm"],
+    ["python", "python"],
+    ["python3", "python3"],
+]);
 const CLOUD_TOOL_REQUESTS_ENABLED = process.env.LUMI_ALLOW_CLOUD_TOOL_REQUESTS === "true";
-const ALLOWED_ACTIONS = new Set(["write-file", "run-command"]);
+const REMOTE_OWNER_RUNTIME_URL = process.env.LUMI_REMOTE_OWNER_RUNTIME_URL || "";
+const REMOTE_OWNER_RUNTIME_TOKEN = process.env.LUMI_REMOTE_OWNER_RUNTIME_TOKEN || "";
+const ALLOWED_ACTIONS = new Set(["write-file", "run-command", "remote-owner-runtime"]);
 
 function resolveWorkspacePath(relativePath: string): string {
+    if (!relativePath || relativePath.includes("\0")) {
+        throw new Error(`Invalid workspace path: ${relativePath}`);
+    }
+
+    const normalizedPath = relativePath.replace(/\\/g, "/").trim();
+    if (!normalizedPath || normalizedPath.startsWith("/") || normalizedPath.startsWith("./") || normalizedPath === ".") {
+        throw new Error(`Invalid workspace path: ${relativePath}`);
+    }
+
+    const segments = normalizedPath.split("/").filter(Boolean);
+    if (segments.some(segment => segment === "." || segment === "..")) {
+        throw new Error(`Refusing to write outside workspace root: ${relativePath}`);
+    }
+
+    const safeSegments = segments.map(segment => path.basename(segment));
     const workspaceRoot = path.resolve(TOOL_EXECUTION_ROOT);
-    const candidatePath = path.resolve(workspaceRoot, relativePath);
+    const candidatePath = path.resolve(workspaceRoot, ...safeSegments);
     const relative = path.relative(workspaceRoot, candidatePath);
     if (relative.startsWith("..") || path.isAbsolute(relative)) {
         throw new Error(`Refusing to write outside workspace root: ${relativePath}`);
@@ -56,11 +86,20 @@ export function isLocalToolExecutionEnabled(): boolean {
     return TOOL_EXECUTION_ENABLED;
 }
 
-export function getExecutionPolicySnapshot(): {localToolExecutionEnabled: boolean; cloudToolRequestsEnabled: boolean; allowedCommands: string[]} {
+export function getRemoteOwnerRuntimeStatus(): RemoteOwnerRuntimeStatus {
+    return {
+        enabled: Boolean(REMOTE_OWNER_RUNTIME_URL),
+        endpointConfigured: Boolean(REMOTE_OWNER_RUNTIME_URL),
+        tokenConfigured: Boolean(REMOTE_OWNER_RUNTIME_TOKEN),
+    };
+}
+
+export function getExecutionPolicySnapshot(): {localToolExecutionEnabled: boolean; cloudToolRequestsEnabled: boolean; allowedCommands: string[]; remoteOwnerRuntime: RemoteOwnerRuntimeStatus} {
     return {
         localToolExecutionEnabled: TOOL_EXECUTION_ENABLED,
         cloudToolRequestsEnabled: CLOUD_TOOL_REQUESTS_ENABLED,
         allowedCommands: [...ALLOWED_COMMANDS],
+        remoteOwnerRuntime: getRemoteOwnerRuntimeStatus(),
     };
 }
 
@@ -137,8 +176,17 @@ export async function runWorkspaceCommand(command: string, args: string[] = [], 
         };
     }
 
+    const resolvedExecutable = EXECUTABLES.get(executableName);
+    if (!resolvedExecutable) {
+        return {
+            ok: false,
+            blocked: false,
+            message: `Command ${executable} is not supported for local tool execution.`,
+        };
+    }
+
     return new Promise((resolve) => {
-        const child = spawn(executable, args, {
+        const child = spawn(resolvedExecutable, args, {
             cwd: options.cwd || TOOL_EXECUTION_ROOT,
             stdio: ["ignore", "pipe", "pipe"],
             shell: false,
@@ -190,6 +238,76 @@ export async function runWorkspaceCommand(command: string, args: string[] = [], 
     });
 }
 
+export async function dispatchToRemoteOwnerRuntime(request: RuntimeActionRequest): Promise<LocalExecutionResult> {
+    if (!REMOTE_OWNER_RUNTIME_URL) {
+        return {
+            ok: false,
+            blocked: true,
+            message: "Remote owner runtime is not configured. Set LUMI_REMOTE_OWNER_RUNTIME_URL to enable it.",
+            requiresApproval: true,
+        };
+    }
+
+    const headers: Record<string, string> = {
+        "content-type": "application/json",
+    };
+    if (REMOTE_OWNER_RUNTIME_TOKEN) {
+        headers.authorization = "Bearer " + REMOTE_OWNER_RUNTIME_TOKEN;
+    }
+
+    try {
+        const response = await fetch(REMOTE_OWNER_RUNTIME_URL, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+                action: request.action,
+                parameters: request.parameters || {},
+                source: request.source || "cloud",
+                sessionId: request.sessionId,
+            }),
+        });
+        const responseText = await response.text();
+        let parsedResponse: unknown = responseText;
+        if (responseText) {
+            try {
+                parsedResponse = JSON.parse(responseText);
+            } catch {
+                // Keep the raw response text when the connector does not return JSON.
+            }
+        }
+
+        if (!response.ok) {
+            const detail = typeof parsedResponse === "object" && parsedResponse !== null && "error" in parsedResponse
+                ? String((parsedResponse as {error?: unknown}).error)
+                : undefined;
+            return {
+                ok: false,
+                blocked: false,
+                message: detail || `Remote owner runtime returned HTTP ${response.status}`,
+                requiresApproval: false,
+            };
+        }
+
+        const message = typeof parsedResponse === "object" && parsedResponse !== null && "message" in parsedResponse
+            ? String((parsedResponse as {message?: unknown}).message)
+            : "Remote owner runtime accepted the request.";
+        return {
+            ok: true,
+            blocked: false,
+            message,
+            requiresApproval: false,
+        };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown remote owner runtime failure";
+        return {
+            ok: false,
+            blocked: false,
+            message,
+            requiresApproval: false,
+        };
+    }
+}
+
 export async function executeApprovedAction(request: RuntimeActionRequest): Promise<LocalExecutionResult> {
     const policy = evaluateToolExecutionPolicy(request.action, request.source || "local");
     if (!policy.allowed) {
@@ -199,6 +317,10 @@ export async function executeApprovedAction(request: RuntimeActionRequest): Prom
             message: policy.reason || "Action denied by policy.",
             requiresApproval: policy.requiresApproval,
         };
+    }
+
+    if (request.action === "remote-owner-runtime") {
+        return dispatchToRemoteOwnerRuntime(request);
     }
 
     if (request.action === "write-file") {

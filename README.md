@@ -249,6 +249,16 @@ LUMI can now be used in a hybrid mode:
 
 The shared LUMI chat core is used by both the local/internal API and the public browser API, while the bridge is the only pathway for approved owner-side actions.
 
+### Remote-owner runtime connector
+
+LUMI now includes a tiny remote-owner runtime connector for future owner-side execution over a networked endpoint. It is intentionally minimal and opt-in:
+
+- Set `LUMI_REMOTE_OWNER_RUNTIME_URL` to point the bridge at an HTTP endpoint that accepts JSON payloads.
+- Optional bearer auth can be supplied with `LUMI_REMOTE_OWNER_RUNTIME_TOKEN`.
+- Trigger it through the existing bridge with `action: "remote-owner-runtime"` and any parameters you need for the remote runtime.
+
+This is a good fit for future work such as a private Windows desktop listener, a Tailscale-backed owner bridge, or a remote execution service inside a self-hosted cloud stack.
+
 ## Safety and certification
 
 The repository now includes a bounded-autonomy safety package under `docs/` and `tests/` for documenting LUMI's whitepaper, threat model, and certification materials. Run the safety suite with:
