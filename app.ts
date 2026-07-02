@@ -459,7 +459,7 @@ lumiRouter.get("/external-sources", (_req: Request, res: Response) => {
 // POST /api/lumi/external-sources/plan
 lumiRouter.post("/external-sources/plan", (req: Request, res: Response) => {
     const {sources, goal, sessionMode} = req.body || {};
-    res.json(planExternalBrowserSources(Array.isArray(sources) ? sources : [], {goal, sessionMode}));
+    res.json(planExternalBrowserSources(sources, {goal, sessionMode}));
 });
 
 // POST /api/lumi/external-sources/query

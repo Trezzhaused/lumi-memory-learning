@@ -38,3 +38,10 @@ test("source planning accepts mixed-case source IDs", () => {
   assert.deepEqual(plan.requestedSources, ["yuanbao"]);
   assert.equal(plan.sources[0].id, "yuanbao");
 });
+
+test("source planning accepts a single source string", () => {
+  const plan = require("../dist/lumi-external-sources").planExternalBrowserSources("YUANBAO");
+
+  assert.deepEqual(plan.requestedSources, ["yuanbao"]);
+  assert.equal(plan.sources[0].id, "yuanbao");
+});

@@ -47,9 +47,15 @@ function normalizeExternalSourceId(sourceId: unknown): string {
     return typeof sourceId === "string" ? sourceId.trim().toLowerCase() : "";
 }
 
-function normalizeExternalSourceIds(sourceIds: unknown[]): string[] {
+function normalizeExternalSourceIds(sourceIds: unknown): string[] {
+    const sourceValues = typeof sourceIds === "string"
+        ? [sourceIds]
+        : Array.isArray(sourceIds)
+            ? sourceIds
+            : [];
+
     return Array.from(new Set(
-        (Array.isArray(sourceIds) ? sourceIds : [])
+        sourceValues
             .map(sourceId => normalizeExternalSourceId(sourceId))
             .filter(Boolean)
     ));
@@ -65,7 +71,7 @@ function isKnownExternalSource(sourceId: unknown): boolean {
     return DEFAULT_EXTERNAL_SOURCES.some(source => source.id === normalizedSourceId);
 }
 
-function getKnownRequestedSources(requestedSources: unknown[]): string[] {
+function getKnownRequestedSources(requestedSources: unknown): string[] {
     return normalizeExternalSourceIds(requestedSources).filter(sourceId => isKnownExternalSource(sourceId));
 }
 
@@ -180,7 +186,7 @@ export function getExternalBrowserSources(): ExternalBrowserSource[] {
     }));
 }
 
-export function buildExternalBrowserSourceContext(requestedSources: string[] = []): string | null {
+export function buildExternalBrowserSourceContext(requestedSources: unknown = []): string | null {
     const normalizedRequestedSources = getKnownRequestedSources(requestedSources);
     const selectedSources = getExternalBrowserSources().filter(source => {
         if (!normalizedRequestedSources.length) return true;
@@ -206,7 +212,7 @@ export function buildExternalBrowserSourceContext(requestedSources: string[] = [
 }
 
 export function planExternalBrowserSources(
-    requestedSources: string[] = [],
+    requestedSources: unknown = [],
     options: {goal?: string; sessionMode?: string} = {}
 ): ExternalBrowserSourcePlan {
     const normalizedRequestedSources = getKnownRequestedSources(requestedSources);
