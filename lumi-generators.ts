@@ -13,6 +13,9 @@
  * depending on the backend.
  */
 
+import {callOpenRouterChat} from "./openrouter";
+import {storeArtifact, StoredArtifact} from "./lumi-storage";
+
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
@@ -33,7 +36,7 @@ const OPENROUTER_API_URL = "https://openrouter.ai/api/v1";
 // Types
 // ---------------------------------------------------------------------------
 
-export type GeneratorType = "image" | "video" | "audio" | "code" | "3d";
+export type GeneratorType = "image" | "video" | "audio" | "code" | "3d" | "text" | "document";
 
 export interface GenerationRequest {
     type: GeneratorType;
@@ -58,10 +61,11 @@ export interface GenerationResult {
     mimeType?: string;
     /** URL to hosted output (video, replicate outputs) */
     url?: string;
-    /** Generated text (code) */
+    /** Generated text (code, text, document) */
     text?: string;
     prompt: string;
     createdAt: string;
+    artifact?: StoredArtifact;
 }
 
 // ---------------------------------------------------------------------------
@@ -104,7 +108,7 @@ function validateApiCallbackUrl(url: string, allowedHosts: string[]): string {
 
 /**
  * Generate an image via the Hugging Face Inference API (free tier).
- * Uses FLUX.1-schnell by default – one of the fastest free models.
+ * Uses FLUX.1-schnell by default — one of the fastest free models.
  */
 export async function generateImageHF(req: GenerationRequest): Promise<GenerationResult> {
     const model = validateModelId(req.model || "black-forest-labs/FLUX.1-schnell");
@@ -387,7 +391,7 @@ export async function generateVideo(req: GenerationRequest): Promise<GenerationR
 }
 
 // ---------------------------------------------------------------------------
-// Audio Generation (Hugging Face – facebook/musicgen-small)
+// Audio Generation (Hugging Face — facebook/musicgen-small)
 // ---------------------------------------------------------------------------
 
 export async function generateAudio(req: GenerationRequest): Promise<GenerationResult> {
@@ -425,7 +429,85 @@ export async function generateAudio(req: GenerationRequest): Promise<GenerationR
 }
 
 // ---------------------------------------------------------------------------
-// Code Generation (OpenRouter – routed to best free model)
+// Text Generation (OpenRouter — plain text)
+// ---------------------------------------------------------------------------
+
+export async function generateText(req: GenerationRequest): Promise<GenerationResult> {
+    if (!OPENROUTER_API_KEY) {
+        throw new Error("OPENROUTER_API_KEY is not configured.");
+    }
+
+    const model = validateModelId(req.model || "mistralai/mistral-7b-instruct:free");
+    const systemPrompt =
+        `You are Lumi, a polished writing assistant for the Trezzhaus platform. ` +
+        `Write concise, high-quality text for the user's request. ` +
+        `Return only the requested text, no markdown fences.`;
+
+    const responseText = await callOpenRouterChat(
+        [
+            {role: "system", content: systemPrompt},
+            {role: "user", content: req.prompt},
+        ],
+        model,
+        {
+            apiKey: OPENROUTER_API_KEY,
+            httpReferer: "https://trezzhaus.com",
+            appTitle: "Lumi — Trezzhaus AI",
+            appCategories: "cli-agent,cloud-agent",
+        }
+    );
+
+    return {
+        type: "text",
+        backend: "openrouter",
+        model,
+        text: responseText,
+        prompt: req.prompt,
+        createdAt: new Date().toISOString(),
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Document Generation (OpenRouter — markdown documents)
+// ---------------------------------------------------------------------------
+
+export async function generateDocument(req: GenerationRequest): Promise<GenerationResult> {
+    if (!OPENROUTER_API_KEY) {
+        throw new Error("OPENROUTER_API_KEY is not configured.");
+    }
+
+    const model = validateModelId(req.model || "mistralai/devstral-small:free");
+    const systemPrompt =
+        `You are Lumi, an expert document writer for the Trezzhaus platform. ` +
+        `Create a polished Markdown document that fulfills the request. ` +
+        `Return only the Markdown document, no markdown fences.`;
+
+    const responseText = await callOpenRouterChat(
+        [
+            {role: "system", content: systemPrompt},
+            {role: "user", content: req.prompt},
+        ],
+        model,
+        {
+            apiKey: OPENROUTER_API_KEY,
+            httpReferer: "https://trezzhaus.com",
+            appTitle: "Lumi — Trezzhaus AI",
+            appCategories: "cli-agent,cloud-agent",
+        }
+    );
+
+    return {
+        type: "document",
+        backend: "openrouter",
+        model,
+        text: responseText,
+        prompt: req.prompt,
+        createdAt: new Date().toISOString(),
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Code Generation (OpenRouter — routed to best free model)
 // ---------------------------------------------------------------------------
 
 export async function generateCode(req: GenerationRequest): Promise<GenerationResult> {
@@ -439,39 +521,77 @@ export async function generateCode(req: GenerationRequest): Promise<GenerationRe
         `Write clean, complete, well-commented ${req.language || "TypeScript"} code. ` +
         `Return ONLY the code, no markdown fences.`;
 
-    const res = await fetch(`${OPENROUTER_API_URL}/chat/completions`, {
-        method: "POST",
-        headers: {
-            Authorization: "Bearer " + OPENROUTER_API_KEY,
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://trezzhaus.com",
-            "X-Title": "Lumi \u2013 Trezzhaus AI",
-        },
-        body: JSON.stringify({
-            model,
-            messages: [
-                {role: "system", content: systemPrompt},
-                {role: "user", content: req.prompt},
-            ],
-        }),
-    });
-
-    if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(`OpenRouter code generation failed (${res.status}): ${msg}`);
-    }
-
-    const json: any = await res.json();
-    const text: string = json.choices?.[0]?.message?.content || "";
+    const responseText = await callOpenRouterChat(
+        [
+            {role: "system", content: systemPrompt},
+            {role: "user", content: req.prompt},
+        ],
+        model,
+        {
+            apiKey: OPENROUTER_API_KEY,
+            httpReferer: "https://trezzhaus.com",
+            appTitle: "Lumi — Trezzhaus AI",
+            appCategories: "cli-agent,cloud-agent",
+        }
+    );
 
     return {
         type: "code",
         backend: "openrouter",
         model,
-        text,
+        text: responseText,
         prompt: req.prompt,
         createdAt: new Date().toISOString(),
     };
+}
+
+async function persistGenerationResult(result: GenerationResult): Promise<GenerationResult> {
+    try {
+        if (result.type === "image" || result.type === "audio") {
+            if (!result.data) return result;
+            const artifact = await storeArtifact({
+                kind: result.type,
+                filename: `${result.type}-${Date.now()}`,
+                mimeType: result.mimeType || (result.type === "image" ? "image/png" : "audio/flac"),
+                buffer: Buffer.from(result.data, "base64"),
+            });
+            return {
+                ...result,
+                artifact: artifact || undefined,
+            };
+        }
+
+        if (result.type === "video" && result.url) {
+            const artifact = await storeArtifact({
+                kind: "video",
+                filename: `video-${Date.now()}`,
+                mimeType: result.mimeType || "video/mp4",
+                sourceUrl: result.url,
+            });
+            return {
+                ...result,
+                artifact: artifact || undefined,
+            };
+        }
+
+        if ((result.type === "text" || result.type === "document" || result.type === "code") && result.text) {
+            const mimeType = result.type === "document" ? "text/markdown" : "text/plain";
+            const artifact = await storeArtifact({
+                kind: result.type,
+                filename: `${result.type}-${Date.now()}`,
+                mimeType,
+                content: result.text,
+            });
+            return {
+                ...result,
+                artifact: artifact || undefined,
+            };
+        }
+    } catch (error) {
+        console.warn("[Lumi Generators] Failed to persist generated artifact:", error);
+    }
+
+    return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -479,12 +599,19 @@ export async function generateCode(req: GenerationRequest): Promise<GenerationRe
 // ---------------------------------------------------------------------------
 
 export async function generate(req: GenerationRequest): Promise<GenerationResult> {
+    let result: GenerationResult | undefined;
     switch (req.type) {
-        case "image": return generateImage(req);
-        case "video": return generateVideo(req);
-        case "audio": return generateAudio(req);
-        case "code":  return generateCode(req);
+        case "image": result = await generateImage(req); break;
+        case "video": result = await generateVideo(req); break;
+        case "audio": result = await generateAudio(req); break;
+        case "code":  result = await generateCode(req); break;
+        case "text": result = await generateText(req); break;
+        case "document": result = await generateDocument(req); break;
         default:
             throw new Error(`Unsupported generation type: ${req.type}`);
     }
+    if (!result) {
+        throw new Error(`Unsupported generation type: ${req.type}`);
+    }
+    return persistGenerationResult(result);
 }

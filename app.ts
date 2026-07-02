@@ -1,16 +1,24 @@
 import {Octokit} from "@octokit/core";
 import express, {NextFunction, Request, Response} from "express";
+import path from "node:path";
 import {Webhook, WebhookUnbrandedRequiredHeaders, WebhookVerificationError} from "standardwebhooks"
 import {RenderDeploy, RenderEvent, RenderService, WebhookPayload} from "./render";
-import {acamMiddleware, acamContentGuard, defaultAcamConfig, auditLog} from "./lumi-acam";
-import {remember, recall, forget, memoryStats, search as memSearch} from "./lumi-memory";
+import {
+    acamMiddleware, acamContentGuard, defaultAcamConfig, auditLog,
+    getRequestOrigin, isOriginAllowed,
+} from "./lumi-acam";
+import {remember, recall, forget, memoryStats, search as memSearch, getMemoryStorageStatus} from "./lumi-memory";
 import {generate} from "./lumi-generators";
 import {buildProject} from "./lumi-studio";
+import {getArtifact, readArtifactBuffer, getArtifactStorageStatus, listArtifacts} from "./lumi-storage";
 import {
     lumiChat, getChatHistory, getModelCascade, enhancePrompt,
-    bootMission, getPipelineStatus, listMissions, getLumiStatus,
+    bootMission, getPipelineStatus, getMissionTimeline, listMissions, getLumiStatus, getFineTuneStatus, assembleFineTuneDataset,
     getOllamaStatus, conversationManager,
 } from "./lumi";
+import {converseSpeech, formatBraille, speakText, transcribeAudio} from "./lumi-speech";
+import {buildPromptTrainer} from "./lumi-prompt-trainer";
+import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 
 // ============================================================================
 // App setup
@@ -18,6 +26,34 @@ import {
 
 const app = express();
 const port = process.env.PORT || 3001;
+
+app.use(express.static(path.join(process.cwd(), "public")));
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+    const requestOrigin = getRequestOrigin(req.headers);
+    const originAllowed = requestOrigin
+        ? isOriginAllowed(requestOrigin, defaultAcamConfig.allowedOrigins)
+        : true;
+
+    if (requestOrigin && originAllowed) {
+        res.setHeader("Access-Control-Allow-Origin", requestOrigin);
+        res.setHeader("Vary", "Origin");
+        res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Session-Id");
+        res.setHeader("Access-Control-Expose-Headers", "Content-Type");
+    }
+
+    if (req.method === "OPTIONS") {
+        if (!originAllowed) {
+            res.status(403).json({error: "Origin not allowed"});
+            return;
+        }
+        res.status(204).end();
+        return;
+    }
+
+    next();
+});
 
 // Apply ACAM middleware globally (rate-limit + origin check)
 app.use(acamMiddleware(defaultAcamConfig));
@@ -136,6 +172,20 @@ lumiRouter.post("/enhance-prompt", async (req: Request, res: Response, next: Nex
     } catch (err) { next(err); }
 });
 
+// GET /api/lumi/finetune/status
+lumiRouter.get("/finetune/status", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        res.json(await getFineTuneStatus());
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/finetune/assemble
+lumiRouter.post("/finetune/assemble", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        res.json(await assembleFineTuneDataset());
+    } catch (err) { next(err); }
+});
+
 // GET /api/lumi/status
 lumiRouter.get("/status", async (_req: Request, res: Response, next: NextFunction) => {
     try {
@@ -148,6 +198,14 @@ lumiRouter.get("/memory/stats", async (_req: Request, res: Response, next: NextF
     try {
         res.json(await memoryStats());
     } catch (err) { next(err); }
+});
+
+// GET /api/lumi/storage
+lumiRouter.get("/storage", (_req: Request, res: Response) => {
+    res.json({
+        artifacts: getArtifactStorageStatus(),
+        memory: getMemoryStorageStatus(),
+    });
 });
 
 // GET /api/lumi/memory/:sessionId
@@ -176,11 +234,135 @@ lumiRouter.post("/memory/search", async (req: Request, res: Response, next: Next
     } catch (err) { next(err); }
 });
 
-// POST /api/lumi/generate  (image / video / audio / code)
+// POST /api/lumi/generate  (image / video / audio / code / text / document)
 lumiRouter.post("/generate", async (req: Request, res: Response, next: NextFunction) => {
     try {
         const result = await generate(req.body);
         res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/speech/transcribe
+lumiRouter.post("/speech/transcribe", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {audioBase64, mimeType} = req.body;
+        if (!audioBase64) {
+            res.status(400).json({error: "audioBase64 is required"});
+            return;
+        }
+        const result = await transcribeAudio(audioBase64, mimeType || "audio/webm");
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/speech/speak
+lumiRouter.post("/speech/speak", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {text, voice, format} = req.body;
+        if (!text) {
+            res.status(400).json({error: "text is required"});
+            return;
+        }
+        const result = await speakText(text, {voice, format});
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/speech/converse
+lumiRouter.post("/speech/converse", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {audioBase64, mimeType, domain, missionId} = req.body;
+        if (!audioBase64) {
+            res.status(400).json({error: "audioBase64 is required"});
+            return;
+        }
+        const sessionId = (req.headers["x-session-id"] as string | undefined) || "default";
+        const result = await converseSpeech(audioBase64, mimeType || "audio/webm", sessionId, {domain, missionId});
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/speech/braille
+lumiRouter.post("/speech/braille", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {text} = req.body;
+        if (!text) {
+            res.status(400).json({error: "text is required"});
+            return;
+        }
+        res.json({text, braille: formatBraille(text)});
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/training-resources
+lumiRouter.post("/training-resources", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const sessionId = (req.headers["x-session-id"] as string | undefined) || "default";
+        const analysis = buildTrainingResourceAnalysis(req.body);
+        const summary = [
+            analysis.overview,
+            analysis.knowledgeBankSummary,
+            `Priority resources: ${analysis.priorityResources.join(", ")}`,
+        ].join("\n\n");
+        await remember(sessionId, "assistant", summary, ["training", "knowledge-bank", "resources"], "knowledge");
+        res.json(analysis);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/mission/boot
+lumiRouter.post("/mission/boot", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {prompt} = req.body;
+        if (!prompt) { res.status(400).json({error: "prompt is required"}); return; }
+        const result = await bootMission(prompt);
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// GET /api/lumi/missions/:missionId/events
+lumiRouter.get("/missions/:missionId/events", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const timeline = getMissionTimeline(req.params.missionId);
+        res.json(timeline);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/prompt-trainer
+lumiRouter.post("/prompt-trainer", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = buildPromptTrainer(req.body);
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// GET /api/lumi/artifacts
+lumiRouter.get("/artifacts", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        const artifacts = await listArtifacts(50);
+        res.json({artifacts});
+    } catch (err) { next(err); }
+});
+
+// GET /api/lumi/artifacts/:artifactId
+lumiRouter.get("/artifacts/:artifactId", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const artifact = await getArtifact(req.params.artifactId);
+        if (!artifact) {
+            res.status(404).json({error: "artifact not found"});
+            return;
+        }
+        if (artifact.storage === "r2" && artifact.url) {
+            res.redirect(artifact.url);
+            return;
+        }
+        const content = await readArtifactBuffer(req.params.artifactId);
+        if (!content) {
+            res.status(404).json({error: "artifact not found"});
+            return;
+        }
+        res.setHeader("Content-Type", artifact.mimeType);
+        res.setHeader("Content-Disposition", `attachment; filename="${artifact.filename}"`);
+        res.send(content.buffer);
     } catch (err) { next(err); }
 });
 

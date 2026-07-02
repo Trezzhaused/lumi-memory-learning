@@ -14,6 +14,7 @@
  *   - Retains Studio's `type` field: 'goal'|'task'|'context'|'knowledge'|'artifact'.
  */
 
+import {GetObjectCommand, PutObjectCommand, S3Client} from "@aws-sdk/client-s3";
 import {Octokit} from "@octokit/core";
 
 // ---------------------------------------------------------------------------
@@ -49,12 +50,24 @@ export interface MemorySnapshot {
     updatedAt: string;
 }
 
+export interface MemoryStorageStatus {
+    backend: "r2" | "github-gists" | "in-memory";
+    configured: boolean;
+    bucket?: string;
+    key?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
 
 const GIST_DESCRIPTION = "Lumi Memory \u2013 Trezzhaus AI";
 const GIST_FILENAME = "lumi-memory.json";
+const R2_MEMORY_KEY = process.env.CLOUDFLARE_R2_MEMORY_KEY || "lumi/memory/lumi-memory.json";
+const R2_ACCOUNT_ID = process.env.CLOUDFLARE_R2_ACCOUNT_ID || "";
+const R2_ACCESS_KEY_ID = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || "";
+const R2_SECRET_ACCESS_KEY = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || "";
+const R2_BUCKET = process.env.CLOUDFLARE_R2_BUCKET || "";
 
 let gistId: string | null = null;
 
@@ -63,6 +76,35 @@ const memOctokit = githubToken ? new Octokit({auth: githubToken}) : null;
 
 // In-process fallback store
 const localStore: MemorySnapshot = {entries: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()};
+
+function getR2Config(): {client?: S3Client; bucket?: string} {
+    if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET) {
+        return {};
+    }
+    const endpoint = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+    const client = new S3Client({
+        region: "auto",
+        endpoint,
+        credentials: {
+            accessKeyId: R2_ACCESS_KEY_ID,
+            secretAccessKey: R2_SECRET_ACCESS_KEY,
+        },
+    });
+    return {client, bucket: R2_BUCKET};
+}
+
+export function getMemoryStorageStatus(): MemoryStorageStatus {
+    const {client, bucket} = getR2Config();
+    if (client && bucket) {
+        return {backend: "r2", configured: true, bucket, key: R2_MEMORY_KEY};
+    }
+    return {
+        backend: memOctokit ? "github-gists" : "in-memory",
+        configured: !!memOctokit,
+        bucket: bucket || undefined,
+        key: R2_MEMORY_KEY,
+    };
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -80,6 +122,41 @@ function isExpired(entry: MemoryEntry): boolean {
 // ---------------------------------------------------------------------------
 // GitHub Gist persistence
 // ---------------------------------------------------------------------------
+
+type S3BodyLike = {
+    transformToByteArray?: () => Promise<Uint8Array>;
+    transformToString?: () => Promise<string>;
+};
+
+async function loadFromR2(): Promise<MemorySnapshot | null> {
+    const {client, bucket} = getR2Config();
+    if (!client || !bucket) return null;
+    try {
+        const response = await client.send(new GetObjectCommand({Bucket: bucket, Key: R2_MEMORY_KEY}));
+        const body = response.Body as S3BodyLike | undefined;
+        const raw = body?.transformToString
+            ? await body.transformToString()
+            : undefined;
+        if (!raw) return null;
+        return JSON.parse(raw) as MemorySnapshot;
+    } catch (error: any) {
+        if (error?.name === "NoSuchKey" || error?.$metadata?.httpStatusCode === 404) return null;
+        console.error("[LumiMemory] Failed to load from R2:", error);
+        return null;
+    }
+}
+
+async function saveToR2(snapshot: MemorySnapshot): Promise<void> {
+    const {client, bucket} = getR2Config();
+    if (!client || !bucket) return;
+    const content = JSON.stringify(snapshot, null, 2);
+    await client.send(new PutObjectCommand({
+        Bucket: bucket,
+        Key: R2_MEMORY_KEY,
+        Body: Buffer.from(content, "utf8"),
+        ContentType: "application/json",
+    }));
+}
 
 async function loadFromGist(): Promise<MemorySnapshot> {
     if (!memOctokit) return localStore;
@@ -132,11 +209,19 @@ async function saveToGist(snapshot: MemorySnapshot): Promise<void> {
 }
 
 async function getStore(): Promise<MemorySnapshot> {
+    const fromR2 = await loadFromR2();
+    if (fromR2) return fromR2;
     return memOctokit ? loadFromGist() : localStore;
 }
 
 async function persistStore(snapshot: MemorySnapshot): Promise<void> {
     snapshot.updatedAt = new Date().toISOString();
+    try {
+        await saveToR2(snapshot);
+        return;
+    } catch (error) {
+        console.warn("[LumiMemory] Failed to save to R2, trying gist fallback:", error);
+    }
     if (memOctokit) {
         await saveToGist(snapshot);
     } else {

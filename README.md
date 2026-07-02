@@ -8,13 +8,16 @@
 | Capability | Detail |
 |---|---|
 | **Chat** | Multi-model conversations via OpenRouter (free-tier cascade) |
-| **Memory** | Persistent memory backed by GitHub Gists (free cloud storage) |
+| **Text Generation** | Plain-text content generation and document drafting |
+| **Document Generation** | Markdown / document outputs saved as artifacts |
+| **Memory** | Persistent memory backed by Cloudflare R2 when configured, with GitHub Gists and in-memory fallback |
 | **Code Generation** | Full programs, scripts, games in any language |
 | **Image Generation** | Stability AI / Hugging Face FLUX.1-schnell |
 | **Video Generation** | FAL.ai (Wan 2.2 / Kling) with Replicate fallback |
 | **Audio Generation** | Hugging Face MusicGen |
 | **Mission Execution** | Multi-step autonomous task pipelines |
 | **Roblox Publishing** | Publish games to Roblox via Open Cloud API |
+| **Knowledge Bank** | Curated training-resource analysis for expanding Lumi's capabilities and memory |
 | **ACAM Security** | Adaptive Content & Access Manager — rate limiting, audit log, auth |
 
 ---
@@ -71,9 +74,68 @@ GET  /api/video/jobs          → { jobs: [VideoJob] }
 ### Generation (direct)
 ```
 POST /api/lumi/generate
-Body: { type: "image"|"video"|"audio"|"code", prompt, ...options }
-→ GenerationResult
+Body: { type: "image"|"video"|"audio"|"code"|"text"|"document", prompt, ...options }
+→ GenerationResult { ..., artifact }
 ```
+
+GET /api/lumi/artifacts/:artifactId
+→ downloads the stored artifact from local storage or redirects to R2
+
+### Voice / Speech
+```
+POST /api/lumi/speech/transcribe
+Body: { audioBase64, mimeType? }
+→ { ok, text?, error? }
+
+POST /api/lumi/speech/speak
+Body: { text, voice?, format? }
+→ { ok, audioDataUrl?, mimeType?, error? }
+
+POST /api/lumi/speech/converse
+Body: { audioBase64, mimeType?, domain?, missionId? }
+→ { ok, transcript?, reply?, braille?, audio? }
+
+POST /api/lumi/speech/braille
+Body: { text }
+→ { text, braille }
+```
+
+Open `/voice` in a browser to try a simple voice demo that uses browser speech recognition and the Lumi chat API.
+
+Open `/lumi-panel.html` to launch autonomous missions, track Lumi's live progress, and download finished artifacts.
+
+### Prompt trainer
+```
+POST /api/lumi/prompt-trainer
+Body: { topic?, audience?, goal?, context? }
+→ { title, objective, successMetrics, promptTemplate, evaluationChecklist, followUpQuestions }
+```
+
+This endpoint turns enterprise AI adoption material into a reusable prompt-training brief with success metrics, guardrails, and evaluation questions.
+
+### Training resources / knowledge bank
+```
+POST /api/lumi/training-resources
+Body: { resources?, goals? }
+→ { generatedAt, overview, capabilityTargets, priorityResources, recommendedIngestionPlan, knowledgeBankSummary, aiMaturityFramework, resources }
+```
+
+This endpoint analyzes the curated training-resource catalog for Lumi and stores a knowledge-bank summary in memory for later recall.
+
+### Autonomous missions
+```
+POST /api/lumi/mission/boot
+Body: { prompt }
+→ { missionId, objective, status, summary, plannerModel, executionQueue, streamUrl }
+
+GET /api/lumi/missions/:missionId/events
+→ { mission, events }
+
+GET /api/lumi/artifacts
+→ { artifacts: [StoredArtifact] }
+```
+
+These endpoints let Lumi plan and execute multi-step work, publish progress into a live transcript, and expose generated artifacts for download.
 
 ### Memory
 ```
@@ -81,6 +143,12 @@ GET    /api/lumi/memory/:sessionId
 POST   /api/lumi/memory/search       { query, limit? }
 DELETE /api/lumi/memory/:sessionId
 GET    /api/lumi/memory/stats
+```
+
+### Storage
+```
+GET /api/lumi/storage
+→ { artifacts: {backend, configured, bucket}, memory: {backend, configured, bucket, key} }
 ```
 
 ### System
@@ -110,6 +178,12 @@ Copy and fill in `.env`:
 # Required for chat
 OPENROUTER_API_KEY=sk-or-...     # https://openrouter.ai
 
+# Optional — voice / speech support
+OPENAI_API_KEY=sk-...            # https://platform.openai.com
+OPENAI_API_URL=https://api.openai.com/v1
+OPENAI_STT_MODEL=whisper-1
+OPENAI_TTS_MODEL=gpt-4o-mini-tts
+
 # Optional — local model support
 OLLAMA_HOST=http://localhost:11434
 
@@ -120,6 +194,16 @@ STABILITY_API_KEY=sk-...         # https://platform.stability.ai
 # Video generation
 FAL_KEY=...                      # https://fal.ai/dashboard/keys  ← primary (mirrors Studio)
 REPLICATE_API_KEY=r8_...         # https://replicate.com          ← fallback
+
+# Artifact storage (local by default, Cloudflare R2 optional)
+DATA_DIR=./.data
+CLOUDFLARE_R2_ACCOUNT_ID=...
+CLOUDFLARE_R2_ACCESS_KEY_ID=...
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=...
+CLOUDFLARE_R2_BUCKET=...
+CLOUDFLARE_R2_PUBLIC_URL=https://assets.example.com
+# Optional: override the object key used for memory snapshots in R2
+CLOUDFLARE_R2_MEMORY_KEY=lumi/memory/lumi-memory.json
 
 # Roblox publishing
 ROBLOX_API_KEY=...

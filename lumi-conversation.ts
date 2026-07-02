@@ -55,10 +55,10 @@ export class ConversationManager {
 
     // ── Session lifecycle ────────────────────────────────────────────────
 
-    create(title: string, metadata?: ConversationMetadata): ConversationSession {
+    create(title: string, metadata?: ConversationMetadata, id?: string): ConversationSession {
         const now = new Date().toISOString();
         const session: ConversationSession = {
-            id: this.generateId(),
+            id: id || this.generateId(),
             title,
             createdAt: now,
             updatedAt: now,

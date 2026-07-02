@@ -1,5 +1,5 @@
 /**
- * Lumi – Core AI Module
+ * Lumi — Core AI Module
  *
  * Primary intelligence layer for the Trezzhaus platform.
  * Architecture mirrors the TrezzWorld Production Studio (trezzworld-production-studio)
@@ -21,9 +21,14 @@
  */
 
 import {ConversationManager, ConversationSession, ConversationMessage} from "./lumi-conversation";
-import {remember, recall, search as memSearch} from "./lumi-memory";
+import {remember, recall, search as memSearch, getMemoryStorageStatus} from "./lumi-memory";
 import {checkContentSafety, AcamConfig, defaultAcamConfig} from "./lumi-acam";
 import {generate, GenerationRequest} from "./lumi-generators";
+import {getArtifactStorageStatus} from "./lumi-storage";
+import {promises as fs} from "node:fs";
+import path from "node:path";
+import {callOpenRouterChat} from "./openrouter";
+import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -33,7 +38,7 @@ export const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 export const OPENROUTER_API_URL = "https://openrouter.ai/api/v1";
 export const OLLAMA_HOST = process.env.OLLAMA_HOST || "";
 
-/** Default chat model – free tier on OpenRouter */
+/** Default chat model — free tier on OpenRouter */
 export const DEFAULT_CHAT_MODEL =
     process.env.LUMI_CHAT_MODEL || "mistralai/mistral-7b-instruct:free";
 
@@ -85,6 +90,22 @@ export interface PipelineJob {
     completedAt?: string;
 }
 
+export interface MissionArtifactSummary {
+    name: string;
+    kind: string;
+    artifactId?: string;
+    downloadUrl?: string;
+    status: "ready" | "failed";
+}
+
+export interface MissionEvent {
+    id: string;
+    type: "log" | "artifact" | "status";
+    message: string;
+    detail?: string;
+    createdAt: string;
+}
+
 export interface MissionStatus {
     id: string;
     prompt: string;
@@ -100,6 +121,8 @@ export interface MissionStatus {
         errored: number;
         percent: number;
     };
+    events: MissionEvent[];
+    artifacts: MissionArtifactSummary[];
 }
 
 export interface MissionBootResult {
@@ -117,6 +140,7 @@ export interface MissionBootResult {
         status: string;
         stage: string;
     }>;
+    streamUrl: string;
 }
 
 export interface PromptEnhanceResult {
@@ -126,14 +150,43 @@ export interface PromptEnhanceResult {
     systemPromptPreview: string;
 }
 
+export interface FineTuneStatus {
+    ready: boolean;
+    seed_dataset: string | null;
+    datasets: string[];
+}
+
 // ---------------------------------------------------------------------------
 // Active mission store
 // ---------------------------------------------------------------------------
 
 const missions = new Map<string, MissionStatus>();
+const missionEvents = new Map<string, MissionEvent[]>();
+const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), ".data");
+const FINETUNE_DIR = path.join(DATA_DIR, "finetune");
 
 function generateId(): string {
     return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function emitMissionEvent(mission: MissionStatus, message: string, detail?: string, type: MissionEvent["type"] = "log"): void {
+    const event: MissionEvent = {
+        id: generateId(),
+        type,
+        message,
+        detail,
+        createdAt: new Date().toISOString(),
+    };
+    mission.events.push(event);
+    missionEvents.set(mission.id, mission.events);
+}
+
+function captureMissionArtifact(mission: MissionStatus, artifact: MissionArtifactSummary): void {
+    mission.artifacts.push(artifact);
+}
+
+function buildArtifactUrl(artifactId?: string): string | undefined {
+    return artifactId ? `/api/lumi/artifacts/${artifactId}` : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -205,19 +258,12 @@ async function openRouterChat(
             "OPENROUTER_API_KEY to activate my full intelligence. I'm here and ready to help!"
         );
     }
-    const res = await fetch(`${OPENROUTER_API_URL}/chat/completions`, {
-        method: "POST",
-        headers: {
-            Authorization: "Bearer " + OPENROUTER_API_KEY,
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://trezzhaus.com",
-            "X-Title": "Lumi \u2013 Trezzhaus AI",
-        },
-        body: JSON.stringify({model, messages}),
+    return callOpenRouterChat(messages, model, {
+        apiKey: OPENROUTER_API_KEY,
+        httpReferer: "https://trezzhaus.com",
+        appTitle: "Lumi — Trezzhaus AI",
+        appCategories: "cli-agent,cloud-agent",
     });
-    if (!res.ok) throw new Error(`OpenRouter error (${res.status}): ${await res.text()}`);
-    const json: any = await res.json();
-    return json.choices?.[0]?.message?.content || "(no response)";
 }
 
 // ---------------------------------------------------------------------------
@@ -243,6 +289,31 @@ const DOMAIN_SYSTEM_PROMPTS: Record<string, string> = {
         "and structure Roblox experiences using best practices for the Roblox platform.",
 };
 
+const MODULE_SPECIALTIES: Record<string, {name: string; specialty: string; keywords: string[]}> = {
+    chat: {name: "Chat", specialty: "Conversational orchestration, multi-model responses, and prompt refinement.", keywords: ["chat", "conversation", "history", "assistant"]},
+    memory: {name: "Memory", specialty: "Persistent recall, prior solutions, and learned context retrieval.", keywords: ["memory", "recall", "remember", "learn", "knowledge"]},
+    studio: {name: "Studio", specialty: "Mission planning, pipeline orchestration, and workflow assembly.", keywords: ["studio", "mission", "pipeline", "project", "workflow"]},
+    video: {name: "Video", specialty: "Storyboard planning, video generation, rendering, and motion asset workflows.", keywords: ["video", "render", "movie", "animation", "scene", "clip"]},
+    image: {name: "Image", specialty: "Image generation, concept art, visual design, and prompt crafting.", keywords: ["image", "art", "visual", "design", "prompt", "diffusion"]},
+    audio: {name: "Audio", specialty: "Music, sound design, voice, and audio generation workflows.", keywords: ["audio", "music", "sound", "voice", "track"]},
+    code: {name: "Code", specialty: "Production-ready code generation for TypeScript, Python, APIs, scripts, and Luau.", keywords: ["code", "typescript", "python", "script", "function", "class", "api", "luau"]},
+    roblox: {name: "Roblox", specialty: "Luau scripting, Roblox gameplay logic, and Open Cloud publishing workflows.", keywords: ["roblox", "luau", "place", "universe", "baseplate", "avatar"]},
+    acam: {name: "ACAM", specialty: "Security, safety, auth, rate limits, origins, and audit logging.", keywords: ["acam", "security", "auth", "rate limit", "origin", "audit", "safe"]},
+};
+
+function escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function containsKeyword(text: string, keyword: string): boolean {
+    const normalizedText = text.toLowerCase();
+    const normalizedKeyword = keyword.toLowerCase();
+    if (normalizedKeyword.includes(" ")) {
+        return normalizedText.includes(normalizedKeyword);
+    }
+    return new RegExp(`(^|[^a-z0-9])${escapeRegex(normalizedKeyword)}($|[^a-z0-9])`).test(normalizedText);
+}
+
 function detectDomain(message: string): string {
     const lower = message.toLowerCase();
     if (/\b(roblox|luau|place|baseplate|studio)\b/.test(lower)) return "roblox";
@@ -250,6 +321,50 @@ function detectDomain(message: string): string {
     if (/\b(code|function|class|api|typescript|python|script)\b/.test(lower)) return "code";
     if (/\b(image|draw|paint|music|audio|video|animate|render)\b/.test(lower)) return "creative";
     return "default";
+}
+
+function detectModuleFocus(message: string): string[] {
+    return Object.entries(MODULE_SPECIALTIES)
+        .filter(([, meta]) => meta.keywords.some(keyword => containsKeyword(message, keyword)))
+        .map(([key]) => key);
+}
+
+async function getRelevantMemoryContext(message: string, limit = 3): Promise<string | null> {
+    try {
+        const results = await memSearch(message, limit);
+        if (!results.length) return null;
+        const snippets = results
+            .slice(0, limit)
+            .map(entry => `- [${entry.type}] ${entry.content.replace(/\s+/g, " ").slice(0, 140)}`);
+        return `Relevant past memory:\n${snippets.join("\n")}`;
+    } catch {
+        return null;
+    }
+}
+
+async function buildSystemPrompt(message: string, domain: string): Promise<string> {
+    const basePrompt = DOMAIN_SYSTEM_PROMPTS[domain] || DOMAIN_SYSTEM_PROMPTS.default;
+    const moduleFocus = detectModuleFocus(message);
+    const moduleContext = moduleFocus.length > 0
+        ? moduleFocus.map(moduleKey => {
+            const moduleSpec = MODULE_SPECIALTIES[moduleKey];
+            return `${moduleSpec.name}: ${moduleSpec.specialty}`;
+        }).join(" | ")
+        : "General platform assistance across chat, memory, studio, generation, and security modules.";
+    const memoryContext = await getRelevantMemoryContext(message);
+
+    let prompt = `${basePrompt}\n\n`;
+    prompt += `You are operating inside the Lumi Intelligence Center for Trezzhaus and TrezzWorld. `;
+    prompt += `Your repository-aware specialty modules are: chat, memory, studio, video, image, audio, code, Roblox, and ACAM. `;
+    prompt += `Current focus: ${moduleContext}.\n\n`;
+    prompt += "When a request touches a module, tab, or workflow, use that module's specialty first and stay aligned with the repo's implemented capabilities. ";
+    prompt += "If the user asks for anything that can be created autonomously, build it when possible, keep the experience safe, and persist helpful context to memory for future recall.";
+
+    if (memoryContext) {
+        prompt += `\n\n${memoryContext}`;
+    }
+
+    return prompt;
 }
 
 // ---------------------------------------------------------------------------
@@ -265,7 +380,7 @@ export async function lumiChat(
     if (!safety.safe) throw new Error(`ACAM: ${safety.reason}`);
 
     const domain = req.domain || detectDomain(req.message);
-    const systemPrompt = DOMAIN_SYSTEM_PROMPTS[domain] || DOMAIN_SYSTEM_PROMPTS.default;
+    const systemPrompt = await buildSystemPrompt(req.message, domain);
 
     const messages: Array<{role: string; content: string}> = [
         {role: "system", content: systemPrompt},
@@ -276,7 +391,7 @@ export async function lumiChat(
     // Persist to session if sessionId provided
     if (sessionId) {
         let session = conversationManager.get(sessionId);
-        if (!session) session = conversationManager.create("Lumi Chat", {domain});
+        if (!session) session = conversationManager.create("Lumi Chat", {domain}, sessionId);
         conversationManager.addMessage(session.id, "user", req.message);
     }
 
@@ -319,7 +434,7 @@ export async function getChatHistory(
 export async function getModelCascade(): Promise<ModelCascadeEntry[]> {
     const cascade: ModelCascadeEntry[] = [
         {id: "mistralai/mistral-7b-instruct:free", provider: "openrouter", label: "Mistral 7B (Free)", free: true, contextWindow: 32768},
-        {id: "mistralai/devstral-small:free",      provider: "openrouter", label: "Devstral Small – Code (Free)", free: true, contextWindow: 32768},
+        {id: "mistralai/devstral-small:free",      provider: "openrouter", label: "Devstral Small — Code (Free)", free: true, contextWindow: 32768},
         {id: "google/gemma-3-4b-it:free",          provider: "openrouter", label: "Gemma 3 4B (Free)", free: true, contextWindow: 8192},
         {id: "meta-llama/llama-3.2-3b-instruct:free", provider: "openrouter", label: "Llama 3.2 3B (Free)", free: true, contextWindow: 131072},
         {id: "deepseek/deepseek-r1:free",          provider: "openrouter", label: "DeepSeek R1 (Free)", free: true, contextWindow: 65536},
@@ -345,7 +460,7 @@ export async function enhancePrompt(
     domain?: string
 ): Promise<PromptEnhanceResult> {
     const detectedDomain = domain || detectDomain(prompt);
-    const systemPrompt = DOMAIN_SYSTEM_PROMPTS[detectedDomain] || DOMAIN_SYSTEM_PROMPTS.default;
+    const systemPrompt = await buildSystemPrompt(prompt, detectedDomain);
     return {
         domain: detectedDomain,
         detectedDomain,
@@ -366,10 +481,13 @@ export async function bootMission(prompt: string): Promise<MissionBootResult> {
     const now = new Date().toISOString();
 
     // Decompose the prompt into capability jobs using Lumi's intelligence
+    const resourceAnalysis = buildTrainingResourceAnalysis({goals: [prompt]});
+    const capabilityBlueprint = resourceAnalysis.aiMaturityFramework.map(entry => `${entry.label}: ${entry.summary}`).join("; ");
     const planPrompt =
         `You are a mission planner. Decompose the following objective into 3-5 concrete jobs. ` +
-        `For each job return JSON with fields: name, capability (one of: code, image, audio, video, text, roblox), ` +
+        `For each job return JSON with fields: name, capability (one of: code, image, audio, video, document, search, build, text, roblox), ` +
         `workerId (agent name), targetFiles (array of filename strings). ` +
+        `Use the capability blueprint to pick the best mix of automation and research work: ${capabilityBlueprint}. ` +
         `Return ONLY a JSON array, no markdown fences.\n\nObjective: ${prompt}`;
 
     let rawPlan = "[]";
@@ -420,8 +538,11 @@ export async function bootMission(prompt: string): Promise<MissionBootResult> {
             errored: 0,
             percent: 0,
         },
+        events: [],
+        artifacts: [],
     };
 
+    emitMissionEvent(mission, "Mission booted", `Planning ${executionQueue.length} work item(s).`, "status");
     missions.set(missionId, mission);
 
     // Execute jobs asynchronously
@@ -436,29 +557,92 @@ export async function bootMission(prompt: string): Promise<MissionBootResult> {
         summary: mission.summary,
         plannerModel: DEFAULT_CHAT_MODEL,
         executionQueue,
+        streamUrl: `/api/lumi/missions/${missionId}/events`,
     };
 }
 
 async function executeMissionAsync(mission: MissionStatus): Promise<void> {
     for (const job of mission.jobs) {
         try {
+            emitMissionEvent(mission, `Starting task: ${job.title}`, `Capability: ${job.capability}`, "status");
             job.status = "running";
             mission.updatedAt = new Date().toISOString();
 
             let output = "";
+            let artifactSummary: MissionArtifactSummary | undefined;
+            const taskPrompt = `${mission.prompt}\n\nTask: ${job.title}`;
+
             if (job.capability === "code") {
-                const result = await generate({type: "code", prompt: `${mission.prompt} — ${job.title}`});
+                const result = await generate({type: "code", prompt: taskPrompt});
                 output = result.text || "";
+                artifactSummary = result.artifact ? {
+                    name: job.title,
+                    kind: "code",
+                    artifactId: result.artifact.id,
+                    downloadUrl: buildArtifactUrl(result.artifact.id),
+                    status: "ready",
+                } : undefined;
             } else if (job.capability === "image") {
-                const result = await generate({type: "image", prompt: `${mission.prompt} — ${job.title}`});
+                const result = await generate({type: "image", prompt: taskPrompt});
                 output = result.data ? `[image:base64:${result.mimeType}]` : result.url || "";
+                artifactSummary = result.artifact ? {
+                    name: job.title,
+                    kind: "image",
+                    artifactId: result.artifact.id,
+                    downloadUrl: buildArtifactUrl(result.artifact.id),
+                    status: "ready",
+                } : undefined;
             } else if (job.capability === "audio") {
-                const result = await generate({type: "audio", prompt: `${mission.prompt} — ${job.title}`});
+                const result = await generate({type: "audio", prompt: taskPrompt});
                 output = result.data ? `[audio:base64:audio/flac]` : "";
+                artifactSummary = result.artifact ? {
+                    name: job.title,
+                    kind: "audio",
+                    artifactId: result.artifact.id,
+                    downloadUrl: buildArtifactUrl(result.artifact.id),
+                    status: "ready",
+                } : undefined;
+            } else if (job.capability === "video") {
+                const result = await generate({type: "video", prompt: taskPrompt});
+                output = result.url || result.text || "Video generation queued";
+                artifactSummary = result.artifact ? {
+                    name: job.title,
+                    kind: "video",
+                    artifactId: result.artifact.id,
+                    downloadUrl: buildArtifactUrl(result.artifact.id),
+                    status: "ready",
+                } : undefined;
+            } else if (job.capability === "document") {
+                const result = await generate({type: "document", prompt: taskPrompt});
+                output = result.text || "";
+                artifactSummary = result.artifact ? {
+                    name: job.title,
+                    kind: "document",
+                    artifactId: result.artifact.id,
+                    downloadUrl: buildArtifactUrl(result.artifact.id),
+                    status: "ready",
+                } : undefined;
+            } else if (job.capability === "build") {
+                const result = await generate({type: "code", prompt: `Build a concise starter implementation for: ${taskPrompt}`});
+                output = result.text || "";
+                artifactSummary = result.artifact ? {
+                    name: job.title,
+                    kind: "build",
+                    artifactId: result.artifact.id,
+                    downloadUrl: buildArtifactUrl(result.artifact.id),
+                    status: "ready",
+                } : undefined;
+            } else if (job.capability === "search" || job.capability === "research") {
+                const research = await lumiChat({message: `Research and summarize the following request. Provide practical next steps and references.\n\n${taskPrompt}`});
+                output = research.content;
             } else {
-                // Text task: ask Lumi
-                const resp = await lumiChat({message: `${mission.prompt}\n\nTask: ${job.title}`});
+                const resp = await lumiChat({message: taskPrompt});
                 output = resp.content;
+            }
+
+            if (artifactSummary) {
+                captureMissionArtifact(mission, artifactSummary);
+                emitMissionEvent(mission, `Artifact ready for ${job.title}`, artifactSummary.downloadUrl || "Artifact saved", "artifact");
             }
 
             job.output = output;
@@ -469,12 +653,14 @@ async function executeMissionAsync(mission: MissionStatus): Promise<void> {
             mission.progress.percent = Math.round(
                 (mission.progress.completed / mission.progress.total) * 100
             );
+            emitMissionEvent(mission, `Completed task: ${job.title}`, output.slice(0, 220), "log");
         } catch (err: any) {
             job.status = "error";
             job.error = err.message;
             job.completedAt = new Date().toISOString();
             mission.progress.errored += 1;
             mission.progress.running -= 1;
+            emitMissionEvent(mission, `Task failed: ${job.title}`, err.message, "status");
         }
         mission.updatedAt = new Date().toISOString();
     }
@@ -483,6 +669,7 @@ async function executeMissionAsync(mission: MissionStatus): Promise<void> {
     const anyError = mission.jobs.some(j => j.status === "error");
     mission.status = !allDone ? "running" : anyError ? "failed" : "completed";
     mission.updatedAt = new Date().toISOString();
+    emitMissionEvent(mission, mission.status === "completed" ? "Mission completed" : "Mission stopped with errors", mission.summary, "status");
 }
 
 // ---------------------------------------------------------------------------
@@ -492,11 +679,79 @@ async function executeMissionAsync(mission: MissionStatus): Promise<void> {
 export function getPipelineStatus(missionId: string): MissionStatus {
     const m = missions.get(missionId);
     if (!m) throw new Error(`Mission not found: ${missionId}`);
-    return {...m, jobs: m.jobs.map(j => ({...j}))};
+    return {
+        ...m,
+        jobs: m.jobs.map(j => ({...j})),
+        events: m.events.map(e => ({...e})),
+        artifacts: m.artifacts.map(a => ({...a})),
+    };
+}
+
+export function getMissionTimeline(missionId: string): {mission: MissionStatus; events: MissionEvent[]} {
+    const mission = missions.get(missionId);
+    if (!mission) throw new Error(`Mission not found: ${missionId}`);
+    return {
+        mission: {
+            ...mission,
+            jobs: mission.jobs.map(j => ({...j})),
+            events: mission.events.map(e => ({...e})),
+            artifacts: mission.artifacts.map(a => ({...a})),
+        },
+        events: mission.events.map(e => ({...e})),
+    };
 }
 
 export function listMissions(): MissionStatus[] {
-    return [...missions.values()].map(m => ({...m, jobs: m.jobs.map(j => ({...j}))}));
+    return [...missions.values()].map(m => ({
+        ...m,
+        jobs: m.jobs.map(j => ({...j})),
+        events: m.events.map(e => ({...e})),
+        artifacts: m.artifacts.map(a => ({...a})),
+    }));
+}
+
+async function listFineTuneDatasets(): Promise<string[]> {
+    try {
+        const entries = await fs.readdir(FINETUNE_DIR, {withFileTypes: true});
+        return entries
+            .filter(entry => entry.isFile() && entry.name.endsWith(".jsonl"))
+            .map(entry => path.join(FINETUNE_DIR, entry.name))
+            .sort();
+    } catch {
+        return [];
+    }
+}
+
+export async function getFineTuneStatus(): Promise<FineTuneStatus> {
+    const datasets = await listFineTuneDatasets();
+    const latestDataset = datasets.length > 0 ? datasets[datasets.length - 1] : null;
+    return {
+        ready: datasets.length > 0,
+        seed_dataset: latestDataset,
+        datasets,
+    };
+}
+
+export async function assembleFineTuneDataset(): Promise<{path: string; example_count: number}> {
+    const examples = conversationManager
+        .list()
+        .map(session => ({
+            messages: session.messages
+                .filter(message => message.role === "user" || message.role === "assistant")
+                .map(message => ({role: message.role, content: message.content})),
+        }))
+        .filter(example => example.messages.length >= 2);
+
+    await fs.mkdir(FINETUNE_DIR, {recursive: true});
+
+    const fineTuneDatasetPath = path.join(FINETUNE_DIR, `lumi-finetune-${Date.now()}.jsonl`);
+    const fileContent = examples.map(example => JSON.stringify(example)).join("\n");
+    await fs.writeFile(fineTuneDatasetPath, fileContent ? `${fileContent}\n` : "", "utf8");
+
+    return {
+        path: fineTuneDatasetPath,
+        example_count: examples.length,
+    };
 }
 
 // ---------------------------------------------------------------------------
@@ -513,6 +768,10 @@ export interface LumiStatus {
     openRouterConnected: boolean;
     ollamaConnected: boolean;
     memoryBackend: string;
+    storage: {
+        artifacts: {backend: string; configured: boolean; bucket?: string};
+        memory: {backend: string; configured: boolean; bucket?: string; key?: string};
+    };
     availableCapabilities: string[];
     acamEnabled: boolean;
     activeMissions: number;
@@ -521,6 +780,8 @@ export interface LumiStatus {
 
 export async function getLumiStatus(): Promise<LumiStatus> {
     const ollamaStatus = await getOllamaStatus();
+    const artifactStorage = getArtifactStorageStatus();
+    const memoryStorage = getMemoryStorageStatus();
     const capabilities: string[] = ["chat"];
     if (OPENROUTER_API_KEY) capabilities.push("multi-model-chat", "code-generation", "prompt-enhancement");
     if (process.env.HUGGINGFACE_API_KEY) capabilities.push("image-generation-hf", "audio-generation");
@@ -529,6 +790,7 @@ export async function getLumiStatus(): Promise<LumiStatus> {
     if (process.env.REPLICATE_API_KEY) capabilities.push("video-generation-replicate");
     if (ollamaStatus.available) capabilities.push("local-model-ollama");
     if (process.env.ROBLOX_API_KEY) capabilities.push("roblox-publishing");
+    if (artifactStorage.configured) capabilities.push("artifact-storage-r2");
 
     return {
         name: "Lumi",
@@ -537,7 +799,20 @@ export async function getLumiStatus(): Promise<LumiStatus> {
         studioUrl: "https://studio.trezzhaus.com",
         openRouterConnected: !!OPENROUTER_API_KEY,
         ollamaConnected: ollamaStatus.available,
-        memoryBackend: process.env.GITHUB_API_TOKEN ? "github-gists" : "in-memory",
+        memoryBackend: memoryStorage.backend,
+        storage: {
+            artifacts: {
+                backend: artifactStorage.backend,
+                configured: artifactStorage.configured,
+                bucket: artifactStorage.bucket,
+            },
+            memory: {
+                backend: memoryStorage.backend,
+                configured: memoryStorage.configured,
+                bucket: memoryStorage.bucket,
+                key: memoryStorage.key,
+            },
+        },
         availableCapabilities: capabilities,
         acamEnabled: defaultAcamConfig.enabled,
         activeMissions: [...missions.values()].filter(m => m.status === "running").length,

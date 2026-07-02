@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lumi Voice Demo</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { font-family: Arial, sans-serif; margin: 0; background: #0f172a; color: #f8fafc; }
+    .shell { max-width: 900px; margin: 0 auto; padding: 24px; }
+    .card { background: rgba(15, 23, 42, 0.85); border: 1px solid #334155; border-radius: 16px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+    button { border: 0; border-radius: 999px; padding: 12px 18px; font-size: 16px; cursor: pointer; background: #38bdf8; color: #082f49; font-weight: 600; }
+    button.secondary { background: #475569; color: white; }
+    .status { margin-top: 12px; color: #cbd5e1; }
+    .output { margin-top: 16px; padding: 16px; border-radius: 12px; background: #020617; min-height: 120px; white-space: pre-wrap; }
+    .braille { font-size: 28px; line-height: 1.5; letter-spacing: 0.2em; margin-top: 12px; }
+    .controls { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="card">
+      <h1>Lumi Voice + Braille Prototype</h1>
+      <p>Speak to Lumi, see the transcript, hear the reply, and view it in braille.</p>
+      <div class="controls">
+        <button id="listenBtn">Start listening</button>
+        <button id="stopBtn" class="secondary">Stop</button>
+      </div>
+      <div class="status" id="status">Ready.</div>
+      <div class="output" id="transcriptBox">Transcript will appear here…</div>
+      <div class="output" id="replyBox">Reply will appear here…</div>
+      <div class="braille" id="brailleBox"></div>
+    </div>
+  </div>
+
+  <script>
+    const listenBtn = document.getElementById('listenBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const statusEl = document.getElementById('status');
+    const transcriptBox = document.getElementById('transcriptBox');
+    const replyBox = document.getElementById('replyBox');
+    const brailleBox = document.getElementById('brailleBox');
+
+    const sessionId = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : `voice-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition;
+    let isListening = false;
+
+    async function parseJsonResponse(response, fallbackMessage) {
+      const rawText = await response.text();
+      if (!rawText) {
+        throw new Error(fallbackMessage);
+      }
+      try {
+        const parsed = JSON.parse(rawText);
+        if (!response.ok) {
+          throw new Error(parsed.error || parsed.message || `${response.status} ${fallbackMessage}`);
+        }
+        return parsed;
+      } catch (error) {
+        if (error instanceof Error && error.message) {
+          throw error;
+        }
+        throw new Error(rawText || fallbackMessage);
+      }
+    }
+
+    if (!SpeechRecognition) {
+      statusEl.textContent = 'Speech recognition is not available in this browser. Please try Chrome or Edge.';
+      listenBtn.disabled = true;
+      stopBtn.disabled = true;
+    } else {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        isListening = true;
+        listenBtn.textContent = 'Listening…';
+        statusEl.textContent = 'Listening for speech…';
+      };
+
+      recognition.onend = () => {
+        isListening = false;
+        listenBtn.textContent = 'Start listening';
+        statusEl.textContent = 'Finished listening.';
+      };
+
+      recognition.onerror = (event) => {
+        statusEl.textContent = `Speech error: ${event.error}`;
+      };
+
+      recognition.onresult = async (event) => {
+        const transcript = event.results[0][0].transcript.trim();
+        transcriptBox.textContent = transcript;
+        if (!transcript) return;
+        statusEl.textContent = 'Sending your message to Lumi…';
+        try {
+          const chatRes = await fetch('/api/lumi/chat', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Session-Id': sessionId
+            },
+            body: JSON.stringify({ message: transcript, domain: 'default' })
+          });
+          const chatData = await parseJsonResponse(chatRes, 'Lumi chat request failed');
+          const reply = chatData.content || chatData.reply || 'No response.';
+          replyBox.textContent = reply;
+
+          const brailleRes = await fetch('/api/lumi/speech/braille', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: reply })
+          });
+          const brailleData = await parseJsonResponse(brailleRes, 'Braille conversion failed');
+          brailleBox.textContent = brailleData.braille || reply;
+
+          try {
+            const speechRes = await fetch('/api/lumi/speech/speak', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: reply })
+            });
+            const speechData = await parseJsonResponse(speechRes, 'Speech synthesis failed');
+            if (speechData.ok && speechData.audioDataUrl) {
+              const audio = new Audio(speechData.audioDataUrl);
+              await audio.play();
+            } else {
+              const utterance = new SpeechSynthesisUtterance(reply);
+              window.speechSynthesis.cancel();
+              window.speechSynthesis.speak(utterance);
+            }
+          } catch (speechError) {
+            const utterance = new SpeechSynthesisUtterance(reply);
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
+          }
+
+          statusEl.textContent = 'Reply ready.';
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown request error';
+          statusEl.textContent = `Request failed: ${message}`;
+          replyBox.textContent = `Request failed: ${message}`;
+        }
+      };
+    }
+
+    listenBtn.addEventListener('click', () => {
+      if (!recognition) return;
+      if (isListening) {
+        recognition.stop();
+        return;
+      }
+      transcriptBox.textContent = 'Listening…';
+      replyBox.textContent = 'Reply will appear here…';
+      brailleBox.textContent = '';
+      recognition.start();
+    });
+
+    stopBtn.addEventListener('click', () => {
+      if (recognition && isListening) {
+        recognition.stop();
+      }
+      window.speechSynthesis.cancel();
+    });
+  </script>
+</body>
+</html>
