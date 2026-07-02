@@ -1,4 +1,6 @@
 const assert = require("assert/strict");
+const {execFileSync} = require("node:child_process");
+const path = require("node:path");
 const {test} = require("node:test");
 
 const {getExternalBrowserSources, queryExternalBrowserSource} = require("../dist/lumi-external-sources");
@@ -44,4 +46,32 @@ test("source planning accepts a single source string", () => {
 
   assert.deepEqual(plan.requestedSources, ["yuanbao"]);
   assert.equal(plan.sources[0].id, "yuanbao");
+});
+
+test("prompt enhancement includes Yuanbao source context", () => {
+  const script = [
+    "const {enhancePrompt} = require('./dist/lumi');",
+    "enhancePrompt('Research a fresh angle for a coding workflow', 'engineering', ['YUANBAO']).then(result => {",
+    "  process.stdout.write(JSON.stringify({content: result.enhancedMessages[0].content}));",
+    "}).catch(error => {",
+    "  process.stderr.write(String(error));",
+    "  process.exitCode = 1;",
+    "}).finally(() => {",
+    "  for (const handle of process._getActiveHandles()) {",
+    "    if (handle && handle.constructor && ['Timeout', 'Immediate'].includes(handle.constructor.name)) {",
+    "      clearInterval(handle);",
+    "      clearTimeout(handle);",
+    "    }",
+    "  }",
+    "  process.exit(process.exitCode || 0);",
+    "});",
+  ].join("\n");
+  const output = execFileSync(process.execPath, ["-e", script], {
+    cwd: path.join(__dirname, ".."),
+    encoding: "utf8",
+  });
+  const payload = JSON.parse(output);
+
+  assert.match(payload.content, /External browser-based source workflow:/i);
+  assert.match(payload.content, /Yuanbao \(Tencent\)/i);
 });
