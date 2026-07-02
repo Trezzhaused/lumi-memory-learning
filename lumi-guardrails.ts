@@ -29,6 +29,11 @@ const PROMPT_INJECTION_PATTERNS = [
     /do not follow any rules/i,
 ];
 
+const HARMFUL_REQUEST_PATTERNS = [
+    /\b(bomb|explosive|weapon|firearm|poison|malware|ransomware|phishing|credential stuffing)\b/i,
+    /\b(how to|steps to|instructions for)\b.*\b(build|make|assemble|create|steal|bypass|hack)\b/i,
+];
+
 const DEFAULT_FALLBACK = "I can only help with approved training content. Please ask a question about the current lesson materials.";
 const REDIRECT_FALLBACK = "I can help with approved training content. Please rephrase your request as a question about the lesson materials.";
 
@@ -59,6 +64,17 @@ export function evaluateGuardrailRequest(message: string): GuardrailDecision {
             safetyState: "redirected",
             reason: "Suspicious prompt-injection pattern detected.",
             fallbackContent: REDIRECT_FALLBACK,
+            shouldCallModel: false,
+        };
+    }
+
+    const harmfulPattern = HARMFUL_REQUEST_PATTERNS.find(pattern => pattern.test(trimmed));
+    if (harmfulPattern) {
+        return {
+            action: "blocked",
+            safetyState: "blocked",
+            reason: "Harmful request detected.",
+            fallbackContent: "I can’t assist with harmful or unsafe instructions.",
             shouldCallModel: false,
         };
     }

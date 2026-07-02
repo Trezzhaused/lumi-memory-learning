@@ -1,0 +1,13 @@
+{
+  "title": "Hardening demo",
+  "scenes": [
+    {
+      "startBeat": 0,
+      "endBeat": 8,
+      "character": "hero",
+      "faceVideo": "models/synthv/hero.mp4",
+      "rvcModel": "models/rvc/hero.pth"
+    }
+  ],
+  "audioPath": null
+}

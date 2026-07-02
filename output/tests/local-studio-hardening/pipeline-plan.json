@@ -1,0 +1,79 @@
+{
+  "title": "Hardening demo",
+  "outputDirectory": "/home/runner/work/lumi-memory-learning/lumi-memory-learning/output/tests/local-studio-hardening",
+  "composeFile": "/home/runner/work/lumi-memory-learning/lumi-memory-learning/docker/docker-compose.local-studio.yml",
+  "services": [
+    "redis",
+    "comfyui",
+    "rvc_server",
+    "whisper",
+    "webui"
+  ],
+  "steps": [
+    "Start the local studio stack with docker compose",
+    "Validate scene manifests and local asset paths",
+    "Run Whisper subtitles for the vocal track",
+    "Run RVC voice conversion and lip-sync generation",
+    "Assemble the final rendered MV"
+  ],
+  "notes": [
+    "This pipeline is designed for fully local execution once Docker, ffmpeg, and the required model weights are available.",
+    "The runtime will create planning artifacts and a launch helper even when some prerequisites are missing so you can review the workflow first.",
+    "Voice services are enabled for this manifest because one or more scenes reference an RVC model.",
+    "ffmpeg was not detected, so the final assembly step must be run on a machine with ffmpeg installed.",
+    "No NVIDIA runtime device was detected, so GPU-backed services may need a cloud container or host GPU runtime.",
+    "Model directory not found at /home/runner/work/lumi-memory-learning/lumi-memory-learning/models; create it before launching GPU-backed services.",
+    "Input directory not found at /home/runner/work/lumi-memory-learning/lumi-memory-learning/input; create it before launching the studio workflow."
+  ],
+  "localOnly": true,
+  "toolAvailability": {
+    "docker": true,
+    "ffmpeg": false,
+    "python3": true,
+    "python": true
+  },
+  "healthChecks": [
+    {
+      "name": "docker-cli",
+      "ok": true,
+      "detail": "Docker CLI detected"
+    },
+    {
+      "name": "ffmpeg",
+      "ok": false,
+      "detail": "ffmpeg not detected"
+    },
+    {
+      "name": "gpu-runtime",
+      "ok": false,
+      "detail": "No NVIDIA device detected"
+    },
+    {
+      "name": "models-dir",
+      "ok": false,
+      "detail": "Missing /home/runner/work/lumi-memory-learning/lumi-memory-learning/models"
+    },
+    {
+      "name": "input-dir",
+      "ok": false,
+      "detail": "Missing /home/runner/work/lumi-memory-learning/lumi-memory-learning/input"
+    },
+    {
+      "name": "output-dir",
+      "ok": true,
+      "detail": "Found /home/runner/work/lumi-memory-learning/lumi-memory-learning/output"
+    }
+  ],
+  "assetPreview": [
+    {
+      "character": "hero",
+      "startBeat": 0,
+      "endBeat": 8,
+      "faceVideo": "models/synthv/hero.mp4",
+      "rvcModel": "models/rvc/hero.pth",
+      "hasFaceVideo": true,
+      "hasRvcModel": true
+    }
+  ],
+  "requiresVoiceProfile": true
+}
