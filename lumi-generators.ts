@@ -5,7 +5,8 @@
  *   - Image: Hugging Face Inference API (FLUX.1-schnell / stable-diffusion)
  *   - Image: Stability AI (stable-diffusion-xl-1024-v1-0)
  *   - Video: FAL.ai (Wan 2.2 / Kling) — primary, mirrors Production Studio
- *   - Video: Replicate (zeroscope) — fallback when FAL_KEY not set
+ *   - Video: Hugging Face (Tencent HunyuanVideo) — fallback when FAL_KEY is unavailable
+ *   - Video: Replicate (zeroscope) — fallback when FAL_KEY / HUGGINGFACE_API_KEY are unavailable
  *   - Audio: Hugging Face (musicgen-small)
  *   - Code: OpenRouter (routed to best available model)
  *
@@ -31,6 +32,9 @@ const STABILITY_API_URL = "https://api.stability.ai/v1/generation";
 const FAL_API_URL = "https://queue.fal.run";
 const REPLICATE_API_URL = "https://api.replicate.com/v1";
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1";
+const MAX_HUNYUAN_VIDEO_FRAMES = 81;
+const HUNYUAN_VIDEO_FPS = 8;
+const BINARY_ARTIFACT_TYPES = ["image", "audio", "video"] as const;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -222,8 +226,57 @@ export async function generateImage(req: GenerationRequest): Promise<GenerationR
 }
 
 // ---------------------------------------------------------------------------
-// Video Generation — FAL.ai (primary, mirrors Production Studio)
+// Video Generation — Hugging Face / FAL.ai / Replicate
 // ---------------------------------------------------------------------------
+
+/**
+ * Generate a video via the Hugging Face Inference API using Tencent HunyuanVideo.
+ * This provides a Hugging Face-backed path for video generation when no FAL key is configured.
+ */
+export async function generateVideoHF(req: GenerationRequest): Promise<GenerationResult> {
+    if (!HF_API_KEY) {
+        throw new Error("HUGGINGFACE_API_KEY is not configured.");
+    }
+
+    const model = validateModelId(req.model || "tencent/HunyuanVideo");
+    const payload: Record<string, any> = {
+        inputs: req.prompt,
+        parameters: {
+            width: req.width || 720,
+            height: req.height || 480,
+            // Keep the Hugging Face request within a conservative frame budget for video generation.
+            num_frames: Math.min((req.duration || 3) * HUNYUAN_VIDEO_FPS, MAX_HUNYUAN_VIDEO_FRAMES),
+            num_inference_steps: req.steps || 30,
+        },
+    };
+
+    const res = await fetch(`${HF_API_URL}/${model}`, {
+        method: "POST",
+        headers: {
+            Authorization: "Bearer " + HF_API_KEY,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(`HuggingFace video generation failed (${res.status}): ${msg}`);
+    }
+
+    const contentType = res.headers.get("content-type") || "video/mp4";
+    const buffer = Buffer.from(await res.arrayBuffer());
+
+    return {
+        type: "video",
+        backend: "huggingface",
+        model,
+        data: buffer.toString("base64"),
+        mimeType: contentType,
+        prompt: req.prompt,
+        createdAt: new Date().toISOString(),
+    };
+}
 
 /**
  * Generate a video via FAL.ai (Wan 2.2 / Kling).
@@ -379,14 +432,15 @@ export async function generateVideoReplicate(req: GenerationRequest): Promise<Ge
 
 /**
  * Smart video generator: tries FAL.ai first (mirrors Production Studio),
- * then falls back to Replicate.
+ * then Hugging Face HunyuanVideo, then Replicate.
  */
 export async function generateVideo(req: GenerationRequest): Promise<GenerationResult> {
     if (FAL_API_KEY) return generateVideoFal(req);
+    if (HF_API_KEY) return generateVideoHF(req);
     if (REPLICATE_API_KEY) return generateVideoReplicate(req);
     throw new Error(
         "No video generation API key configured. " +
-        "Set FAL_KEY (primary) or REPLICATE_API_KEY (fallback)."
+        "Set FAL_KEY (primary), HUGGINGFACE_API_KEY (HunyuanVideo), or REPLICATE_API_KEY (fallback)."
     );
 }
 
@@ -545,14 +599,26 @@ export async function generateCode(req: GenerationRequest): Promise<GenerationRe
     };
 }
 
+function getDefaultMimeType(type: GenerationResult["type"]): string {
+    switch (type) {
+        case "image": return "image/png";
+        case "audio": return "audio/flac";
+        case "video": return "video/mp4";
+        default: return "application/octet-stream";
+    }
+}
+
+function isBinaryArtifactType(type: GenerationResult["type"] | string): boolean {
+    return BINARY_ARTIFACT_TYPES.some((artifactType) => artifactType === type);
+}
+
 async function persistGenerationResult(result: GenerationResult): Promise<GenerationResult> {
     try {
-        if (result.type === "image" || result.type === "audio") {
-            if (!result.data) return result;
+        if (isBinaryArtifactType(result.type) && result.data) {
             const artifact = await storeArtifact({
                 kind: result.type,
                 filename: `${result.type}-${Date.now()}`,
-                mimeType: result.mimeType || (result.type === "image" ? "image/png" : "audio/flac"),
+                mimeType: result.mimeType || getDefaultMimeType(result.type),
                 buffer: Buffer.from(result.data, "base64"),
             });
             return {

@@ -13,7 +13,7 @@
 | **Memory** | Persistent memory backed by Cloudflare R2 when configured, with GitHub Gists and in-memory fallback |
 | **Code Generation** | Full programs, scripts, games in any language |
 | **Image Generation** | Stability AI / Hugging Face FLUX.1-schnell |
-| **Video Generation** | FAL.ai (Wan 2.2 / Kling) with Replicate fallback |
+| **Video Generation** | FAL.ai (Wan 2.2 / Kling), Hugging Face HunyuanVideo, and Replicate fallback |
 | **Audio Generation** | Hugging Face MusicGen |
 | **Mission Execution** | Multi-step autonomous task pipelines |
 | **Roblox Publishing** | Publish games to Roblox via Open Cloud API |
@@ -206,6 +206,7 @@ STABILITY_API_KEY=sk-...         # https://platform.stability.ai
 
 # Video generation
 FAL_KEY=...                      # https://fal.ai/dashboard/keys  ← primary (mirrors Studio)
+HUGGINGFACE_API_KEY=hf_...       # https://huggingface.co/settings/tokens  ← HunyuanVideo support
 REPLICATE_API_KEY=r8_...         # https://replicate.com          ← fallback
 
 # Artifact storage (local by default, Cloudflare R2 optional)
