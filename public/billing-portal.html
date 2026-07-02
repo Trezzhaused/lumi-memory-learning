@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>LUMI Subscription Portal</title>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0;
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #020617;
+        color: #e2e8f0;
+      }
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 4rem 1.5rem;
+      }
+      .card {
+        background: rgba(15, 23, 42, 0.95);
+        border: 1px solid rgba(34, 211, 238, 0.25);
+        border-radius: 24px;
+        padding: 2rem;
+        box-shadow: 0 16px 60px rgba(2, 8, 23, 0.55);
+      }
+      h1 { margin-top: 0; }
+      .pill {
+        display: inline-block;
+        margin-bottom: 1rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        background: rgba(34, 211, 238, 0.16);
+        color: #67e8f9;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+      }
+      a {
+        color: #67e8f9;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <span class="pill">Billing portal</span>
+        <h1>Manage your subscription</h1>
+        <p>This is a lightweight portal placeholder wired by the public chat flow. In a production deployment, this page can be replaced with a real Stripe Customer Portal handoff.</p>
+        <p>Current experience:</p>
+        <ul>
+          <li>Review plan details and billing tier</li>
+          <li>Upgrade or downgrade your access</li>
+          <li>Open a real Stripe-hosted customer portal when the integration is enabled</li>
+        </ul>
+        <p><a href="/public-chat">Return to chat</a></p>
+      </section>
+    </main>
+  </body>
+</html>

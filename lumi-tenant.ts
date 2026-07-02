@@ -259,6 +259,50 @@ export function getBillingLedger(): BillingRecord[] {
     return readJsonFile<BillingRecord[]>(getBillingPath(), []);
 }
 
+function buildProgressTimeline(message: string): string | null {
+    const normalized = message.toLowerCase();
+
+    if (/(video|render|animation|mp4|movie)/i.test(normalized)) {
+        return [
+            "⏳ 05s — Queueing your render request.",
+            "🎬 15s — Preparing scenes and validating assets.",
+            "⚙️ 30s — Rendering frames and compiling the final video.",
+            "✅ 42s — Render complete. Preview is ready.",
+        ].join("\n");
+    }
+
+    if (/(image|flux|photo|poster)/i.test(normalized)) {
+        return [
+            "⏳ 05s — Preparing the image pipeline.",
+            "🎨 15s — Generating the visual composition.",
+            "✨ 30s — Refining detail and color balance.",
+            "✅ 42s — Image ready for review.",
+        ].join("\n");
+    }
+
+    return null;
+}
+
+function buildSubscriptionGuidance(message: string): string | null {
+    if (/(manage subscription|subscription|cancel|upgrade|change card|invoice|payment|billing)/i.test(message)) {
+        return [
+            "Subscription controls are ready.",
+            "- Open the customer portal: /billing/portal",
+            "- If you want, tell me your preferred plan and I can summarize the next step.",
+        ].join("\n");
+    }
+
+    return null;
+}
+
+function buildCompliancePrompt(message: string): string | null {
+    if (/(contract|agreement|application|grant|legal|document|lease|nda|terms)/i.test(message)) {
+        return "Before I draft an official document, please specify the target state or jurisdiction so I can align it with local compliance standards.";
+    }
+
+    return null;
+}
+
 export function buildPublicChatResponse(message: string, sessionId?: string): {content: string; ok: boolean; mode: "onboarding" | "billing" | "chat"; payload?: unknown} {
     const normalized = message.toLowerCase();
     const registerMatch = message.match(/username\s*[:=]?\s*([a-zA-Z0-9._-]+)/i) || message.match(/set my username to ([a-zA-Z0-9._-]+)/i);
@@ -276,7 +320,17 @@ export function buildPublicChatResponse(message: string, sessionId?: string): {c
         };
     }
 
-    if (/(video|render|flux|desktop|screen|remote)/i.test(normalized)) {
+    const subscriptionGuidance = buildSubscriptionGuidance(message);
+    if (subscriptionGuidance) {
+        return {content: subscriptionGuidance, ok: true, mode: "billing"};
+    }
+
+    const compliancePrompt = buildCompliancePrompt(message);
+    if (compliancePrompt) {
+        return {content: compliancePrompt, ok: true, mode: "chat"};
+    }
+
+    if (/(video|render|flux|desktop|screen|remote|image)/i.test(normalized)) {
         const fallbackUserId = `session:${sessionId || "public"}`;
         const billing = enforceBilling(fallbackUserId, "VIDEO_RENDER");
         if (billing.status !== "PASSED") {
@@ -284,6 +338,16 @@ export function buildPublicChatResponse(message: string, sessionId?: string): {c
                 content: `${billing.message || "Billing gatekeeper blocked the request."}\n\nCreate an account to receive a real user id, then retry with the same user id.`,
                 ok: true,
                 mode: "billing",
+                payload: billing,
+            };
+        }
+
+        const progressTimeline = buildProgressTimeline(message);
+        if (progressTimeline) {
+            return {
+                content: `${progressTimeline}\n\n${message}`,
+                ok: true,
+                mode: "chat",
                 payload: billing,
             };
         }

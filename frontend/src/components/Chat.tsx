@@ -4,15 +4,21 @@ import { useChat } from '../hooks/useChat';
 export default function Chat() {
   const { messages, sendMessage, stream } = useChat();
   const [input, setInput] = useState('');
+  const [isSending, setIsSending] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!input.trim()) {
+    if (!input.trim() || isSending) {
       return;
     }
 
-    await sendMessage(input);
-    setInput('');
+    setIsSending(true);
+    try {
+      await sendMessage(input);
+      setInput('');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -34,7 +40,7 @@ export default function Chat() {
           messages.map((message, index) => (
             <div key={`${message.role}-${index}`} className="rounded-2xl bg-slate-900/90 p-3 text-sm text-slate-200">
               <p className="mb-1 text-xs uppercase tracking-[0.3em] text-slate-500">{message.role}</p>
-              <p>{message.content}</p>
+              <p className="whitespace-pre-wrap break-words">{message.content}</p>
             </div>
           ))
         )}
@@ -46,9 +52,10 @@ export default function Chat() {
           placeholder="Ask LUMI to prototype, plan, or create"
           value={input}
           onChange={(event) => setInput(event.target.value)}
+          disabled={isSending}
         />
-        <button className="rounded-2xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-slate-950" type="submit">
-          Send
+        <button className="rounded-2xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={isSending}>
+          {isSending ? 'Sending…' : 'Send'}
         </button>
       </form>
     </section>

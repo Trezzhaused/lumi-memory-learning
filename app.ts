@@ -138,6 +138,10 @@ app.get('/public-chat', (_req: Request, res: Response) => {
     res.sendFile(path.join(process.cwd(), "public", "public-chat.html"));
 });
 
+app.get('/billing/portal', (_req: Request, res: Response) => {
+    res.sendFile(path.join(process.cwd(), "public", "billing-portal.html"));
+});
+
 // ============================================================================
 // Lumi API  — mirrors TrezzWorld Production Studio AIModelBridge.ts endpoints
 // ============================================================================
