@@ -144,6 +144,21 @@ Body: { resources?, goals? }
 
 This endpoint analyzes the curated training-resource catalog for Lumi and stores a knowledge-bank summary in memory for later recall.
 
+### Local file ingestion and organization
+
+```
+POST /api/lumi/ingestion/process
+Body: { filename?, sourcePath?, mimeType?, content?, contentBase64?, sessionId? }
+→ { status, filename, category, artifactId?, artifactPath?, extractedText?, totalChunks?, moved?, finalPath? }
+
+POST /api/lumi/ingestion/guide
+→ { status, artifactId?, artifactPath?, message }
+```
+
+This local-first workflow accepts plain text, CSV, JSON, log files, and PDF paths; it extracts text, classifies the file into Financials / Manuscripts / System_Logs / General_Reference, stores the original artifact, persists the extracted text into Lumi memory, and moves the source file into the matching local folder under `.data/ingestion/`.
+
+The repository also includes companion helper scripts under `scripts/` for a local parser, a file sorter, a directory watcher, and a PDF guide generator so the flow can be replayed outside the API as well.
+
 ### Autonomous missions
 ```
 POST /api/lumi/mission/boot

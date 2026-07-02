@@ -22,6 +22,7 @@ import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 import {getExternalBrowserSources, planExternalBrowserSources, queryExternalBrowserSource} from "./lumi-external-sources";
 import {runLocalStudioPipeline} from "./lumi-local-studio";
 import {buildAutonomyPlan, buildComparativeResearchContext} from "./lumi-autonomy";
+import {generateUserGuide, ingestFile} from "./lumi-ingestion";
 import {evaluateToolExecutionPolicy, executeApprovedAction, getExecutionPolicySnapshot, getRemoteOwnerRuntimeStatus} from "./lumi-tools";
 
 // ============================================================================
@@ -230,6 +231,34 @@ lumiRouter.post("/enhance-prompt", async (req: Request, res: Response, next: Nex
         const {prompt, domain, externalSources} = req.body;
         if (!prompt) { res.status(400).json({error: "prompt is required"}); return; }
         const result = await enhancePrompt(prompt, domain, externalSources);
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/ingestion/process
+lumiRouter.post("/ingestion/process", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {filename, sourcePath, mimeType, content, contentBase64, sessionId} = req.body || {};
+        if (!filename && !sourcePath && content === undefined && contentBase64 === undefined) {
+            res.status(400).json({error: "filename, sourcePath, content, or contentBase64 is required"});
+            return;
+        }
+        const result = await ingestFile({
+            filename,
+            sourcePath,
+            mimeType,
+            content,
+            contentBase64,
+            sessionId: typeof sessionId === "string" ? sessionId : undefined,
+        });
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/ingestion/guide
+lumiRouter.post("/ingestion/guide", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        const result = await generateUserGuide();
         res.json(result);
     } catch (err) { next(err); }
 });
