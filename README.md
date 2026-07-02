@@ -138,11 +138,11 @@ This endpoint turns enterprise AI adoption material into a reusable prompt-train
 ### Training resources / knowledge bank
 ```
 POST /api/lumi/training-resources
-Body: { resources?, goals? }
+Body: { resources?: string | string[], goals?: string | string[] }
 → { generatedAt, overview, capabilityTargets, priorityResources, recommendedIngestionPlan, knowledgeBankSummary, aiMaturityFramework, resources }
 ```
 
-This endpoint analyzes the curated training-resource catalog for Lumi and stores a knowledge-bank summary in memory for later recall.
+`resources` and `goals` can each be supplied as either a single string or an array of strings. This endpoint analyzes the curated training-resource catalog for Lumi and stores a knowledge-bank summary in memory for later recall.
 
 ### Local file ingestion and organization
 
