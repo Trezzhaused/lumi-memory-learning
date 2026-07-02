@@ -182,6 +182,14 @@ GET /api/lumi/conversations → All ConversationSessions
 
 ---
 
+## Safety and certification
+
+The repository now includes a bounded-autonomy safety package under `docs/` and `tests/` for documenting LUMI's whitepaper, threat model, and certification materials. Run the safety suite with:
+
+```bash
+python -m unittest discover -s tests -p 'test_*.py'
+```
+
 ## Setup
 
 ### 1. Clone & install
