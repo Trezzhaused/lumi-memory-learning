@@ -15,3 +15,10 @@ test("comparative research context falls back to a structured plan when automati
   assert.ok(context);
   assert.match(context, /Comparative research plan/i);
 });
+
+test("sovereign autonomy prompts produce a secure self-hosted execution plan", () => {
+  const plan = buildAutonomyPlan("Secure my public n8n chat and build a sovereign multi-modal agent mesh with inventory and pricing schema");
+  assert.equal(plan.mode, "sovereign-autonomy");
+  assert.ok(plan.steps.some(step => /secure|schema|multi-modal|execution/i.test(step.title)));
+  assert.ok(plan.safetyNotes.some(note => /authentication/i.test(note)));
+});

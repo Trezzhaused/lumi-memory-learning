@@ -1,6 +1,6 @@
 import {queryExternalBrowserSource} from "./lumi-external-sources";
 
-export type AutonomyMode = "research-before-create" | "business-automation" | "local-maintenance" | "general";
+export type AutonomyMode = "research-before-create" | "business-automation" | "local-maintenance" | "sovereign-autonomy" | "general";
 
 export interface AutonomyPlanStep {
     id: string;
@@ -22,6 +22,16 @@ export interface AutonomyPlan {
 
 function slug(value: string): string {
     return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+function isSovereignAutonomyPrompt(prompt: string): boolean {
+    const normalized = (prompt || "").trim().toLowerCase();
+    if (!normalized) return false;
+
+    const securityMarkers = /\b(sovereign|self-hosted|self hosted|independence|autonomy|secure|security|authentication|auth|webhook|token|n8n|windows|chat trigger|listener|offline|local-first|local first)\b/i;
+    const executionMarkers = /\b(audio|video|image|document|pdf|spreadsheet|voice|workflow|pipeline|tool|agent|database|schema|server|host|endpoint|mesh|loop|self-healing|self healing)\b/i;
+
+    return securityMarkers.test(normalized) && executionMarkers.test(normalized);
 }
 
 export function buildAutonomyPlan(prompt: string, options: {workspaceRoot?: string} = {}): AutonomyPlan {
@@ -76,6 +86,50 @@ export function buildAutonomyPlan(prompt: string, options: {workspaceRoot?: stri
             ],
             requiresExternalResearch: process.env.LUMI_ALLOW_EXTERNAL_RESEARCH !== "false",
             comparativeTarget,
+        };
+    }
+
+    if (isSovereignAutonomyPrompt(normalized)) {
+        return {
+            mode: "sovereign-autonomy",
+            prompt: normalized,
+            summary: "Sovereign autonomy plan for secure self-hosted workflows and multi-modal execution.",
+            steps: [
+                {
+                    id: "sovereign-1",
+                    title: "Assess the public control surface",
+                    kind: "analysis",
+                    detail: "Audit public endpoints, authentication, tokens, and owner-side bridges before enabling network access.",
+                    safe: true,
+                },
+                {
+                    id: "sovereign-2",
+                    title: "Define the local data and workflow schema",
+                    kind: "business",
+                    detail: "Create the inventory, pricing, site, or workflow schema and a safe persistence path for local execution.",
+                    safe: true,
+                },
+                {
+                    id: "sovereign-3",
+                    title: "Wire the multi-modal execution mesh",
+                    kind: "workspace",
+                    detail: "Connect image, audio, video, document, and tool-execution specialists with a self-healing loop.",
+                    safe: true,
+                },
+                {
+                    id: "sovereign-4",
+                    title: "Validate and lock the deployment",
+                    kind: "review",
+                    detail: "Run deterministic checks, verify access controls, and record the rollout plan for future recall.",
+                    safe: true,
+                },
+            ],
+            safetyNotes: [
+                "Keep public entry points behind authentication and approval gates.",
+                "Avoid destructive local commands unless explicitly authorized.",
+                "Prefer self-hosted components and local data stores for sovereignty.",
+            ],
+            requiresExternalResearch: false,
         };
     }
 
