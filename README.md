@@ -64,6 +64,14 @@ Body: { source, query, goal?, sessionMode? }
 
 These endpoints expose a generic hook for browser-based research sources such as Yuanbao. When `EXTERNAL_BROWSER_PROXY_URL` or `EXTERNAL_BROWSER_API_URL` is configured, Lumi can now issue a live retrieval request to that automation endpoint instead of stopping at workflow-only planning.
 
+To enable live browser-backed retrieval, set one of the following in your environment:
+
+- `EXTERNAL_BROWSER_PROXY_URL` — preferred, points to a proxy endpoint that accepts `{sourceId, query, goal?, sessionMode?}`
+- `EXTERNAL_BROWSER_API_URL` — fallback for direct automation endpoints
+- `EXTERNAL_BROWSER_API_KEY` — optional bearer token for authenticated automation endpoints
+
+A starter template is available in [`.env.example`](.env.example).
+
 ### Mission / Pipeline (Studio Control Plane)
 ```
 POST /api/studio/control-plane/boot
