@@ -15,6 +15,7 @@
  */
 
 import {callOpenRouterChat} from "./openrouter";
+import {callNvidiaChat, callNvidiaVideoGeneration, NvidiaVideoGenerationRequest} from "./nvidia";
 import {storeArtifact, StoredArtifact} from "./lumi-storage";
 
 // ---------------------------------------------------------------------------
@@ -54,7 +55,10 @@ export interface GenerationRequest {
     model?: string;
     language?: string; // for code generation
     duration?: number; // seconds, for audio/video
-    provider?: "auto" | "fal" | "hunyuan" | "replicate";
+    imageBase64?: string;
+    imageUrl?: string;
+    imageMimeType?: string;
+    provider?: "auto" | "fal" | "hunyuan" | "replicate" | "nvidia";
 }
 
 export interface GenerationResult {
@@ -226,8 +230,38 @@ export async function generateImage(req: GenerationRequest): Promise<GenerationR
     );
 }
 
+export async function generateVideoNvidia(req: GenerationRequest): Promise<GenerationResult> {
+    const apiBase = process.env.NVIDIA_API_BASE || process.env.NVIDIA_BASE_URL || "";
+    if (!apiBase) {
+        throw new Error("NVIDIA_API_BASE is not configured.");
+    }
+
+    const videoReq: NvidiaVideoGenerationRequest = {
+        prompt: req.prompt,
+        model: req.model,
+        imageBase64: req.imageBase64,
+        imageUrl: req.imageUrl,
+        imageMimeType: req.imageMimeType,
+        width: req.width,
+        height: req.height,
+        duration: req.duration,
+    };
+    const result = await callNvidiaVideoGeneration(videoReq);
+
+    return {
+        type: "video",
+        backend: result.backend,
+        model: result.model || req.model || process.env.NVIDIA_VIDEO_MODEL || process.env.NVIDIA_CHAT_MODEL || "",
+        url: result.url,
+        data: result.data,
+        mimeType: result.mimeType,
+        prompt: req.prompt,
+        createdAt: result.createdAt,
+    };
+}
+
 // ---------------------------------------------------------------------------
-// Video Generation — Hugging Face / FAL.ai / Replicate
+// Video Generation — NVIDIA / Hugging Face / FAL.ai / Replicate
 // ---------------------------------------------------------------------------
 
 /**
@@ -446,14 +480,23 @@ export async function generateVideo(req: GenerationRequest): Promise<GenerationR
         case "replicate":
             if (!REPLICATE_API_KEY) throw new Error("REPLICATE_API_KEY is not configured.");
             return generateVideoReplicate(req);
+        case "nvidia":
+            return generateVideoNvidia(req);
         case undefined:
         case "auto":
+            if (process.env.NVIDIA_API_BASE || process.env.NVIDIA_BASE_URL) {
+                try {
+                    return await generateVideoNvidia(req);
+                } catch (error) {
+                    console.warn("[Lumi Generators] NVIDIA video generation failed, falling back:", error);
+                }
+            }
             if (FAL_API_KEY) return generateVideoFal(req);
             if (HF_API_KEY) return generateVideoHF(req);
             if (REPLICATE_API_KEY) return generateVideoReplicate(req);
             throw new Error(
                 "No video generation API key configured. " +
-                "Set FAL_KEY (primary), HUGGINGFACE_API_KEY (HunyuanVideo), or REPLICATE_API_KEY (fallback)."
+                "Set NVIDIA_API_BASE (primary), FAL_KEY, HUGGINGFACE_API_KEY, or REPLICATE_API_KEY."
             );
         default:
             throw new Error(`Unsupported video provider: ${req.provider}`);
@@ -498,40 +541,60 @@ export async function generateAudio(req: GenerationRequest): Promise<GenerationR
     };
 }
 
+async function callFreeChat(messages: Array<{role: string; content: string}>, model: string): Promise<{text: string; backend: string}> {
+    if (OPENROUTER_API_KEY) {
+        return {
+            text: await callOpenRouterChat(
+                messages,
+                model,
+                {
+                    apiKey: OPENROUTER_API_KEY,
+                    httpReferer: "https://trezzhaus.com",
+                    appTitle: "Lumi — Trezzhaus AI",
+                    appCategories: "cli-agent,cloud-agent",
+                }
+            ),
+            backend: "openrouter",
+        };
+    }
+
+    if (process.env.NVIDIA_API_BASE || process.env.NVIDIA_BASE_URL) {
+        return {
+            text: await callNvidiaChat(messages, model, {
+                apiKey: process.env.NVIDIA_API_KEY || "",
+                apiBase: process.env.NVIDIA_API_BASE || process.env.NVIDIA_BASE_URL || "",
+            }),
+            backend: "nvidia",
+        };
+    }
+
+    throw new Error("No free chat provider configured. Set OPENROUTER_API_KEY or NVIDIA_API_BASE.");
+}
+
 // ---------------------------------------------------------------------------
 // Text Generation (OpenRouter — plain text)
 // ---------------------------------------------------------------------------
 
 export async function generateText(req: GenerationRequest): Promise<GenerationResult> {
-    if (!OPENROUTER_API_KEY) {
-        throw new Error("OPENROUTER_API_KEY is not configured.");
-    }
-
     const model = validateModelId(req.model || "mistralai/mistral-7b-instruct:free");
     const systemPrompt =
         `You are Lumi, a polished writing assistant for the Trezzhaus platform. ` +
         `Write concise, high-quality text for the user's request. ` +
         `Return only the requested text, no markdown fences.`;
 
-    const responseText = await callOpenRouterChat(
+    const response = await callFreeChat(
         [
             {role: "system", content: systemPrompt},
             {role: "user", content: req.prompt},
         ],
         model,
-        {
-            apiKey: OPENROUTER_API_KEY,
-            httpReferer: "https://trezzhaus.com",
-            appTitle: "Lumi — Trezzhaus AI",
-            appCategories: "cli-agent,cloud-agent",
-        }
     );
 
     return {
         type: "text",
-        backend: "openrouter",
+        backend: response.backend,
         model,
-        text: responseText,
+        text: response.text,
         prompt: req.prompt,
         createdAt: new Date().toISOString(),
     };
@@ -542,35 +605,25 @@ export async function generateText(req: GenerationRequest): Promise<GenerationRe
 // ---------------------------------------------------------------------------
 
 export async function generateDocument(req: GenerationRequest): Promise<GenerationResult> {
-    if (!OPENROUTER_API_KEY) {
-        throw new Error("OPENROUTER_API_KEY is not configured.");
-    }
-
     const model = validateModelId(req.model || "mistralai/devstral-small:free");
     const systemPrompt =
         `You are Lumi, an expert document writer for the Trezzhaus platform. ` +
         `Create a polished Markdown document that fulfills the request. ` +
         `Return only the Markdown document, no markdown fences.`;
 
-    const responseText = await callOpenRouterChat(
+    const response = await callFreeChat(
         [
             {role: "system", content: systemPrompt},
             {role: "user", content: req.prompt},
         ],
         model,
-        {
-            apiKey: OPENROUTER_API_KEY,
-            httpReferer: "https://trezzhaus.com",
-            appTitle: "Lumi — Trezzhaus AI",
-            appCategories: "cli-agent,cloud-agent",
-        }
     );
 
     return {
         type: "document",
-        backend: "openrouter",
+        backend: response.backend,
         model,
-        text: responseText,
+        text: response.text,
         prompt: req.prompt,
         createdAt: new Date().toISOString(),
     };
@@ -581,35 +634,25 @@ export async function generateDocument(req: GenerationRequest): Promise<Generati
 // ---------------------------------------------------------------------------
 
 export async function generateCode(req: GenerationRequest): Promise<GenerationResult> {
-    if (!OPENROUTER_API_KEY) {
-        throw new Error("OPENROUTER_API_KEY is not configured.");
-    }
-
     const model = validateModelId(req.model || "mistralai/devstral-small:free");
     const systemPrompt =
         `You are Lumi, an expert programmer for the Trezzhaus platform. ` +
         `Write clean, complete, well-commented ${req.language || "TypeScript"} code. ` +
         `Return ONLY the code, no markdown fences.`;
 
-    const responseText = await callOpenRouterChat(
+    const response = await callFreeChat(
         [
             {role: "system", content: systemPrompt},
             {role: "user", content: req.prompt},
         ],
         model,
-        {
-            apiKey: OPENROUTER_API_KEY,
-            httpReferer: "https://trezzhaus.com",
-            appTitle: "Lumi — Trezzhaus AI",
-            appCategories: "cli-agent,cloud-agent",
-        }
     );
 
     return {
         type: "code",
-        backend: "openrouter",
+        backend: response.backend,
         model,
-        text: responseText,
+        text: response.text,
         prompt: req.prompt,
         createdAt: new Date().toISOString(),
     };

@@ -25,12 +25,13 @@ import {remember, recall, search as memSearch, getMemoryStorageStatus} from "./l
 import {checkContentSafety, AcamConfig, defaultAcamConfig} from "./lumi-acam";
 import {generate, GenerationRequest} from "./lumi-generators";
 import {getArtifactStorageStatus} from "./lumi-storage";
-import {promises as fs} from "node:fs";
+import {existsSync, mkdirSync, promises as fs, readFileSync, writeFileSync} from "node:fs";
 import path from "node:path";
 import {callOpenRouterChat} from "./openrouter";
 import {buildExternalBrowserSourceContext, queryExternalBrowserSource} from "./lumi-external-sources";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 import {isLocalToolExecutionEnabled, runWorkspaceCommand, writeWorkspaceFile} from "./lumi-tools";
+import {callNvidiaChat} from "./nvidia";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -39,6 +40,9 @@ import {isLocalToolExecutionEnabled, runWorkspaceCommand, writeWorkspaceFile} fr
 export const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 export const OPENROUTER_API_URL = "https://openrouter.ai/api/v1";
 export const OLLAMA_HOST = process.env.OLLAMA_HOST || "";
+export const NVIDIA_API_BASE = process.env.NVIDIA_API_BASE || process.env.NVIDIA_BASE_URL || "";
+export const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY || "";
+export const NVIDIA_CHAT_MODEL = process.env.NVIDIA_CHAT_MODEL || "";
 
 /** Default chat model — free tier on OpenRouter */
 export const DEFAULT_CHAT_MODEL =
@@ -73,7 +77,7 @@ export interface LumiChatResponse {
 
 export interface ModelCascadeEntry {
     id: string;
-    provider: "openrouter" | "ollama";
+    provider: "openrouter" | "ollama" | "nvidia";
     label: string;
     free: boolean;
     contextWindow?: number;
@@ -133,7 +137,7 @@ export interface MissionPolicy {
 export interface MissionStatus {
     id: string;
     prompt: string;
-    status: "pending" | "running" | "completed" | "failed" | "awaiting-approval" | "blocked" | "stalled";
+    status: "pending" | "running" | "completed" | "failed" | "awaiting-approval" | "blocked" | "stalled" | "retrying";
     createdAt: string;
     updatedAt: string;
     summary: string;
@@ -260,6 +264,19 @@ async function openRouterChat(
         httpReferer: "https://trezzhaus.com",
         appTitle: "Lumi — Trezzhaus AI",
         appCategories: "cli-agent,cloud-agent",
+    });
+}
+
+async function nvidiaChat(
+    messages: Array<{role: string; content: string}>,
+    model: string
+): Promise<string> {
+    if (!NVIDIA_API_BASE) {
+        throw new Error("NVIDIA_API_BASE is not configured.");
+    }
+    return callNvidiaChat(messages, model, {
+        apiKey: NVIDIA_API_KEY,
+        apiBase: NVIDIA_API_BASE,
     });
 }
 
@@ -403,6 +420,16 @@ export async function lumiChat(
     if (req.useOllama && OLLAMA_HOST) {
         usedModel = req.ollamaModel || "mistral";
         responseText = await ollamaChat(messages, usedModel);
+    } else if (NVIDIA_API_BASE) {
+        const nvidiaModel = NVIDIA_CHAT_MODEL || DEFAULT_CHAT_MODEL;
+        try {
+            responseText = await nvidiaChat(messages, nvidiaModel);
+            usedModel = nvidiaModel;
+        } catch (error) {
+            console.warn("[Lumi] NVIDIA chat failed, falling back to OpenRouter:", error);
+            responseText = await openRouterChat(messages, DEFAULT_CHAT_MODEL);
+            usedModel = DEFAULT_CHAT_MODEL;
+        }
     } else {
         responseText = await openRouterChat(messages, usedModel);
     }
@@ -448,6 +475,15 @@ export async function getModelCascade(): Promise<ModelCascadeEntry[]> {
         for (const m of status.localModels) {
             cascade.unshift({id: m.name, provider: "ollama", label: `${m.name} (Local)`, free: true});
         }
+    }
+
+    if (NVIDIA_API_BASE) {
+        cascade.unshift({
+            id: NVIDIA_CHAT_MODEL || "nvidia-local-model",
+            provider: "nvidia",
+            label: "NVIDIA NIM Chat (Configured)",
+            free: true,
+        });
     }
 
     return cascade;
@@ -1100,6 +1136,7 @@ export async function getLumiStatus(): Promise<LumiStatus> {
     if (process.env.STABILITY_API_KEY) capabilities.push("image-generation-stability");
     if (process.env.FAL_KEY) capabilities.push("video-generation-fal");
     if (process.env.REPLICATE_API_KEY) capabilities.push("video-generation-replicate");
+    if (NVIDIA_API_BASE) capabilities.push("nvidia-chat", "video-generation-nvidia");
     if (ollamaStatus.available) capabilities.push("local-model-ollama");
     if (process.env.ROBLOX_API_KEY) capabilities.push("roblox-publishing");
     if (artifactStorage.configured) capabilities.push("artifact-storage-r2");

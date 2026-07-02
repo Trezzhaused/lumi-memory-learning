@@ -7,13 +7,13 @@
 
 | Capability | Detail |
 |---|---|
-| **Chat** | Multi-model conversations via OpenRouter (free-tier cascade) |
+| **Chat** | Multi-model conversations via OpenRouter, Ollama, or NVIDIA NIM when configured |
 | **Text Generation** | Plain-text content generation and document drafting |
 | **Document Generation** | Markdown / document outputs saved as artifacts |
 | **Memory** | Persistent memory backed by Cloudflare R2 when configured, with GitHub Gists and in-memory fallback |
 | **Code Generation** | Full programs, scripts, games in any language |
 | **Image Generation** | Stability AI / Hugging Face FLUX.1-schnell |
-| **Video Generation** | FAL.ai (Wan 2.2 / Kling), Hugging Face HunyuanVideo, and Replicate fallback |
+| **Video Generation** | NVIDIA NIM video generation when available, with FAL.ai, Hugging Face HunyuanVideo, and Replicate fallback |
 | **Audio Generation** | Hugging Face MusicGen |
 | **Mission Execution** | Multi-step autonomous task pipelines |
 | **Roblox Publishing** | Publish games to Roblox via Open Cloud API |
@@ -95,7 +95,8 @@ Body: { type: "image"|"video"|"audio"|"code"|"text"|"document", prompt, provider
 → GenerationResult { ..., artifact }
 ```
 
-For video requests, `provider` can be set to `"auto"` (default), `"fal"`, `"hunyuan"`, or `"replicate"`.
+For video requests, `provider` can be set to `"auto"` (default), `"nvidia"`, `"fal"`, `"hunyuan"`, or `"replicate"`.
+Use `"nvidia"` to target the NVIDIA-backed video path when `NVIDIA_API_BASE` is configured.
 Use `"hunyuan"` to explicitly target the Hugging Face-backed HunyuanVideo path when `HUGGINGFACE_API_KEY` is configured.
 
 GET /api/lumi/artifacts/:artifactId
@@ -195,8 +196,16 @@ pnpm install
 Copy and fill in `.env`:
 
 ```bash
-# Required for chat
+# Required for chat (OpenRouter fallback)
 OPENROUTER_API_KEY=sk-or-...     # https://openrouter.ai
+
+# Optional — NVIDIA NIM / local free inference (preferred when available)
+NVIDIA_API_BASE=http://localhost:8000/v1
+NVIDIA_API_KEY=...
+NVIDIA_CHAT_MODEL=meta/llama-3.1-8b-instruct
+NVIDIA_VIDEO_MODEL=your-nvidia-video-model
+NVIDIA_VIDEO_PATH=/video/generations
+NVIDIA_ALLOWED_HOSTS=nvidia.com,localhost,127.0.0.1
 
 # Optional — voice / speech support
 OPENAI_API_KEY=sk-...            # https://platform.openai.com

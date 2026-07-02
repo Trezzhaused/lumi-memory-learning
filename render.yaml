@@ -12,6 +12,19 @@ services:
   # ── Optional local model support (Ollama) ───────────────────────────────────
   - key: OLLAMA_HOST
     sync: false
+  # ── NVIDIA NIM / local free inference (preferred for chat + video) ────────
+  - key: NVIDIA_API_BASE
+    sync: false
+  - key: NVIDIA_API_KEY
+    sync: false
+  - key: NVIDIA_CHAT_MODEL
+    sync: false
+  - key: NVIDIA_VIDEO_MODEL
+    sync: false
+  - key: NVIDIA_VIDEO_PATH
+    value: /video/generations
+  - key: NVIDIA_ALLOWED_HOSTS
+    value: nvidia.com,localhost,127.0.0.1
   # ── Image generation ────────────────────────────────────────────────────────
   - key: HUGGINGFACE_API_KEY
     sync: false
