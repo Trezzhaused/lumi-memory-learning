@@ -1,0 +1,124 @@
+{
+  "last_node_id": 11,
+  "last_link_id": 11,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "UNETLoader",
+      "pos": [80, 80],
+      "inputs": [],
+      "outputs": [{"name": "MODEL", "type": "MODEL", "link": 1}],
+      "widgets_values": ["wan2.1_i2v_480p_14B_fp8_e4m3fn.safetensors", "default"],
+      "properties": {}
+    },
+    {
+      "id": 2,
+      "type": "CLIPLoader",
+      "pos": [80, 180],
+      "inputs": [],
+      "outputs": [{"name": "CLIP", "type": "CLIP", "link": 2}],
+      "widgets_values": ["umt5_xxl_fp8_e4m3fn_scaled.safetensors", "wan"],
+      "properties": {}
+    },
+    {
+      "id": 3,
+      "type": "CLIPVisionLoader",
+      "pos": [80, 280],
+      "inputs": [],
+      "outputs": [{"name": "CLIP_VISION", "type": "CLIP_VISION", "link": 3}],
+      "widgets_values": ["clip_vision_h.safetensors"]
+    },
+    {
+      "id": 4,
+      "type": "VAELoader",
+      "pos": [80, 380],
+      "inputs": [],
+      "outputs": [{"name": "VAE", "type": "VAE", "link": 4}],
+      "widgets_values": ["wan_2.1_vae.safetensors"]
+    },
+    {
+      "id": 5,
+      "type": "LoadImage",
+      "pos": [320, 60],
+      "inputs": [],
+      "outputs": [{"name": "IMAGE", "type": "IMAGE", "link": 5}]
+    },
+    {
+      "id": 6,
+      "type": "CLIPVisionEncode",
+      "pos": [520, 60],
+      "inputs": [
+        {"name": "clip_vision", "type": "CLIP_VISION", "link": 3},
+        {"name": "image", "type": "IMAGE", "link": 5}
+      ],
+      "outputs": [{"name": "EMBEDDING", "type": "CLIP_VISION_OUTPUT", "link": 6}]
+    },
+    {
+      "id": 7,
+      "type": "CLIPTextEncode",
+      "pos": [520, 160],
+      "inputs": [{"name": "clip", "type": "CLIP", "link": 2}],
+      "outputs": [{"name": "CONDITIONING", "type": "CONDITIONING", "link": 7}],
+      "widgets_values": ["a woman smiles and turns her head slightly, cinematic lighting, smooth motion"]
+    },
+    {
+      "id": 8,
+      "type": "CLIPTextEncode",
+      "pos": [520, 240],
+      "inputs": [{"name": "clip", "type": "CLIP", "link": 2}],
+      "outputs": [{"name": "CONDITIONING", "type": "CONDITIONING", "link": 8}],
+      "widgets_values": ["text, watermark, low quality, blurry, static, frozen"]
+    },
+    {
+      "id": 9,
+      "type": "EmptyLatentVideo",
+      "pos": [520, 330],
+      "inputs": [],
+      "outputs": [{"name": "LATENT", "type": "LATENT", "link": 9}],
+      "widgets_values": [832, 480, 33, 1]
+    },
+    {
+      "id": 10,
+      "type": "KSampler",
+      "pos": [800, 180],
+      "inputs": [
+        {"name": "model", "type": "MODEL", "link": 1},
+        {"name": "positive", "type": "CONDITIONING", "link": 7},
+        {"name": "negative", "type": "CONDITIONING", "link": 8},
+        {"name": "latent_image", "type": "LATENT", "link": 9},
+        {"name": "optional_vision_feature", "type": "CLIP_VISION_OUTPUT", "link": 6}
+      ],
+      "outputs": [{"name": "LATENT", "type": "LATENT", "link": 10}],
+      "widgets_values": [987654321, "randomize", 20, 6, "uni_pc", "simple", 1]
+    },
+    {
+      "id": 11,
+      "type": "VHS_VideoCombine",
+      "pos": [1060, 180],
+      "inputs": [
+        {"name": "images", "type": "IMAGE", "link": 11},
+        {"name": "vae", "type": "VAE", "link": 4},
+        {"name": "latent", "type": "LATENT", "link": 10}
+      ],
+      "outputs": [],
+      "widgets_values": ["wan_i2v_out.mp4", 16, 0, 0, 0, true, false, "auto", "", true, 25]
+    }
+  ],
+  "links": [
+    [1, 1, 0, 10, 0, "MODEL"],
+    [2, 2, 0, 7, 0, "CLIP"],
+    [3, 2, 0, 8, 0, "CLIP"],
+    [4, 3, 0, 6, 0, "CLIP_VISION"],
+    [5, 4, 0, 11, 1, "VAE"],
+    [6, 5, 0, 6, 1, "IMAGE"],
+    [7, 6, 0, 10, 4, "CLIP_VISION_OUTPUT"],
+    [8, 7, 0, 10, 1, "CONDITIONING"],
+    [9, 8, 0, 10, 2, "CONDITIONING"],
+    [10, 9, 0, 10, 3, "LATENT"],
+    [11, 10, 0, 11, 0, "LATENT"]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {"ds": {"scale": 1, "offset": [0, 0]}},
+  "version": 0.4
+}

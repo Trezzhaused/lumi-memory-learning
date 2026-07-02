@@ -1,0 +1,103 @@
+{
+  "last_node_id": 9,
+  "last_link_id": 8,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadDiffusionModel",
+      "pos": [100, 100],
+      "inputs": [],
+      "outputs": [{"name": "MODEL", "type": "MODEL", "link": 1}],
+      "widgets_values": ["wan2.1_t2v_1.3B_fp16.safetensors", ""],
+      "properties": {}
+    },
+    {
+      "id": 2,
+      "type": "CLIPLoader",
+      "pos": [100, 200],
+      "inputs": [],
+      "outputs": [{"name": "CLIP", "type": "CLIP", "link": 2}],
+      "widgets_values": ["umt5_xxl_fp8_e4m3fn_scaled.safetensors", "wan"],
+      "properties": {}
+    },
+    {
+      "id": 3,
+      "type": "VAELoader",
+      "pos": [100, 300],
+      "inputs": [],
+      "outputs": [{"name": "VAE", "type": "VAE", "link": 3}],
+      "widgets_values": ["wan_2.1_vae.safetensors"],
+      "properties": {}
+    },
+    {
+      "id": 4,
+      "type": "CLIPTextEncode",
+      "pos": [400, 100],
+      "inputs": [{"name": "clip", "type": "CLIP", "link": 2}],
+      "outputs": [{"name": "CONDITIONING", "type": "CONDITIONING", "link": 4}],
+      "widgets_values": ["a boy running on a beach at sunset, cinematic, high quality"]
+    },
+    {
+      "id": 5,
+      "type": "CLIPTextEncode",
+      "pos": [400, 200],
+      "inputs": [{"name": "clip", "type": "CLIP", "link": 2}],
+      "outputs": [{"name": "CONDITIONING", "type": "CONDITIONING", "link": 5}],
+      "widgets_values": ["text, watermark, low quality, blurry"]
+    },
+    {
+      "id": 6,
+      "type": "EmptyHunyuanLatentVideo",
+      "pos": [400, 300],
+      "inputs": [],
+      "outputs": [{"name": "LATENT", "type": "LATENT", "link": 6}],
+      "widgets_values": [832, 480, 33, 1]
+    },
+    {
+      "id": 7,
+      "type": "KSampler",
+      "pos": [700, 150],
+      "inputs": [
+        {"name": "model", "type": "MODEL", "link": 1},
+        {"name": "positive", "type": "CONDITIONING", "link": 4},
+        {"name": "negative", "type": "CONDITIONING", "link": 5},
+        {"name": "latent_image", "type": "LATENT", "link": 6}
+      ],
+      "outputs": [{"name": "LATENT", "type": "LATENT", "link": 7}],
+      "widgets_values": [846416523478123, "randomize", 20, 6, "uni_pc", "simple", 1]
+    },
+    {
+      "id": 8,
+      "type": "VAEDecode",
+      "pos": [950, 150],
+      "inputs": [
+        {"name": "samples", "type": "LATENT", "link": 7},
+        {"name": "vae", "type": "VAE", "link": 3}
+      ],
+      "outputs": [{"name": "IMAGE", "type": "IMAGE", "link": 8}],
+      "properties": {}
+    },
+    {
+      "id": 9,
+      "type": "SaveAnimatedWEBP",
+      "pos": [1150, 150],
+      "inputs": [{"name": "images", "type": "IMAGE", "link": 8}],
+      "outputs": [],
+      "widgets_values": ["wan_t2v_output", 10, false, false]
+    }
+  ],
+  "links": [
+    [1, 1, 0, 7, 0, "MODEL"],
+    [2, 2, 0, 4, 0, "CLIP"],
+    [3, 2, 0, 5, 0, "CLIP"],
+    [4, 3, 0, 8, 1, "VAE"],
+    [5, 4, 0, 7, 1, "CONDITIONING"],
+    [6, 5, 0, 7, 2, "CONDITIONING"],
+    [7, 6, 0, 7, 3, "LATENT"],
+    [8, 7, 0, 8, 0, "LATENT"]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {"ds": {"scale": 1, "offset": [0, 0]}},
+  "version": 0.4
+}

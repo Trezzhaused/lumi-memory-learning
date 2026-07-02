@@ -182,6 +182,16 @@ GET /api/lumi/conversations → All ConversationSessions
 
 ---
 
+## Local media workflows
+
+For local ComfyUI-based video generation, the repository now includes ready-to-use workflow examples under [`docs/comfyui/`](docs/comfyui/):
+
+- [`docs/comfyui/wan2.1_t2v.json`](docs/comfyui/wan2.1_t2v.json) — minimal Wan 2.1 T2V workflow for the 1.3B model
+- [`docs/comfyui/wan2.1_native_i2v.json`](docs/comfyui/wan2.1_native_i2v.json) — native Wan 2.1 I2V workflow for image-to-video
+- [`docker/docker-compose.muser.yml`](docker/docker-compose.muser.yml) — GPU-enabled compose example for ACE-Step, RVC, and The Muser UI
+
+These files are intended as a starting point for local experimentation and can be adapted to your preferred model names and folder layout.
+
 ## Safety and certification
 
 The repository now includes a bounded-autonomy safety package under `docs/` and `tests/` for documenting LUMI's whitepaper, threat model, and certification materials. Run the safety suite with:

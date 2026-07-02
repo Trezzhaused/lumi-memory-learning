@@ -1,0 +1,52 @@
+version: "3.8"
+
+services:
+  ace-step:
+    image: acestep/model:latest
+    container_name: ace_step
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - MODEL_PATH=/app/models
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models/ace_step:/app/models
+    restart: unless-stopped
+
+  rvc-webui:
+    image: ghcr.io/lj1995/retrieval-based-voice-conversion-webui:latest
+    container_name: rvc_webui
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - GRADIO_SERVER_NAME=0.0.0.0
+    ports:
+      - "7865:7865"
+    volumes:
+      - ./rvc_data/weights:/app/Retrieval-based-Voice-Conversion-WebUI/assets/weights
+      - ./rvc_data/input:/app/Retrieval-based-Voice-Conversion-WebUI/input
+      - ./rvc_data/output:/app/Retrieval-based-Voice-Conversion-WebUI/output
+    restart: unless-stopped
+
+  the-muser:
+    image: python:3.10-slim
+    container_name: the_muser_ui
+    working_dir: /app
+    command: bash -c "pip install -e . && python -m muser.ui"
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - ACE_STEP_API=http://ace-step:8000
+    ports:
+      - "7860:7860"
+    volumes:
+      - /your/local/path/to/the-muser:/app
+      - ./models:/app/models
+    depends_on:
+      - ace-step
+    restart: unless-stopped
+
+networks:
+  default:
+    name: ai_stack_net
