@@ -21,8 +21,38 @@ export interface TrainingResourceAnalysis {
 }
 
 export interface TrainingResourceAnalysisRequest {
-    resources?: string[];
-    goals?: string[];
+    resources?: string[] | string;
+    goals?: string[] | string;
+}
+
+function normalizeTrainingResourceId(resourceId: unknown): string {
+    return typeof resourceId === "string" ? resourceId.trim().toLowerCase() : "";
+}
+
+function normalizeTrainingResourceIds(resourceIds: unknown): string[] {
+    const sourceValues = typeof resourceIds === "string"
+        ? [resourceIds]
+        : Array.isArray(resourceIds)
+            ? resourceIds
+            : [];
+
+    return Array.from(new Set(
+        sourceValues
+            .map(resourceId => normalizeTrainingResourceId(resourceId))
+            .filter(Boolean)
+    ));
+}
+
+function normalizeGoals(goals: unknown): string[] {
+    const sourceValues = typeof goals === "string"
+        ? [goals]
+        : Array.isArray(goals)
+            ? goals
+            : [];
+
+    return sourceValues
+        .map(goal => typeof goal === "string" ? goal.trim() : "")
+        .filter(Boolean);
 }
 
 const DEFAULT_RESOURCES: TrainingResource[] = [
@@ -269,12 +299,14 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
 ];
 
 export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisRequest = {}): TrainingResourceAnalysis {
-    const selectedResources = req.resources && req.resources.length > 0
-        ? DEFAULT_RESOURCES.filter(resource => req.resources!.includes(resource.id))
+    const requestedResourceIds = normalizeTrainingResourceIds(req.resources);
+    const selectedResources = requestedResourceIds.length > 0
+        ? DEFAULT_RESOURCES.filter(resource => requestedResourceIds.includes(normalizeTrainingResourceId(resource.id)))
         : DEFAULT_RESOURCES;
 
-    const goals = req.goals && req.goals.length > 0
-        ? req.goals
+    const normalizedGoals = normalizeGoals(req.goals);
+    const goals = normalizedGoals.length > 0
+        ? normalizedGoals
         : [
             "broaden Lumi's general knowledge",
             "support multimodal and robotics capabilities",
