@@ -28,7 +28,7 @@ import {getArtifactStorageStatus} from "./lumi-storage";
 import {existsSync, mkdirSync, promises as fs, readdirSync, readFileSync, writeFileSync} from "node:fs";
 import path from "node:path";
 import {callOpenRouterChat} from "./openrouter";
-import {buildExternalBrowserSourceContext, queryExternalBrowserSource} from "./lumi-external-sources";
+import {buildExternalBrowserSourceContext, DEFAULT_EXTERNAL_BROWSER_SOURCE_ID, queryExternalBrowserSource} from "./lumi-external-sources";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 import {isLocalToolExecutionEnabled, runWorkspaceCommand, writeWorkspaceFile} from "./lumi-tools";
 import {callNvidiaChat} from "./nvidia";
@@ -904,7 +904,7 @@ async function runMissionStep(mission: MissionStatus, step: MissionPlanStep): Pr
     } else if (step.capability === "search" || step.capability === "research") {
         const research = await lumiChat({message: `Research and summarize the following request. Provide practical next steps and references.\n\n${taskPrompt}`});
         const externalResearch = mission.policy.allowExternalResearch
-            ? await queryExternalBrowserSource("yuanbao", taskPrompt, {goal: mission.prompt, sessionMode: "anonymous"})
+            ? await queryExternalBrowserSource(DEFAULT_EXTERNAL_BROWSER_SOURCE_ID, taskPrompt, {goal: mission.prompt, sessionMode: "anonymous"})
             : {ok: false, error: "External research disabled by policy", content: ""};
         output = [research.content, externalResearch.ok && externalResearch.content ? `External source summary:\n${externalResearch.content}` : externalResearch.error || ""].filter(Boolean).join("\n\n");
     } else {

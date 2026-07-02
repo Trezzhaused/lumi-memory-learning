@@ -1,6 +1,6 @@
 import {mkdirSync, writeFileSync} from "node:fs";
 import path from "node:path";
-import {queryExternalBrowserSource} from "./lumi-external-sources";
+import {DEFAULT_EXTERNAL_BROWSER_SOURCE_ID, queryExternalBrowserSource} from "./lumi-external-sources";
 import {evaluateGuardrailRequest, logGuardrailDecision} from "./lumi-guardrails";
 
 export type AutonomyMode = "research-before-create" | "business-automation" | "local-maintenance" | "finance-maintenance" | "sovereign-autonomy" | "scheduled-automation" | "general";
@@ -544,7 +544,7 @@ export async function buildComparativeResearchContext(prompt: string): Promise<s
     const researchQuery = `Compare ${target} against three comparable leaders and produce a concise feature matrix with UX, pricing, and implementation notes.`;
 
     try {
-        const result = await queryExternalBrowserSource("yuanbao", researchQuery, {goal: prompt, sessionMode: "anonymous"});
+        const result = await queryExternalBrowserSource(DEFAULT_EXTERNAL_BROWSER_SOURCE_ID, researchQuery, {goal: prompt, sessionMode: "anonymous"});
         if (result.ok && result.content) {
             return `Comparative research for ${target}:\n${result.content}`;
         }

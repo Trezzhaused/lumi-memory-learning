@@ -27,9 +27,11 @@ export interface ExternalBrowserSourceQueryResult {
     error?: string;
 }
 
+export const DEFAULT_EXTERNAL_BROWSER_SOURCE_ID = "yuanbao";
+
 const DEFAULT_EXTERNAL_SOURCES: ExternalBrowserSource[] = [
     {
-        id: "yuanbao",
+        id: DEFAULT_EXTERNAL_BROWSER_SOURCE_ID,
         name: "Yuanbao (Tencent)",
         url: "https://www.yuanbao.tencent.com",
         category: "chat",
@@ -43,6 +45,11 @@ const DEFAULT_EXTERNAL_SOURCES: ExternalBrowserSource[] = [
 
 function normalizeExternalSourceId(sourceId: string): string {
     return typeof sourceId === "string" ? sourceId.trim().toLowerCase() : "";
+}
+
+function getSourceIdForError(sourceId: string): string {
+    const normalizedSourceId = normalizeExternalSourceId(sourceId);
+    return normalizedSourceId || (typeof sourceId === "string" ? sourceId : "");
 }
 
 function isKnownExternalSource(sourceId: string): boolean {
@@ -78,7 +85,7 @@ export async function queryExternalBrowserSource(
     const normalizedSourceId = normalizeExternalSourceId(sourceId);
     if (!normalizedSourceId || !isKnownExternalSource(normalizedSourceId)) {
         return {
-            sourceId: normalizedSourceId || (typeof sourceId === "string" ? sourceId : ""),
+            sourceId: getSourceIdForError(sourceId),
             ok: false,
             status: 404,
             usedBackend: "manual",
