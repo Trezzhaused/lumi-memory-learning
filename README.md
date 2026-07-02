@@ -190,6 +190,22 @@ The repository now includes a bounded-autonomy safety package under `docs/` and 
 python -m unittest discover -s tests -p 'test_*.py'
 ```
 
+## Legal and governance
+
+The repository now includes a LUMI legal and governance package for responsible deployment and contribution:
+
+- [LICENSE](LICENSE) — Apache 2.0 license
+- [NOTICE](NOTICE)
+- [TERMS_OF_SERVICE.md](TERMS_OF_SERVICE.md)
+- [PRIVACY_POLICY.md](PRIVACY_POLICY.md)
+- [ACCEPTABLE_USE_POLICY.md](ACCEPTABLE_USE_POLICY.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- [SECURITY.md](SECURITY.md)
+- [GOVERNANCE.md](GOVERNANCE.md)
+- [FOUNDER_IP_ASSIGNMENT.md](FOUNDER_IP_ASSIGNMENT.md)
+- [MODEL_CARD_TEMPLATE.md](MODEL_CARD_TEMPLATE.md)
+
 ## Setup
 
 ### 1. Clone & install
