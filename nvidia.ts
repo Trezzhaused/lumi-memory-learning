@@ -137,6 +137,8 @@ export async function callNvidiaChat(
             model: options.model || model || process.env.NVIDIA_CHAT_MODEL || "",
             messages: messages.map(message => ({role: message.role, content: message.content})),
             stream: false,
+            temperature: 0,
+            seed: 42,
         }),
     });
 

@@ -47,6 +47,8 @@ export async function callOpenRouterChat(
                 content: message.content,
             })) as any,
             stream: false,
+            temperature: 0,
+            seed: 42,
         },
     });
 

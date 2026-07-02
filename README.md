@@ -190,6 +190,12 @@ The repository now includes a bounded-autonomy safety package under `docs/` and 
 python -m unittest discover -s tests -p 'test_*.py'
 ```
 
+Guardrails for tutor-style chat and speech flows are now enabled in the core Lumi chat path. A small golden evaluation suite lives in `tests/golden-tutor-cases.json` and can be run with:
+
+```bash
+pnpm run test:guardrails
+```
+
 ## Legal and governance
 
 The repository now includes a LUMI legal and governance package for responsible deployment and contribution:

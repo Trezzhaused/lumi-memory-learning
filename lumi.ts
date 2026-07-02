@@ -32,6 +32,7 @@ import {buildExternalBrowserSourceContext, queryExternalBrowserSource} from "./l
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 import {isLocalToolExecutionEnabled, runWorkspaceCommand, writeWorkspaceFile} from "./lumi-tools";
 import {callNvidiaChat} from "./nvidia";
+import {buildGuardrailSystemPrompt, evaluateGuardrailRequest, logGuardrailDecision, normalizeGuardedResponse} from "./lumi-guardrails";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -399,7 +400,30 @@ export async function lumiChat(
 
     const domain = req.domain || detectDomain(req.message);
     const externalSourceContext = buildExternalBrowserSourceContext(req.externalSources || []);
-    const systemPrompt = await buildSystemPrompt(req.message, domain, externalSourceContext);
+    const baseSystemPrompt = await buildSystemPrompt(req.message, domain, externalSourceContext);
+    const guardrailDecision = evaluateGuardrailRequest(req.message);
+    const systemPrompt = buildGuardrailSystemPrompt(baseSystemPrompt);
+
+    if (!guardrailDecision.shouldCallModel) {
+        logGuardrailDecision({
+            sessionId: sessionId || "default",
+            source: "chat",
+            stage: "input",
+            action: guardrailDecision.action,
+            safetyState: guardrailDecision.safetyState,
+            reason: guardrailDecision.reason,
+            message: req.message,
+        });
+        if (sessionId) {
+            let session = conversationManager.get(sessionId);
+            if (!session) session = conversationManager.create("Lumi Chat", {domain}, sessionId);
+            conversationManager.addMessage(session.id, "user", req.message);
+            conversationManager.addMessage(session.id, "assistant", guardrailDecision.fallbackContent);
+            await remember(sessionId, "user", req.message, ["chat", domain]);
+            await remember(sessionId, "assistant", guardrailDecision.fallbackContent, ["chat", domain]);
+        }
+        return {role: "assistant", content: guardrailDecision.fallbackContent, model: "guardrail-fallback", ok: true};
+    }
 
     const messages: Array<{role: string; content: string}> = [
         {role: "system", content: systemPrompt},
@@ -434,6 +458,20 @@ export async function lumiChat(
         responseText = await openRouterChat(messages, usedModel);
     }
 
+    const normalizedResponse = normalizeGuardedResponse(responseText);
+    responseText = normalizedResponse.content;
+    if (normalizedResponse.action !== "allow") {
+        logGuardrailDecision({
+            sessionId: sessionId || "default",
+            source: "chat",
+            stage: "response",
+            action: normalizedResponse.action,
+            safetyState: normalizedResponse.safetyState,
+            message: req.message,
+            response: responseText,
+        });
+    }
+
     if (sessionId) {
         let session = conversationManager.get(sessionId);
         if (session) conversationManager.addMessage(session.id, "assistant", responseText);
@@ -441,7 +479,7 @@ export async function lumiChat(
         await remember(sessionId, "assistant", responseText, ["chat", domain]);
     }
 
-    return {role: "assistant", content: responseText, model: usedModel, ok: true};
+    return {role: "assistant", content: responseText, model: normalizedResponse.action === "allow" ? usedModel : "guardrail-fallback", ok: true};
 }
 
 // ---------------------------------------------------------------------------
