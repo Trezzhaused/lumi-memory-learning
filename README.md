@@ -221,7 +221,7 @@ $body = @{
 Invoke-RestMethod -Method Post -Uri http://localhost:3001/api/lumi/local-studio/run -ContentType 'application/json' -Body $body
 ```
 
-The endpoint writes a `scenes.json` manifest, a `pipeline-plan.json` file, and a `run-local-studio.sh` helper into `output/local-studio/` so the workflow can be reviewed before execution.
+The endpoint writes a `scenes.json` manifest, a `pipeline-plan.json` file, and a `run-local-studio.sh` helper into `output/local-studio/` so the workflow can be reviewed before execution. The Docker web UI also renders a scene-preview gallery with a character selector so you can inspect the manifest before launching the stack.
 
 ### Autonomy note
 
