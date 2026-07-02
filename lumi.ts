@@ -109,10 +109,31 @@ export interface MissionEvent {
     createdAt: string;
 }
 
+export interface MissionPlanStep {
+    id: string;
+    title: string;
+    capability: string;
+    status: "planned" | "running" | "done" | "blocked" | "retrying" | "failed";
+    attempts: number;
+    workerId: string;
+    targetFiles: string[];
+    notes?: string;
+    lastResult?: string;
+}
+
+export interface MissionPolicy {
+    maxSteps: number;
+    maxAttempts: number;
+    maxRuntimeMs: number;
+    allowExternalResearch: boolean;
+    allowLocalExecution: boolean;
+    requiresApproval: boolean;
+}
+
 export interface MissionStatus {
     id: string;
     prompt: string;
-    status: "pending" | "running" | "completed" | "failed";
+    status: "pending" | "running" | "completed" | "failed" | "awaiting-approval" | "blocked" | "stalled";
     createdAt: string;
     updatedAt: string;
     summary: string;
@@ -126,12 +147,18 @@ export interface MissionStatus {
     };
     events: MissionEvent[];
     artifacts: MissionArtifactSummary[];
+    plan: MissionPlanStep[];
+    policy: MissionPolicy;
+    startedAt?: string;
+    completedAt?: string;
+    lastHeartbeatAt?: string;
+    learningSummary?: string;
 }
 
 export interface MissionBootResult {
     missionId: string;
     objective: string;
-    status: "executing";
+    status: "executing" | "awaiting-approval";
     summary: string;
     plannerModel: string;
     executionQueue: Array<{
@@ -157,39 +184,6 @@ export interface FineTuneStatus {
     ready: boolean;
     seed_dataset: string | null;
     datasets: string[];
-}
-
-// ---------------------------------------------------------------------------
-// Active mission store
-// ---------------------------------------------------------------------------
-
-const missions = new Map<string, MissionStatus>();
-const missionEvents = new Map<string, MissionEvent[]>();
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), ".data");
-const FINETUNE_DIR = path.join(DATA_DIR, "finetune");
-
-function generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function emitMissionEvent(mission: MissionStatus, message: string, detail?: string, type: MissionEvent["type"] = "log"): void {
-    const event: MissionEvent = {
-        id: generateId(),
-        type,
-        message,
-        detail,
-        createdAt: new Date().toISOString(),
-    };
-    mission.events.push(event);
-    missionEvents.set(mission.id, mission.events);
-}
-
-function captureMissionArtifact(mission: MissionStatus, artifact: MissionArtifactSummary): void {
-    mission.artifacts.push(artifact);
-}
-
-function buildArtifactUrl(artifactId?: string): string | undefined {
-    return artifactId ? `/api/lumi/artifacts/${artifactId}` : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -485,20 +479,89 @@ export async function enhancePrompt(
 // ---------------------------------------------------------------------------
 // Mission / pipeline (Studio control-plane, Studio-compatible)
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Mission / pipeline (Studio control-plane, Studio-compatible)
+// ---------------------------------------------------------------------------
 
-export async function bootMission(prompt: string): Promise<MissionBootResult> {
-    const missionId = generateId();
-    const now = new Date().toISOString();
+const missions = new Map<string, MissionStatus>();
+const missionEvents = new Map<string, MissionEvent[]>();
+const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), ".data");
+const FINETUNE_DIR = path.join(DATA_DIR, "finetune");
+const MISSION_STORE_PATH = path.join(DATA_DIR, "missions", "missions.json");
+const MISSION_STALLED_TIMEOUT_MS = Number(process.env.LUMI_MISSION_STALLED_TIMEOUT_MS || "30000");
+const MISSION_WORKER_INTERVAL_MS = Number(process.env.LUMI_MISSION_WORKER_INTERVAL_MS || "2000");
+let missionStoreLoaded = false;
+let missionWorkerTimer: NodeJS.Timeout | null = null;
+let missionWorkerBusy = false;
 
-    // Decompose the prompt into capability jobs using Lumi's intelligence
-    const resourceAnalysis = buildTrainingResourceAnalysis({goals: [prompt]});
-    const capabilityBlueprint = resourceAnalysis.aiMaturityFramework.map(entry => `${entry.label}: ${entry.summary}`).join("; ");
+function generateId(): string {
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function emitMissionEvent(mission: MissionStatus, message: string, detail?: string, type: MissionEvent["type"] = "log"): void {
+    const event: MissionEvent = {
+        id: generateId(),
+        type,
+        message,
+        detail,
+        createdAt: new Date().toISOString(),
+    };
+    mission.events.push(event);
+    missionEvents.set(mission.id, mission.events);
+    mission.updatedAt = new Date().toISOString();
+    persistMissionStore();
+}
+
+function captureMissionArtifact(mission: MissionStatus, artifact: MissionArtifactSummary): void {
+    mission.artifacts.push(artifact);
+    persistMissionStore();
+}
+
+function buildArtifactUrl(artifactId?: string): string | undefined {
+    return artifactId ? `/api/lumi/artifacts/${artifactId}` : undefined;
+}
+
+function persistMissionStore(): void {
+    try {
+        mkdirSync(path.dirname(MISSION_STORE_PATH), {recursive: true});
+        writeFileSync(MISSION_STORE_PATH, JSON.stringify([...missions.values()], null, 2), "utf8");
+    } catch (error) {
+        console.warn("[Lumi] Failed to persist mission store:", error);
+    }
+}
+
+function ensureMissionStoreLoaded(): void {
+    if (missionStoreLoaded) return;
+    try {
+        if (existsSync(MISSION_STORE_PATH)) {
+            const raw = readFileSync(MISSION_STORE_PATH, "utf8");
+            const parsed = JSON.parse(raw) as MissionStatus[];
+            if (Array.isArray(parsed)) {
+                parsed.forEach(mission => missions.set(mission.id, mission));
+            }
+        }
+    } catch (error) {
+        console.warn("[Lumi] Failed to load mission store:", error);
+    }
+    missionStoreLoaded = true;
+}
+
+function getMissionPolicy(prompt: string): MissionPolicy {
+    return {
+        maxSteps: Number(process.env.LUMI_MAX_MISSION_STEPS || "5"),
+        maxAttempts: Number(process.env.LUMI_MAX_MISSION_ATTEMPTS || "2"),
+        maxRuntimeMs: Number(process.env.LUMI_MISSION_MAX_RUNTIME_MS || "180000"),
+        allowExternalResearch: process.env.LUMI_ALLOW_EXTERNAL_RESEARCH !== "false",
+        allowLocalExecution: isLocalToolExecutionEnabled(),
+        requiresApproval: /\b(deploy|publish|delete|remove|wipe|shutdown|execute|shell|secret|token|api key)\b/i.test(prompt),
+    };
+}
+
+async function buildMissionPlan(prompt: string, policy: MissionPolicy): Promise<MissionPlanStep[]> {
     const planPrompt =
-        `You are a mission planner. Decompose the following objective into 3-5 concrete jobs. ` +
+        `You are a mission planner. Decompose the following objective into ${Math.max(1, policy.maxSteps)} concrete jobs. ` +
         `For each job return JSON with fields: name, capability (one of: code, image, audio, video, document, search, build, text, roblox), ` +
-        `workerId (agent name), targetFiles (array of filename strings). ` +
-        `Use the capability blueprint to pick the best mix of automation and research work: ${capabilityBlueprint}. ` +
-        `Return ONLY a JSON array, no markdown fences.\n\nObjective: ${prompt}`;
+        `workerId (agent name), targetFiles (array of filename strings). Return ONLY a JSON array, no markdown fences.\n\nObjective: ${prompt}`;
 
     let rawPlan = "[]";
     try {
@@ -507,235 +570,457 @@ export async function bootMission(prompt: string): Promise<MissionBootResult> {
              {role: "user", content: planPrompt}],
             DEFAULT_CHAT_MODEL
         );
-    } catch { /* fall through to empty plan */ }
+    } catch {
+        // fall through to a conservative fallback plan
+    }
 
     let jobDefs: any[] = [];
     try {
         jobDefs = JSON.parse(rawPlan.replace(/```json?/g, "").replace(/```/g, "").trim());
         if (!Array.isArray(jobDefs)) jobDefs = [];
-    } catch { jobDefs = []; }
+    } catch {
+        jobDefs = [];
+    }
 
-    const executionQueue = jobDefs.slice(0, 5).map((j: any, i: number) => ({
-        jobId: generateId(),
-        name: j.name || `Task ${i + 1}`,
-        capability: j.capability || "text",
-        workerId: j.workerId || "lumi-core",
-        targetFiles: Array.isArray(j.targetFiles) ? j.targetFiles : [],
-        status: "queued",
-        stage: "planned",
+    if (!jobDefs.length) {
+        jobDefs = [
+            {name: "Inspect the request", capability: "search", workerId: "lumi-core", targetFiles: []},
+            {name: "Create a concrete deliverable", capability: "document", workerId: "lumi-core", targetFiles: []},
+        ];
+    }
+
+    return jobDefs.slice(0, policy.maxSteps).map((job: any, index: number) => ({
+        id: generateId(),
+        title: job.name || `Task ${index + 1}`,
+        capability: job.capability || "text",
+        workerId: job.workerId || "lumi-core",
+        targetFiles: Array.isArray(job.targetFiles) ? job.targetFiles : [],
+        status: "planned",
+        attempts: 0,
     }));
+}
 
+function recalculateMissionProgress(mission: MissionStatus): void {
+    mission.progress.total = mission.plan.length;
+    mission.progress.completed = mission.plan.filter(step => step.status === "done").length;
+    mission.progress.running = mission.plan.filter(step => step.status === "running").length;
+    mission.progress.errored = mission.plan.filter(step => step.status === "failed" || step.status === "blocked").length;
+    mission.progress.percent = Math.round((mission.progress.completed / Math.max(1, mission.progress.total)) * 100);
+}
+
+async function recordMissionLearning(mission: MissionStatus, step: MissionPlanStep, output: string, decision: string): Promise<void> {
+    const summary = `Mission ${mission.id} | decision=${decision} | step=${step.title} | outcome=${output.slice(0, 220)}`;
+    mission.learningSummary = [mission.learningSummary, summary].filter(Boolean).join("\n\n");
+    await remember(`mission:${mission.id}`, "assistant", summary, ["mission", "autonomy", step.capability], "knowledge");
+    persistMissionStore();
+}
+
+async function evaluateMissionStep(mission: MissionStatus, step: MissionPlanStep, output: string): Promise<"continue" | "retry" | "branch" | "stop"> {
+    const evaluationPrompt = `You are the mission evaluator. Decide the next action for this autonomous task. Reply with exactly one word: continue, retry, branch, or stop.\n\nMission objective: ${mission.prompt}\nStep: ${step.title}\nCapability: ${step.capability}\nOutput summary: ${output.slice(0, 400)}`;
+    try {
+        const response = await lumiChat({message: evaluationPrompt});
+        const normalized = response.content.trim().toLowerCase();
+        if (normalized.includes("retry")) return "retry";
+        if (normalized.includes("branch")) return "branch";
+        if (normalized.includes("stop")) return "stop";
+        return "continue";
+    } catch {
+        return "continue";
+    }
+}
+
+async function runMissionStep(mission: MissionStatus, step: MissionPlanStep): Promise<string> {
+    const taskPrompt = `${mission.prompt}\n\nTask: ${step.title}`;
+    let output = "";
+    let artifactSummary: MissionArtifactSummary | undefined;
+
+    if (step.capability === "code") {
+        const result = await generate({type: "code", prompt: taskPrompt});
+        output = result.text || "";
+        artifactSummary = result.artifact ? {
+            name: step.title,
+            kind: "code",
+            artifactId: result.artifact.id,
+            downloadUrl: buildArtifactUrl(result.artifact.id),
+            status: "ready",
+        } : undefined;
+    } else if (step.capability === "image") {
+        const result = await generate({type: "image", prompt: taskPrompt});
+        output = result.data ? `[image:base64:${result.mimeType}]` : result.url || "";
+        artifactSummary = result.artifact ? {
+            name: step.title,
+            kind: "image",
+            artifactId: result.artifact.id,
+            downloadUrl: buildArtifactUrl(result.artifact.id),
+            status: "ready",
+        } : undefined;
+    } else if (step.capability === "audio") {
+        const result = await generate({type: "audio", prompt: taskPrompt});
+        output = result.data ? `[audio:base64:audio/flac]` : "";
+        artifactSummary = result.artifact ? {
+            name: step.title,
+            kind: "audio",
+            artifactId: result.artifact.id,
+            downloadUrl: buildArtifactUrl(result.artifact.id),
+            status: "ready",
+        } : undefined;
+    } else if (step.capability === "video") {
+        const result = await generate({type: "video", prompt: taskPrompt});
+        output = result.url || result.text || "Video generation queued";
+        artifactSummary = result.artifact ? {
+            name: step.title,
+            kind: "video",
+            artifactId: result.artifact.id,
+            downloadUrl: buildArtifactUrl(result.artifact.id),
+            status: "ready",
+        } : undefined;
+    } else if (step.capability === "document") {
+        const result = await generate({type: "document", prompt: taskPrompt});
+        output = result.text || "";
+        artifactSummary = result.artifact ? {
+            name: step.title,
+            kind: "document",
+            artifactId: result.artifact.id,
+            downloadUrl: buildArtifactUrl(result.artifact.id),
+            status: "ready",
+        } : undefined;
+    } else if (step.capability === "build") {
+        const result = await generate({type: "code", prompt: `Build a concise starter implementation for: ${taskPrompt}`});
+        const workspaceFile = await writeWorkspaceFile(`.data/lumi-workspace/${step.id}-build.ts`, result.text || "");
+        const buildCommand = isLocalToolExecutionEnabled()
+            ? await runWorkspaceCommand("pnpm", ["run", "build"], {cwd: process.cwd()})
+            : {ok: false, blocked: true, message: "Local tool execution disabled"};
+        const buildSummary = buildCommand.ok
+            ? `Build completed.\n${buildCommand.stdout}`
+            : buildCommand.blocked
+                ? buildCommand.message
+                : `${buildCommand.message}\n${buildCommand.stderr}`;
+        output = [result.text || "", workspaceFile.ok ? `Wrote workspace file ${workspaceFile.filePath}` : workspaceFile.message, buildSummary].filter(Boolean).join("\n\n");
+        artifactSummary = result.artifact ? {
+            name: step.title,
+            kind: "build",
+            artifactId: result.artifact.id,
+            downloadUrl: buildArtifactUrl(result.artifact.id),
+            status: "ready",
+        } : undefined;
+    } else if (step.capability === "search" || step.capability === "research") {
+        const research = await lumiChat({message: `Research and summarize the following request. Provide practical next steps and references.\n\n${taskPrompt}`});
+        const externalResearch = mission.policy.allowExternalResearch
+            ? await queryExternalBrowserSource("yuanbao", taskPrompt, {goal: mission.prompt, sessionMode: "anonymous"})
+            : {ok: false, error: "External research disabled by policy", content: ""};
+        output = [research.content, externalResearch.ok && externalResearch.content ? `External source summary:\n${externalResearch.content}` : externalResearch.error || ""].filter(Boolean).join("\n\n");
+    } else {
+        const resp = await lumiChat({message: taskPrompt});
+        output = resp.content;
+    }
+
+    if (artifactSummary) {
+        captureMissionArtifact(mission, artifactSummary);
+        emitMissionEvent(mission, `Artifact ready for ${step.title}`, artifactSummary.downloadUrl || "Artifact saved", "artifact");
+    }
+
+    return output;
+}
+
+export async function bootMission(prompt: string): Promise<MissionBootResult> {
+    ensureMissionStoreLoaded();
+    const missionId = generateId();
+    const now = new Date().toISOString();
+    const policy = getMissionPolicy(prompt);
+    const plan = await buildMissionPlan(prompt, policy);
     const mission: MissionStatus = {
         id: missionId,
         prompt,
-        status: "running",
+        status: policy.requiresApproval ? "awaiting-approval" : "pending",
         createdAt: now,
         updatedAt: now,
-        summary: `Mission "${prompt.slice(0, 80)}" booted with ${executionQueue.length} job(s).`,
-        jobs: executionQueue.map(q => ({
-            id: q.jobId,
-            title: q.name,
-            capability: q.capability,
+        summary: `Mission "${prompt.slice(0, 80)}" booted with ${plan.length} step(s).`,
+        jobs: plan.map(step => ({
+            id: step.id,
+            title: step.title,
+            capability: step.capability,
             status: "queued",
-            workerId: q.workerId,
-            targetFiles: q.targetFiles,
+            workerId: step.workerId,
+            targetFiles: step.targetFiles,
             startedAt: now,
         })),
         progress: {
-            total: executionQueue.length,
+            total: plan.length,
             completed: 0,
-            running: executionQueue.length,
+            running: 0,
             errored: 0,
             percent: 0,
         },
         events: [],
         artifacts: [],
+        plan,
+        policy,
+        startedAt: now,
+        lastHeartbeatAt: now,
     };
 
-    emitMissionEvent(mission, "Mission booted", `Planning ${executionQueue.length} work item(s).`, "status");
     missions.set(missionId, mission);
-
-    // Execute jobs asynchronously
-    executeMissionAsync(mission).catch(err =>
-        console.error(`[Lumi] Mission ${missionId} error:`, err)
-    );
+    persistMissionStore();
+    emitMissionEvent(mission, "Mission booted", `Planning ${plan.length} work item(s).`, "status");
+    if (!policy.requiresApproval) {
+        void processMissionQueue();
+    }
 
     return {
         missionId,
         objective: prompt,
-        status: "executing",
+        status: policy.requiresApproval ? "awaiting-approval" : "executing",
         summary: mission.summary,
         plannerModel: DEFAULT_CHAT_MODEL,
-        executionQueue,
+        executionQueue: plan.map(step => ({
+            jobId: step.id,
+            name: step.title,
+            capability: step.capability,
+            workerId: step.workerId,
+            targetFiles: step.targetFiles,
+            status: "queued",
+            stage: "planned",
+        })),
         streamUrl: `/api/lumi/missions/${missionId}/events`,
     };
 }
 
-async function executeMissionAsync(mission: MissionStatus): Promise<void> {
-    for (const job of mission.jobs) {
-        try {
-            emitMissionEvent(mission, `Starting task: ${job.title}`, `Capability: ${job.capability}`, "status");
-            job.status = "running";
-            mission.updatedAt = new Date().toISOString();
-
-            let output = "";
-            let artifactSummary: MissionArtifactSummary | undefined;
-            const taskPrompt = `${mission.prompt}\n\nTask: ${job.title}`;
-
-            if (job.capability === "code") {
-                const result = await generate({type: "code", prompt: taskPrompt});
-                output = result.text || "";
-                artifactSummary = result.artifact ? {
-                    name: job.title,
-                    kind: "code",
-                    artifactId: result.artifact.id,
-                    downloadUrl: buildArtifactUrl(result.artifact.id),
-                    status: "ready",
-                } : undefined;
-            } else if (job.capability === "image") {
-                const result = await generate({type: "image", prompt: taskPrompt});
-                output = result.data ? `[image:base64:${result.mimeType}]` : result.url || "";
-                artifactSummary = result.artifact ? {
-                    name: job.title,
-                    kind: "image",
-                    artifactId: result.artifact.id,
-                    downloadUrl: buildArtifactUrl(result.artifact.id),
-                    status: "ready",
-                } : undefined;
-            } else if (job.capability === "audio") {
-                const result = await generate({type: "audio", prompt: taskPrompt});
-                output = result.data ? `[audio:base64:audio/flac]` : "";
-                artifactSummary = result.artifact ? {
-                    name: job.title,
-                    kind: "audio",
-                    artifactId: result.artifact.id,
-                    downloadUrl: buildArtifactUrl(result.artifact.id),
-                    status: "ready",
-                } : undefined;
-            } else if (job.capability === "video") {
-                const result = await generate({type: "video", prompt: taskPrompt});
-                output = result.url || result.text || "Video generation queued";
-                artifactSummary = result.artifact ? {
-                    name: job.title,
-                    kind: "video",
-                    artifactId: result.artifact.id,
-                    downloadUrl: buildArtifactUrl(result.artifact.id),
-                    status: "ready",
-                } : undefined;
-            } else if (job.capability === "document") {
-                const result = await generate({type: "document", prompt: taskPrompt});
-                output = result.text || "";
-                artifactSummary = result.artifact ? {
-                    name: job.title,
-                    kind: "document",
-                    artifactId: result.artifact.id,
-                    downloadUrl: buildArtifactUrl(result.artifact.id),
-                    status: "ready",
-                } : undefined;
-            } else if (job.capability === "build") {
-                const result = await generate({type: "code", prompt: `Build a concise starter implementation for: ${taskPrompt}`});
-               const workspaceFile = await writeWorkspaceFile(
-                   `.data/lumi-workspace/${job.id}-build.ts`,
-                   result.text || ""
-               );
-               const buildCommand = isLocalToolExecutionEnabled()
-                   ? await runWorkspaceCommand("pnpm", ["run", "build"], {cwd: process.cwd()})
-                   : {ok: false, blocked: true, message: "Local tool execution disabled"};
-               const buildSummary = buildCommand.ok
-                   ? `Build completed.\n${buildCommand.stdout}`
-                   : buildCommand.blocked
-                       ? buildCommand.message
-                       : `${buildCommand.message}\n${buildCommand.stderr}`;
-               output = [
-                   result.text || "",
-                   workspaceFile.ok ? `Wrote workspace file ${workspaceFile.filePath}` : workspaceFile.message,
-                   buildSummary,
-               ].filter(Boolean).join("\n\n");
-               artifactSummary = result.artifact ? {
-                   name: job.title,
-                   kind: "build",
-                   artifactId: result.artifact.id,
-                   downloadUrl: buildArtifactUrl(result.artifact.id),
-                   status: "ready",
-               } : undefined;
-            } else if (job.capability === "search" || job.capability === "research") {
-               const research = await lumiChat({message: `Research and summarize the following request. Provide practical next steps and references.\n\n${taskPrompt}`});
-               const externalResearch = await queryExternalBrowserSource("yuanbao", taskPrompt, {goal: mission.prompt, sessionMode: "anonymous"});
-               output = [research.content, externalResearch.ok && externalResearch.content ? `External source summary:\n${externalResearch.content}` : externalResearch.error || ""].filter(Boolean).join("\n\n");
-            } else {
-                const resp = await lumiChat({message: taskPrompt});
-                output = resp.content;
-            }
-
-            if (artifactSummary) {
-                captureMissionArtifact(mission, artifactSummary);
-                emitMissionEvent(mission, `Artifact ready for ${job.title}`, artifactSummary.downloadUrl || "Artifact saved", "artifact");
-            }
-
-            job.output = output;
-            job.status = "done";
-            job.completedAt = new Date().toISOString();
-            mission.progress.completed += 1;
-            mission.progress.running -= 1;
-            mission.progress.percent = Math.round(
-                (mission.progress.completed / mission.progress.total) * 100
-            );
-            emitMissionEvent(mission, `Completed task: ${job.title}`, output.slice(0, 220), "log");
-        } catch (err: any) {
-            job.status = "error";
-            job.error = err.message;
-            job.completedAt = new Date().toISOString();
-            mission.progress.errored += 1;
-            mission.progress.running -= 1;
-            emitMissionEvent(mission, `Task failed: ${job.title}`, err.message, "status");
-        }
-        mission.updatedAt = new Date().toISOString();
-    }
-
-    const allDone = mission.jobs.every(j => j.status === "done" || j.status === "error");
-    const anyError = mission.jobs.some(j => j.status === "error");
-    mission.status = !allDone ? "running" : anyError ? "failed" : "completed";
+export function approveMission(missionId: string): MissionStatus {
+    ensureMissionStoreLoaded();
+    const mission = missions.get(missionId);
+    if (!mission) throw new Error(`Mission not found: ${missionId}`);
+    if (mission.status !== "awaiting-approval") return mission;
+    mission.status = "pending";
     mission.updatedAt = new Date().toISOString();
-    emitMissionEvent(mission, mission.status === "completed" ? "Mission completed" : "Mission stopped with errors", mission.summary, "status");
+    emitMissionEvent(mission, "Mission approved by supervisor", "Execution resumed.", "status");
+    void processMissionQueue();
+    return mission;
 }
 
-// ---------------------------------------------------------------------------
-// Pipeline status (Studio-compatible)
-// ---------------------------------------------------------------------------
+export function getMission(missionId: string): MissionStatus {
+    ensureMissionStoreLoaded();
+    const mission = missions.get(missionId);
+    if (!mission) throw new Error(`Mission not found: ${missionId}`);
+    return { ...mission, jobs: mission.jobs.map(job => ({...job})), events: mission.events.map(event => ({...event})), artifacts: mission.artifacts.map(artifact => ({...artifact})), plan: mission.plan.map(step => ({...step})) };
+}
+
+async function processMissionQueue(): Promise<void> {
+    if (missionWorkerBusy) return;
+    missionWorkerBusy = true;
+    try {
+        ensureMissionStoreLoaded();
+
+        const staleRunning = [...missions.values()].filter(mission => mission.status === "running");
+        for (const mission of staleRunning) {
+            const heartbeat = mission.lastHeartbeatAt ? new Date(mission.lastHeartbeatAt).getTime() : new Date(mission.updatedAt).getTime();
+            if (Date.now() - heartbeat > MISSION_STALLED_TIMEOUT_MS) {
+                mission.status = "stalled";
+                mission.updatedAt = new Date().toISOString();
+                emitMissionEvent(mission, "Mission stalled", "No heartbeat detected; resuming on the next worker cycle.", "status");
+                await executeMissionAsync(mission);
+                break;
+            }
+        }
+
+        const queued = [...missions.values()]
+            .filter(mission => mission.status === "pending" || mission.status === "stalled" || mission.status === "retrying")
+            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        for (const mission of queued) {
+            if (mission.status === "running") continue;
+            await executeMissionAsync(mission);
+            break;
+        }
+    } finally {
+        missionWorkerBusy = false;
+    }
+}
+
+function startMissionWorker(): void {
+    ensureMissionStoreLoaded();
+    if (missionWorkerTimer) return;
+    missionWorkerTimer = setInterval(() => {
+        void processMissionQueue();
+    }, MISSION_WORKER_INTERVAL_MS);
+    void processMissionQueue();
+}
+
+export async function executeMissionAsync(mission: MissionStatus): Promise<void> {
+    ensureMissionStoreLoaded();
+    if (mission.status === "completed" || mission.status === "failed" || mission.status === "blocked" || mission.status === "awaiting-approval") return;
+
+    mission.status = "running";
+    mission.startedAt = mission.startedAt || new Date().toISOString();
+    mission.lastHeartbeatAt = new Date().toISOString();
+    mission.updatedAt = new Date().toISOString();
+    emitMissionEvent(mission, "Mission running", "Planner/executor/evaluator loop engaged.", "status");
+    const startedAtMs = Date.now();
+
+    for (let index = 0; index < mission.plan.length; index += 1) {
+        const step = mission.plan[index];
+        if (step.status === "done") continue;
+        if (Date.now() - startedAtMs > mission.policy.maxRuntimeMs) {
+            mission.status = "stalled";
+            emitMissionEvent(mission, "Mission timed out", "Runtime budget exhausted.", "status");
+            break;
+        }
+
+        step.status = "running";
+        const job = mission.jobs.find(candidate => candidate.id === step.id);
+        if (job) {
+            job.status = "running";
+            job.startedAt = new Date().toISOString();
+        }
+        mission.lastHeartbeatAt = new Date().toISOString();
+        mission.updatedAt = new Date().toISOString();
+        persistMissionStore();
+        emitMissionEvent(mission, `Starting task: ${step.title}`, `Capability: ${step.capability}`, "status");
+
+        let output = "";
+        try {
+            output = await runMissionStep(mission, step);
+        } catch (error: any) {
+            output = `Error: ${error?.message || "unknown failure"}`;
+            step.status = "failed";
+            if (job) {
+                job.status = "error";
+                job.error = error?.message || "unknown failure";
+                job.completedAt = new Date().toISOString();
+            }
+            emitMissionEvent(mission, `Task failed: ${step.title}`, error?.message || "unknown failure", "status");
+            mission.lastHeartbeatAt = new Date().toISOString();
+            mission.updatedAt = new Date().toISOString();
+            persistMissionStore();
+            await recordMissionLearning(mission, step, output, "retry");
+            break;
+        }
+
+        step.attempts += 1;
+        step.lastResult = output.slice(0, 220);
+        const decision = await evaluateMissionStep(mission, step, output);
+        if (decision === "retry") {
+            step.status = step.attempts >= mission.policy.maxAttempts ? "failed" : "retrying";
+            if (job) {
+                job.status = step.status === "retrying" ? "queued" : "error";
+            }
+            mission.status = step.status === "retrying" ? "retrying" : "failed";
+            emitMissionEvent(mission, `Retrying task: ${step.title}`, "Evaluator requested a retry.", "status");
+            await recordMissionLearning(mission, step, output, decision);
+            if (step.status === "retrying") {
+                index -= 1;
+                continue;
+            }
+            break;
+        }
+        if (decision === "branch") {
+            step.status = "done";
+            if (job) {
+                job.status = "done";
+                job.completedAt = new Date().toISOString();
+            }
+            const branchStep: MissionPlanStep = {
+                id: generateId(),
+                title: `Branch follow-up for ${step.title}`,
+                capability: "document",
+                status: "planned",
+                attempts: 0,
+                workerId: "lumi-core",
+                targetFiles: [],
+                notes: "Branch created by evaluator",
+            };
+            mission.plan.splice(index + 1, 0, branchStep);
+            mission.jobs.push({
+                id: branchStep.id,
+                title: branchStep.title,
+                capability: branchStep.capability,
+                status: "queued",
+                workerId: branchStep.workerId,
+                targetFiles: branchStep.targetFiles,
+            });
+            emitMissionEvent(mission, `Branch created for ${step.title}`, "Evaluator requested follow-up work.", "status");
+            await recordMissionLearning(mission, step, output, decision);
+            continue;
+        }
+        if (decision === "stop") {
+            step.status = "blocked";
+            if (job) {
+                job.status = "warn";
+                job.completedAt = new Date().toISOString();
+            }
+            mission.status = "blocked";
+            emitMissionEvent(mission, `Blocked task: ${step.title}`, "Evaluator requested a stop.", "status");
+            await recordMissionLearning(mission, step, output, decision);
+            break;
+        }
+
+        step.status = "done";
+        if (job) {
+            job.status = "done";
+            job.output = output.slice(0, 500);
+            job.completedAt = new Date().toISOString();
+        }
+        emitMissionEvent(mission, `Completed task: ${step.title}`, output.slice(0, 220), "log");
+        mission.lastHeartbeatAt = new Date().toISOString();
+        mission.updatedAt = new Date().toISOString();
+        persistMissionStore();
+        await recordMissionLearning(mission, step, output, "continue");
+    }
+
+    recalculateMissionProgress(mission);
+    if (mission.status === "running") {
+        const allDone = mission.plan.every(step => step.status === "done" || step.status === "failed" || step.status === "blocked");
+        const anyPrecededByFailure = mission.plan.some(step => step.status === "failed" || step.status === "blocked");
+        mission.status = !allDone ? "stalled" : anyPrecededByFailure ? "failed" : "completed";
+        mission.completedAt = new Date().toISOString();
+    }
+    mission.updatedAt = new Date().toISOString();
+    emitMissionEvent(mission, mission.status === "completed" ? "Mission completed" : mission.status === "failed" ? "Mission failed" : "Mission stopped", mission.summary, "status");
+}
 
 export function getPipelineStatus(missionId: string): MissionStatus {
-    const m = missions.get(missionId);
-    if (!m) throw new Error(`Mission not found: ${missionId}`);
+    ensureMissionStoreLoaded();
+    const mission = missions.get(missionId);
+    if (!mission) throw new Error(`Mission not found: ${missionId}`);
     return {
-        ...m,
-        jobs: m.jobs.map(j => ({...j})),
-        events: m.events.map(e => ({...e})),
-        artifacts: m.artifacts.map(a => ({...a})),
+        ...mission,
+        jobs: mission.jobs.map(job => ({...job})),
+        events: mission.events.map(event => ({...event})),
+        artifacts: mission.artifacts.map(artifact => ({...artifact})),
+        plan: mission.plan.map(step => ({...step})),
     };
 }
 
 export function getMissionTimeline(missionId: string): {mission: MissionStatus; events: MissionEvent[]} {
+    ensureMissionStoreLoaded();
     const mission = missions.get(missionId);
     if (!mission) throw new Error(`Mission not found: ${missionId}`);
     return {
         mission: {
             ...mission,
-            jobs: mission.jobs.map(j => ({...j})),
-            events: mission.events.map(e => ({...e})),
-            artifacts: mission.artifacts.map(a => ({...a})),
+            jobs: mission.jobs.map(job => ({...job})),
+            events: mission.events.map(event => ({...event})),
+            artifacts: mission.artifacts.map(artifact => ({...artifact})),
+            plan: mission.plan.map(step => ({...step})),
         },
-        events: mission.events.map(e => ({...e})),
+        events: mission.events.map(event => ({...event})),
     };
 }
 
 export function listMissions(): MissionStatus[] {
-    return [...missions.values()].map(m => ({
-        ...m,
-        jobs: m.jobs.map(j => ({...j})),
-        events: m.events.map(e => ({...e})),
-        artifacts: m.artifacts.map(a => ({...a})),
+    ensureMissionStoreLoaded();
+    return [...missions.values()].map(mission => ({
+        ...mission,
+        jobs: mission.jobs.map(job => ({...job})),
+        events: mission.events.map(event => ({...event})),
+        artifacts: mission.artifacts.map(artifact => ({...artifact})),
+        plan: mission.plan.map(step => ({...step})),
     }));
 }
+
+startMissionWorker();
+
+// ---------------------------------------------------------------------------
+// Pipeline status (Studio-compatible)
+// ---------------------------------------------------------------------------
 
 async function listFineTuneDatasets(): Promise<string[]> {
     try {
