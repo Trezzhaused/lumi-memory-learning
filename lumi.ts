@@ -509,9 +509,7 @@ export async function lumiChat(
                 const detail = error instanceof Error ? error.message : String(error);
                 failures.push(detail);
                 console.warn("[Lumi] OpenRouter chat failed, using degraded fallback:", error);
-                responseText = failures.length > 0
-                    ? buildLocalFallbackReply(req.message, domain)
-                    : buildLocalFallbackReply(req.message, domain);
+                responseText = buildLocalFallbackReply(req.message, domain);
                 usedModel = "degraded-fallback";
             }
         }
@@ -1365,7 +1363,7 @@ export async function getIndependentModeStatus(): Promise<IndependentModeStatus>
     const memoryStorage = getMemoryStorageStatus();
     const localInferenceAvailable = Boolean(ollamaStatus.available || process.env.LUMI_ALLOW_LOCAL_TOOL_EXECUTION === "true");
     const localGenerationAvailable = true;
-    const localStorageAvailable = Boolean(memoryStorage.backend !== "error");
+    const localStorageAvailable = Boolean(memoryStorage.backend);
     const bridgeReady = process.env.LUMI_ALLOW_LOCAL_TOOL_EXECUTION === "true" && Boolean(process.env.LUMI_BRIDGE_SECRET);
     const reasons: string[] = [];
     if (!localInferenceAvailable) reasons.push("No local inference endpoint is currently available.");

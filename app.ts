@@ -15,7 +15,7 @@ import {getArtifact, readArtifactBuffer, getArtifactStorageStatus, listArtifacts
 import {
     lumiChat, getChatHistory, getModelCascade, enhancePrompt,
     bootMission, getPipelineStatus, getMissionTimeline, listMissions, getLumiStatus, getFineTuneStatus, assembleFineTuneDataset,
-    getOllamaStatus, conversationManager,
+    getOllamaStatus, conversationManager, approveMission, resumeMission,
 } from "./lumi";
 import {converseSpeech, formatBraille, speakText, transcribeAudio} from "./lumi-speech";
 import {buildPromptTrainer} from "./lumi-prompt-trainer";
@@ -485,11 +485,32 @@ lumiRouter.post("/mission/boot", async (req: Request, res: Response, next: NextF
     } catch (err) { next(err); }
 });
 
+// GET /api/lumi/missions/:missionId
+lumiRouter.get("/missions/:missionId", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        res.json(getPipelineStatus(req.params.missionId));
+    } catch (err) { next(err); }
+});
+
 // GET /api/lumi/missions/:missionId/events
 lumiRouter.get("/missions/:missionId/events", async (req: Request, res: Response, next: NextFunction) => {
     try {
         const timeline = getMissionTimeline(req.params.missionId);
         res.json(timeline);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/missions/:missionId/approve
+lumiRouter.post("/missions/:missionId/approve", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        res.json(approveMission(req.params.missionId));
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/missions/:missionId/resume
+lumiRouter.post("/missions/:missionId/resume", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        res.json(resumeMission(req.params.missionId));
     } catch (err) { next(err); }
 });
 

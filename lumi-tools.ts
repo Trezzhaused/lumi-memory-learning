@@ -11,6 +11,7 @@ export interface LocalExecutionResult {
     filePath?: string;
     command?: string;
     requiresApproval?: boolean;
+    entries?: string[];
 }
 
 export type ToolExecutionSource = "local" | "cloud" | "browser";
@@ -49,15 +50,23 @@ const EXECUTABLES = new Map<string, string>([
 const CLOUD_TOOL_REQUESTS_ENABLED = process.env.LUMI_ALLOW_CLOUD_TOOL_REQUESTS === "true";
 const REMOTE_OWNER_RUNTIME_URL = process.env.LUMI_REMOTE_OWNER_RUNTIME_URL || "";
 const REMOTE_OWNER_RUNTIME_TOKEN = process.env.LUMI_REMOTE_OWNER_RUNTIME_TOKEN || "";
-const ALLOWED_ACTIONS = new Set(["write-file", "run-command", "run-example-script", "remote-owner-runtime"]);
+const ALLOWED_ACTIONS = new Set(["write-file", "create-directory", "list-directory", "run-command", "run-example-script", "remote-owner-runtime"]);
 
-function resolveWorkspacePath(relativePath: string): string {
+function resolveWorkspacePath(relativePath: string, options: {allowRoot?: boolean} = {}): string {
     if (!relativePath || relativePath.includes("\0")) {
         throw new Error(`Invalid workspace path: ${relativePath}`);
     }
 
     const normalizedPath = relativePath.replace(/\\/g, "/").trim();
-    if (!normalizedPath || normalizedPath.startsWith("/") || normalizedPath.startsWith("./") || normalizedPath === ".") {
+    if (!normalizedPath) {
+        if (options.allowRoot) return path.resolve(TOOL_EXECUTION_ROOT);
+        throw new Error(`Invalid workspace path: ${relativePath}`);
+    }
+    if (normalizedPath === ".") {
+        if (options.allowRoot) return path.resolve(TOOL_EXECUTION_ROOT);
+        throw new Error(`Invalid workspace path: ${relativePath}`);
+    }
+    if (normalizedPath.startsWith("/") || normalizedPath.startsWith("./")) {
         throw new Error(`Invalid workspace path: ${relativePath}`);
     }
 
@@ -149,6 +158,63 @@ export async function writeWorkspaceFile(relativePath: string, content: string):
         };
     } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown file write error";
+        return {
+            ok: false,
+            blocked: false,
+            message,
+        };
+    }
+}
+
+export async function createWorkspaceDirectory(relativePath: string): Promise<LocalExecutionResult> {
+    if (!TOOL_EXECUTION_ENABLED) {
+        return {
+            ok: false,
+            blocked: true,
+            message: "Local tool execution is disabled. Set LUMI_ALLOW_LOCAL_TOOL_EXECUTION=true to enable it.",
+        };
+    }
+
+    try {
+        const absolutePath = resolveWorkspacePath(relativePath);
+        await fs.mkdir(absolutePath, {recursive: true});
+        return {
+            ok: true,
+            blocked: false,
+            message: `Created workspace directory ${relativePath}`,
+            filePath: absolutePath,
+        };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown directory create error";
+        return {
+            ok: false,
+            blocked: false,
+            message,
+        };
+    }
+}
+
+export async function listWorkspaceDirectory(relativePath = "."): Promise<LocalExecutionResult> {
+    if (!TOOL_EXECUTION_ENABLED) {
+        return {
+            ok: false,
+            blocked: true,
+            message: "Local tool execution is disabled. Set LUMI_ALLOW_LOCAL_TOOL_EXECUTION=true to enable it.",
+        };
+    }
+
+    try {
+        const absolutePath = resolveWorkspacePath(relativePath, {allowRoot: true});
+        const entries = await fs.readdir(absolutePath, {withFileTypes: true});
+        return {
+            ok: true,
+            blocked: false,
+            message: `Listed workspace directory ${relativePath || "."}`,
+            filePath: absolutePath,
+            entries: entries.map(entry => entry.name),
+        };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown directory list error";
         return {
             ok: false,
             blocked: false,
@@ -364,6 +430,23 @@ export async function executeApprovedAction(request: RuntimeActionRequest): Prom
             return {ok: false, blocked: true, message: "relativePath is required for write-file actions."};
         }
         return writeWorkspaceFile(relativePath, content);
+    }
+
+    if (request.action === "create-directory") {
+        const relativePath = typeof request.parameters?.relativePath === "string"
+            ? request.parameters.relativePath
+            : "";
+        if (!relativePath) {
+            return {ok: false, blocked: true, message: "relativePath is required for create-directory actions."};
+        }
+        return createWorkspaceDirectory(relativePath);
+    }
+
+    if (request.action === "list-directory") {
+        const relativePath = typeof request.parameters?.relativePath === "string"
+            ? request.parameters.relativePath
+            : ".";
+        return listWorkspaceDirectory(relativePath);
     }
 
     if (request.action === "run-command") {

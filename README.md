@@ -174,6 +174,15 @@ GET /api/lumi/artifacts
 
 These endpoints let Lumi plan and execute multi-step work, publish progress into a live transcript, and expose generated artifacts for download.
 
+For a lower-touch workflow, Lumi now also supports mission approval/resume through:
+
+```
+POST /api/lumi/missions/:missionId/approve
+POST /api/lumi/missions/:missionId/resume
+```
+
+and the `/api/lumi/status` payload now includes an `independentMode` block so you can see whether local inference, local generation fallback, storage, and bridge execution are ready.
+
 ### Memory
 ```
 GET    /api/lumi/memory/:sessionId
