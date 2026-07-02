@@ -12,6 +12,7 @@
     p { color: #aab9d3; line-height: 1.55; }
     form { display: grid; gap: 0.85rem; margin-top: 1.25rem; }
     textarea { width: 100%; min-height: 120px; padding: 0.9rem 1rem; border-radius: 14px; border: 1px solid rgba(127, 179, 255, 0.25); background: #0f1a2d; color: white; font: inherit; }
+    input { width: 100%; padding: 0.9rem 1rem; border-radius: 14px; border: 1px solid rgba(127, 179, 255, 0.25); background: #0f1a2d; color: white; font: inherit; box-sizing: border-box; }
     button { border: none; padding: 0.8rem 1rem; border-radius: 999px; font: inherit; cursor: pointer; background: linear-gradient(135deg, #4ea3ff, #7b6dff); color: white; font-weight: 600; }
     button:disabled { opacity: 0.7; cursor: wait; }
     #result { margin-top: 1rem; border-radius: 14px; background: rgba(5, 10, 20, 0.9); padding: 1rem; min-height: 120px; white-space: pre-wrap; line-height: 1.55; }
@@ -29,6 +30,15 @@
       </form>
       <div class="hint">The public experience stays browser-based; the local runtime remains responsible for any real system actions.</div>
       <div id="result">Waiting for your prompt…</div>
+      <div class="card" style="margin-top: 1.25rem;">
+        <h2 style="margin-top: 0; font-size: 1.15rem;">Self-directed onboarding</h2>
+        <p style="margin-bottom: 0.8rem;">Register a tenant and receive a provisioned workspace plus a downloadable client script.</p>
+        <form id="register-form">
+          <input id="register-username" placeholder="Choose a username" required />
+          <button type="submit">Register account</button>
+        </form>
+        <div id="register-result" class="hint">A new tenant will appear here once you register.</div>
+      </div>
     </div>
   </main>
   <script>
@@ -36,6 +46,9 @@
     const result = document.getElementById('result');
     const input = document.getElementById('message');
     const submit = document.getElementById('submit');
+    const registerForm = document.getElementById('register-form');
+    const registerUsername = document.getElementById('register-username');
+    const registerResult = document.getElementById('register-result');
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -55,6 +68,26 @@
         result.textContent = `Request failed: ${error.message}`;
       } finally {
         submit.disabled = false;
+      }
+    });
+
+    registerForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const username = registerUsername.value.trim();
+      if (!username) return;
+      registerResult.textContent = 'Provisioning tenant…';
+      try {
+        const response = await fetch('/api/onboarding/register', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({username})
+        });
+        const data = await response.json();
+        registerResult.textContent = data.status === 'success'
+          ? `Provisioned ${data.username} (${data.user_id}). Download: ${window.location.origin}${data.script_download_link}`
+          : data.message || 'Registration failed.';
+      } catch (error) {
+        registerResult.textContent = `Registration failed: ${error.message}`;
       }
     });
   </script>

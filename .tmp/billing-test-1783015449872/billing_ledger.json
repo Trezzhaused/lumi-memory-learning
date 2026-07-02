@@ -1,0 +1,10 @@
+[
+  {
+    "user_id": "USER-CE5E26A4",
+    "username": "billing_user",
+    "tier_status": "Platinum",
+    "credits_total_monthly": 4000,
+    "credits_used_this_month": 25,
+    "subscription_expires": "2026-08-01T18:04:09.873Z"
+  }
+]

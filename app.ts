@@ -1,5 +1,6 @@
 import {Octokit} from "@octokit/core";
 import express, {NextFunction, Request, Response} from "express";
+import fs from "node:fs";
 import path from "node:path";
 import {Webhook, WebhookUnbrandedRequiredHeaders, WebhookVerificationError} from "standardwebhooks"
 import {RenderDeploy, RenderEvent, RenderService, WebhookPayload} from "./render";
@@ -24,6 +25,7 @@ import {runLocalStudioPipeline} from "./lumi-local-studio";
 import {buildAutonomyPlan, buildComparativeResearchContext, buildSelfDirectedDirective, executeSelfDirectedDirective} from "./lumi-autonomy";
 import {generateUserGuide, ingestFile} from "./lumi-ingestion";
 import {evaluateToolExecutionPolicy, executeApprovedAction, getExecutionPolicySnapshot, getRemoteOwnerRuntimeStatus} from "./lumi-tools";
+import {buildPublicChatResponse, enforceBilling, getBillingLedger, getTenantScriptPath, registerTenant, upgradeBilling} from "./lumi-tenant";
 
 // ============================================================================
 // App setup
@@ -156,6 +158,12 @@ lumiRouter.post("/chat", async (req: Request, res: Response, next: NextFunction)
 lumiRouter.post("/public/chat", async (req: Request, res: Response, next: NextFunction) => {
     try {
         const sessionId = (req.headers["x-session-id"] as string | undefined) || `public:${Date.now()}`;
+        const message = typeof req.body?.message === "string" ? req.body.message : "";
+        const routedResponse = buildPublicChatResponse(message, sessionId);
+        if (routedResponse.mode !== "chat") {
+            res.json({...routedResponse, runtime: "browser"});
+            return;
+        }
         const result = await lumiChat({...req.body, runtime: "browser"}, sessionId);
         res.json({...result, runtime: "browser"});
     } catch (err) { next(err); }
@@ -542,6 +550,53 @@ lumiRouter.get("/conversations", (_req: Request, res: Response) => {
 });
 
 app.use("/api/lumi", lumiRouter);
+
+// ============================================================================
+// Onboarding + billing endpoints
+// ============================================================================
+
+app.post("/api/onboarding/register", (req: Request, res: Response) => {
+    const username = typeof req.body?.username === "string" ? req.body.username : "";
+    if (!username.trim()) {
+        res.status(400).json({error: "username is required"});
+        return;
+    }
+    res.json(registerTenant(username));
+});
+
+app.get("/api/onboarding/download/:userId", (req: Request, res: Response) => {
+    const scriptPath = getTenantScriptPath(req.params.userId);
+    if (!scriptPath || !fs.existsSync(scriptPath)) {
+        res.status(404).json({error: "script not found"});
+        return;
+    }
+    res.download(scriptPath, "client_agent.py");
+});
+
+app.post("/api/billing/charge", (req: Request, res: Response) => {
+    const userId = typeof req.body?.user_id === "string" ? req.body.user_id : "";
+    const action = typeof req.body?.action === "string" ? req.body.action : "";
+    if (!userId || !action) {
+        res.status(400).json({error: "user_id and action are required"});
+        return;
+    }
+    res.json(enforceBilling(userId, action));
+});
+
+app.post("/api/billing/upgrade", (req: Request, res: Response) => {
+    const userId = typeof req.body?.user_id === "string" ? req.body.user_id : "";
+    const tierStatus = typeof req.body?.tier_status === "string" ? req.body.tier_status : "Free";
+    const monthlyCredits = typeof req.body?.monthly_credits === "number" ? req.body.monthly_credits : 10;
+    if (!userId) {
+        res.status(400).json({error: "user_id is required"});
+        return;
+    }
+    res.json(upgradeBilling(userId, tierStatus, monthlyCredits, req.body?.subscription_expires));
+});
+
+app.get("/api/billing/ledger", (_req: Request, res: Response) => {
+    res.json({ledger: getBillingLedger()});
+});
 
 // ============================================================================
 // Studio control-plane  — mirrors AIModelBridge bootMission / pipeline
