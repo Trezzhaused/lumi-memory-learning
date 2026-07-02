@@ -22,6 +22,7 @@ import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 import {getExternalBrowserSources, planExternalBrowserSources, queryExternalBrowserSource} from "./lumi-external-sources";
 import {runLocalStudioPipeline} from "./lumi-local-studio";
 import {buildAutonomyPlan, buildComparativeResearchContext} from "./lumi-autonomy";
+import {evaluateToolExecutionPolicy, executeApprovedAction, getExecutionPolicySnapshot} from "./lumi-tools";
 
 // ============================================================================
 // App setup
@@ -130,6 +131,10 @@ app.get('/', (_req: Request, res: Response) => {
     });
 });
 
+app.get('/public-chat', (_req: Request, res: Response) => {
+    res.sendFile(path.join(process.cwd(), "public", "public-chat.html"));
+});
+
 // ============================================================================
 // Lumi API  — mirrors TrezzWorld Production Studio AIModelBridge.ts endpoints
 // ============================================================================
@@ -141,7 +146,60 @@ lumiRouter.use(acamContentGuard(defaultAcamConfig));
 lumiRouter.post("/chat", async (req: Request, res: Response, next: NextFunction) => {
     try {
         const sessionId = req.headers["x-session-id"] as string | undefined || "default";
-        const result = await lumiChat(req.body, sessionId);
+        const result = await lumiChat({...req.body, runtime: req.body?.runtime || "local"}, sessionId);
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/public/chat
+lumiRouter.post("/public/chat", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const sessionId = (req.headers["x-session-id"] as string | undefined) || `public:${Date.now()}`;
+        const result = await lumiChat({...req.body, runtime: "browser"}, sessionId);
+        res.json({...result, runtime: "browser"});
+    } catch (err) { next(err); }
+});
+
+// GET /api/lumi/bridge/status
+lumiRouter.get("/bridge/status", (_req: Request, res: Response) => {
+    res.json({
+        mode: process.env.LUMI_BRIDGE_MODE || "disabled",
+        execution: getExecutionPolicySnapshot(),
+        publicChatAvailable: true,
+    });
+});
+
+// POST /api/lumi/bridge/execute
+lumiRouter.post("/bridge/execute", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const suppliedToken = (req.headers["x-lumi-bridge-token"] as string | undefined)
+            || (req.headers.authorization as string | undefined)?.replace(/^Bearer\s+/i, "");
+        const expectedToken = process.env.LUMI_BRIDGE_SECRET || "";
+        if (!expectedToken) {
+            res.status(503).json({error: "Bridge secret is not configured."});
+            return;
+        }
+        if (!suppliedToken || suppliedToken !== expectedToken) {
+            res.status(401).json({error: "Bridge token is missing or invalid."});
+            return;
+        }
+
+        const action = typeof req.body?.action === "string" ? req.body.action : "";
+        const source = req.body?.source === "browser" || req.body?.source === "cloud"
+            ? req.body.source
+            : "cloud";
+        const policy = evaluateToolExecutionPolicy(action, source);
+        if (!policy.allowed) {
+            res.status(403).json({error: policy.reason || "Action denied by policy.", requiresApproval: policy.requiresApproval});
+            return;
+        }
+
+        const result = await executeApprovedAction({
+            action,
+            parameters: req.body?.parameters || {},
+            source,
+            sessionId: req.body?.sessionId || (req.headers["x-session-id"] as string | undefined) || "default",
+        });
         res.json(result);
     } catch (err) { next(err); }
 });

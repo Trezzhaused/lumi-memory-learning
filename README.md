@@ -237,6 +237,18 @@ Status summary:
 
 Lumi can orchestrate a fully self-hosted local studio workflow without Claude or OpenRouter, but not every step is truly "API-free" unless you also self-host the generation models. The new stack is designed for local-first execution with Docker containers and local model weights, while the existing `POST /api/lumi/generate` path still supports external providers when they are configured.
 
+## Hybrid local and browser runtime
+
+LUMI can now be used in a hybrid mode:
+
+- Open `/public-chat` in a browser for the public-facing chat experience.
+- Keep the local runtime responsible for real file-system access, scripts, and owner-side actions.
+- Enable local tool execution with `LUMI_ALLOW_LOCAL_TOOL_EXECUTION=true`.
+- Allow browser-triggered actions with `LUMI_ALLOW_CLOUD_TOOL_REQUESTS=true`.
+- Protect the secure bridge with `LUMI_BRIDGE_SECRET` and call `/api/lumi/bridge/execute` with that token.
+
+The shared LUMI chat core is used by both the local/internal API and the public browser API, while the bridge is the only pathway for approved owner-side actions.
+
 ## Safety and certification
 
 The repository now includes a bounded-autonomy safety package under `docs/` and `tests/` for documenting LUMI's whitepaper, threat model, and certification materials. Run the safety suite with:

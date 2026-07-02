@@ -69,6 +69,7 @@ export interface LumiChatRequest {
     ollamaModel?: string | null;
     domain?: string | null;
     externalSources?: string[] | null;
+    runtime?: "local" | "cloud" | "browser";
 }
 
 export interface LumiChatResponse {
@@ -391,6 +392,7 @@ async function buildSystemPrompt(message: string, domain: string, externalSource
 
     let prompt = `${basePrompt}\n\n`;
     prompt += `You are operating inside the Lumi Intelligence Center for Trezzhaus and TrezzWorld. `;
+    prompt += "This system is designed to run both locally and through a public browser-facing layer, so keep local execution safe and use approved routes for owner-side actions. ";
     prompt += `Your repository-aware specialty modules are: chat, memory, studio, video, image, audio, code, Roblox, and ACAM. `;
     prompt += `Current focus: ${moduleContext}.\n\n`;
     prompt += "When a request touches a module, tab, or workflow, use that module's specialty first and stay aligned with the repo's implemented capabilities. ";
