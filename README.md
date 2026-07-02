@@ -95,9 +95,10 @@ Body: { type: "image"|"video"|"audio"|"code"|"text"|"document", prompt, provider
 → GenerationResult { ..., artifact }
 ```
 
-For video requests, `provider` can be set to `"auto"` (default), `"nvidia"`, `"fal"`, `"hunyuan"`, or `"replicate"`.
+For video requests, `provider` can be set to `"auto"` (default), `"nvidia"`, `"fal"`, `"hunyuan"`, `"replicate"`, or `"comfyui"`.
 Use `"nvidia"` to target the NVIDIA-backed video path when `NVIDIA_API_BASE` is configured.
 Use `"hunyuan"` to explicitly target the Hugging Face-backed HunyuanVideo path when `HUGGINGFACE_API_KEY` is configured.
+Use `"comfyui"` to submit the request to a local ComfyUI instance using the bundled Wan 2.1 workflows.
 
 GET /api/lumi/artifacts/:artifactId
 → downloads the stored artifact from local storage or redirects to R2
@@ -255,6 +256,12 @@ OPENAI_TTS_MODEL=gpt-4o-mini-tts
 
 # Optional — local model support
 OLLAMA_HOST=http://localhost:11434
+
+# Optional — local ComfyUI video generation
+COMFYUI_BASE_URL=http://127.0.0.1:8188
+COMFYUI_API_KEY=optional-api-key
+COMFYUI_WORKFLOW_T2V=docs/comfyui/wan2.1_t2v.json
+COMFYUI_WORKFLOW_I2V=docs/comfyui/wan2.1_native_i2v.json
 
 # Optional — browser-backed research / external autonomy
 EXTERNAL_BROWSER_PROXY_URL=https://example.com/browser-proxy

@@ -464,6 +464,7 @@ interface VideoJob {
     style: string;
     resolution: string;
     fps: number;
+    provider: "auto" | "fal" | "hunyuan" | "replicate" | "nvidia" | "comfyui";
     status: "queued" | "generating_storyboard" | "rendering" | "encoding" | "done" | "error";
     progress: number;
     message: string;
@@ -483,13 +484,13 @@ videoRouter.post("/create", async (req: Request, res: Response, next: NextFuncti
     try {
         const {
             concept, durationSeconds = 60, style = "cinematic",
-            resolution = "1080p", fps = 24,
+            resolution = "1080p", fps = 24, provider = "auto",
         } = req.body;
         if (!concept) { res.status(400).json({error: "concept is required"}); return; }
 
         const jobId = `vid_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
         const job: VideoJob = {
-            jobId, concept, durationSeconds, style, resolution, fps,
+            jobId, concept, durationSeconds, style, resolution, fps, provider,
             status: "queued", progress: 0,
             message: "Video job queued",
             outputPath: null, downloadReady: false,
@@ -542,6 +543,7 @@ async function runVideoJobAsync(job: VideoJob): Promise<void> {
             type: "video",
             prompt: `${job.concept}, ${job.style} style, ${job.fps}fps`,
             duration: job.durationSeconds,
+            provider: job.provider,
         });
 
         job.status = "done";

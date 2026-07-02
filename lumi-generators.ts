@@ -16,6 +16,7 @@
 
 import {callOpenRouterChat} from "./openrouter";
 import {callNvidiaChat, callNvidiaVideoGeneration, NvidiaVideoGenerationRequest} from "./nvidia";
+import {generateVideoComfyUI} from "./comfyui";
 import {storeArtifact, StoredArtifact} from "./lumi-storage";
 
 // ---------------------------------------------------------------------------
@@ -58,7 +59,7 @@ export interface GenerationRequest {
     imageBase64?: string;
     imageUrl?: string;
     imageMimeType?: string;
-    provider?: "auto" | "fal" | "hunyuan" | "replicate" | "nvidia";
+    provider?: "auto" | "fal" | "hunyuan" | "replicate" | "nvidia" | "comfyui";
 }
 
 export interface GenerationResult {
@@ -482,8 +483,17 @@ export async function generateVideo(req: GenerationRequest): Promise<GenerationR
             return generateVideoReplicate(req);
         case "nvidia":
             return generateVideoNvidia(req);
+        case "comfyui":
+            return generateVideoComfyUI(req);
         case undefined:
         case "auto":
+            if (process.env.COMFYUI_BASE_URL) {
+                try {
+                    return await generateVideoComfyUI(req);
+                } catch (error) {
+                    console.warn("[Lumi Generators] ComfyUI video generation failed, falling back:", error);
+                }
+            }
             if (process.env.NVIDIA_API_BASE || process.env.NVIDIA_BASE_URL) {
                 try {
                     return await generateVideoNvidia(req);
@@ -496,7 +506,7 @@ export async function generateVideo(req: GenerationRequest): Promise<GenerationR
             if (REPLICATE_API_KEY) return generateVideoReplicate(req);
             throw new Error(
                 "No video generation API key configured. " +
-                "Set NVIDIA_API_BASE (primary), FAL_KEY, HUGGINGFACE_API_KEY, or REPLICATE_API_KEY."
+                "Set COMFYUI_BASE_URL, NVIDIA_API_BASE (primary), FAL_KEY, HUGGINGFACE_API_KEY, or REPLICATE_API_KEY."
             );
         default:
             throw new Error(`Unsupported video provider: ${req.provider}`);
