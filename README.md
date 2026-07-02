@@ -17,7 +17,7 @@
 | **Audio Generation** | Hugging Face MusicGen |
 | **Mission Execution** | Multi-step autonomous task pipelines |
 | **Roblox Publishing** | Publish games to Roblox via Open Cloud API |
-| **Knowledge Bank** | Curated training-resource analysis for expanding Lumi's capabilities and memory, including external browser-based sources such as Yuanbao |
+| **Knowledge Bank** | Curated training-resource analysis for expanding Lumi's capabilities and memory, including external browser-based sources such as Yuanbao and self-evolving agent frameworks |
 | **External browser sources** | A generic hook for browser-backed research and ideation sources, with a Yuanbao entry and a future-ready automation path |
 | **ACAM Security** | Adaptive Content & Access Manager — rate limiting, audit log, auth |
 
