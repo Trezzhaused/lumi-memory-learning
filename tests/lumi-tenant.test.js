@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const {test} = require("node:test");
 
-const {enforceBilling, registerTenant, upgradeBilling} = require("../dist/lumi-tenant");
+const {buildPublicChatResponse, enforceBilling, registerTenant, upgradeBilling} = require("../dist/lumi-tenant");
 
 test("registerTenant creates a workspace, script, and ledger entry", () => {
   const tempDir = path.join(__dirname, "..", ".tmp", `tenant-test-${Date.now()}`);
@@ -31,4 +31,14 @@ test("enforceBilling deducts credits and upgradeBilling resets them", () => {
   const passed = enforceBilling(user.user_id, "VIDEO_RENDER");
   assert.equal(passed.status, "PASSED");
   assert.equal(passed.remaining_credits, 3975);
+});
+
+test("buildPublicChatResponse handles billing and legal guidance", () => {
+  const subscription = buildPublicChatResponse("manage my subscription");
+  assert.equal(subscription.mode, "billing");
+  assert.match(subscription.content, /customer portal/i);
+
+  const compliance = buildPublicChatResponse("draft a contract for my business");
+  assert.equal(compliance.mode, "chat");
+  assert.match(compliance.content, /jurisdiction/i);
 });
