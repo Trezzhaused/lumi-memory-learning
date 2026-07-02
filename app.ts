@@ -19,7 +19,7 @@ import {
 import {converseSpeech, formatBraille, speakText, transcribeAudio} from "./lumi-speech";
 import {buildPromptTrainer} from "./lumi-prompt-trainer";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
-import {getExternalBrowserSources, planExternalBrowserSources} from "./lumi-external-sources";
+import {getExternalBrowserSources, planExternalBrowserSources, queryExternalBrowserSource} from "./lumi-external-sources";
 
 // ============================================================================
 // App setup
@@ -319,6 +319,19 @@ lumiRouter.get("/external-sources", (_req: Request, res: Response) => {
 lumiRouter.post("/external-sources/plan", (req: Request, res: Response) => {
     const {sources, goal, sessionMode} = req.body || {};
     res.json(planExternalBrowserSources(Array.isArray(sources) ? sources : [], {goal, sessionMode}));
+});
+
+// POST /api/lumi/external-sources/query
+lumiRouter.post("/external-sources/query", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {source, query, goal, sessionMode} = req.body || {};
+        if (!source || !query) {
+            res.status(400).json({error: "source and query are required"});
+            return;
+        }
+        const result = await queryExternalBrowserSource(source, query, {goal, sessionMode});
+        res.json(result);
+    } catch (err) { next(err); }
 });
 
 // POST /api/lumi/mission/boot

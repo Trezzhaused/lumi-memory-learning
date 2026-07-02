@@ -18,6 +18,15 @@ export interface ExternalBrowserSourcePlan {
     nextSteps: string[];
 }
 
+export interface ExternalBrowserSourceQueryResult {
+    sourceId: string;
+    ok: boolean;
+    status: number;
+    usedBackend: "proxy" | "manual";
+    content?: string;
+    error?: string;
+}
+
 const DEFAULT_EXTERNAL_SOURCES: ExternalBrowserSource[] = [
     {
         id: "yuanbao",
@@ -38,6 +47,90 @@ function isAutomationConfigured(): boolean {
         process.env.EXTERNAL_BROWSER_API_URL ||
         process.env.EXTERNAL_BROWSER_API_KEY
     );
+}
+
+function getAutomationEndpoint(): string | null {
+    const raw = process.env.EXTERNAL_BROWSER_PROXY_URL || process.env.EXTERNAL_BROWSER_API_URL || "";
+    if (!raw) return null;
+    try {
+        const parsed = new URL(raw);
+        if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("Unsupported protocol");
+        return parsed.toString();
+    } catch {
+        return null;
+    }
+}
+
+export async function queryExternalBrowserSource(
+    sourceId: string,
+    query: string,
+    options: {goal?: string; sessionMode?: string} = {}
+): Promise<ExternalBrowserSourceQueryResult> {
+    const endpoint = getAutomationEndpoint();
+    if (!endpoint) {
+        return {
+            sourceId,
+            ok: false,
+            status: 503,
+            usedBackend: "manual",
+            error: "No browser automation endpoint is configured. Set EXTERNAL_BROWSER_PROXY_URL or EXTERNAL_BROWSER_API_URL.",
+        };
+    }
+
+    const headers: Record<string, string> = {"Content-Type": "application/json"};
+    const apiKey = process.env.EXTERNAL_BROWSER_API_KEY;
+    if (apiKey) headers.Authorization = "Bearer " + apiKey;
+
+    const response = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+            sourceId,
+            query,
+            goal: options.goal,
+            sessionMode: options.sessionMode,
+        }),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        return {
+            sourceId,
+            ok: false,
+            status: response.status,
+            usedBackend: "proxy",
+            error: errorText || `Automation request failed with status ${response.status}`,
+        };
+    }
+
+    let payload: any;
+    try {
+        payload = await response.json();
+    } catch (error) {
+        return {
+            sourceId,
+            ok: false,
+            status: response.status,
+            usedBackend: "proxy",
+            error: `Automation response was not valid JSON: ${error instanceof Error ? error.message : "unknown error"}`,
+        };
+    }
+
+    const content = typeof payload?.content === "string"
+        ? payload.content
+        : typeof payload?.text === "string"
+            ? payload.text
+            : typeof payload?.result === "string"
+                ? payload.result
+                : "";
+
+    return {
+        sourceId,
+        ok: true,
+        status: response.status,
+        usedBackend: "proxy",
+        content: content || undefined,
+    };
 }
 
 export function getExternalBrowserSources(): ExternalBrowserSource[] {

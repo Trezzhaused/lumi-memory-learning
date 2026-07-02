@@ -56,9 +56,13 @@ GET  /api/lumi/external-sources
 POST /api/lumi/external-sources/plan
 Body: { sources?, goal?, sessionMode? }
 → { requestedSources, sources, automationConfigured, workflowNote, nextSteps }
+
+POST /api/lumi/external-sources/query
+Body: { source, query, goal?, sessionMode? }
+→ { sourceId, ok, status, usedBackend, content?, error? }
 ```
 
-These endpoints expose a generic hook for browser-based research sources such as Yuanbao. The current implementation is a workflow layer only; live retrieval still requires either an API or browser automation support.
+These endpoints expose a generic hook for browser-based research sources such as Yuanbao. When `EXTERNAL_BROWSER_PROXY_URL` or `EXTERNAL_BROWSER_API_URL` is configured, Lumi can now issue a live retrieval request to that automation endpoint instead of stopping at workflow-only planning.
 
 ### Mission / Pipeline (Studio Control Plane)
 ```
@@ -202,6 +206,15 @@ OPENAI_TTS_MODEL=gpt-4o-mini-tts
 
 # Optional — local model support
 OLLAMA_HOST=http://localhost:11434
+
+# Optional — browser-backed research / external autonomy
+EXTERNAL_BROWSER_PROXY_URL=https://example.com/browser-proxy
+EXTERNAL_BROWSER_API_URL=https://example.com/browser-proxy
+EXTERNAL_BROWSER_API_KEY=...
+
+# Optional — local command execution for mission jobs
+LUMI_ALLOW_LOCAL_TOOL_EXECUTION=true
+LUMI_WORKSPACE_DIR=./.data/lumi-workspace
 
 # Image generation (one or both)
 HUGGINGFACE_API_KEY=hf_...       # https://huggingface.co/settings/tokens

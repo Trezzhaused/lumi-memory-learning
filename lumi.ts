@@ -28,8 +28,9 @@ import {getArtifactStorageStatus} from "./lumi-storage";
 import {promises as fs} from "node:fs";
 import path from "node:path";
 import {callOpenRouterChat} from "./openrouter";
-import {buildExternalBrowserSourceContext} from "./lumi-external-sources";
+import {buildExternalBrowserSourceContext, queryExternalBrowserSource} from "./lumi-external-sources";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
+import {isLocalToolExecutionEnabled, runWorkspaceCommand, writeWorkspaceFile} from "./lumi-tools";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -633,17 +634,34 @@ async function executeMissionAsync(mission: MissionStatus): Promise<void> {
                 } : undefined;
             } else if (job.capability === "build") {
                 const result = await generate({type: "code", prompt: `Build a concise starter implementation for: ${taskPrompt}`});
-                output = result.text || "";
-                artifactSummary = result.artifact ? {
-                    name: job.title,
-                    kind: "build",
-                    artifactId: result.artifact.id,
-                    downloadUrl: buildArtifactUrl(result.artifact.id),
-                    status: "ready",
-                } : undefined;
+               const workspaceFile = await writeWorkspaceFile(
+                   `.data/lumi-workspace/${job.id}-build.ts`,
+                   result.text || ""
+               );
+               const buildCommand = isLocalToolExecutionEnabled()
+                   ? await runWorkspaceCommand("pnpm", ["run", "build"], {cwd: process.cwd()})
+                   : {ok: false, blocked: true, message: "Local tool execution disabled"};
+               const buildSummary = buildCommand.ok
+                   ? `Build completed.\n${buildCommand.stdout}`
+                   : buildCommand.blocked
+                       ? buildCommand.message
+                       : `${buildCommand.message}\n${buildCommand.stderr}`;
+               output = [
+                   result.text || "",
+                   workspaceFile.ok ? `Wrote workspace file ${workspaceFile.filePath}` : workspaceFile.message,
+                   buildSummary,
+               ].filter(Boolean).join("\n\n");
+               artifactSummary = result.artifact ? {
+                   name: job.title,
+                   kind: "build",
+                   artifactId: result.artifact.id,
+                   downloadUrl: buildArtifactUrl(result.artifact.id),
+                   status: "ready",
+               } : undefined;
             } else if (job.capability === "search" || job.capability === "research") {
-                const research = await lumiChat({message: `Research and summarize the following request. Provide practical next steps and references.\n\n${taskPrompt}`});
-                output = research.content;
+               const research = await lumiChat({message: `Research and summarize the following request. Provide practical next steps and references.\n\n${taskPrompt}`});
+               const externalResearch = await queryExternalBrowserSource("yuanbao", taskPrompt, {goal: mission.prompt, sessionMode: "anonymous"});
+               output = [research.content, externalResearch.ok && externalResearch.content ? `External source summary:\n${externalResearch.content}` : externalResearch.error || ""].filter(Boolean).join("\n\n");
             } else {
                 const resp = await lumiChat({message: taskPrompt});
                 output = resp.content;
