@@ -559,7 +559,11 @@ function hasExplicitExternalSourceSelection(requestedSources: unknown): boolean 
     if (typeof requestedSources === "string") return requestedSources.trim() !== "";
     if (Array.isArray(requestedSources)) return requestedSources.some(sourceId => {
         if (typeof sourceId === "string") return sourceId.trim() !== "";
-        return sourceId !== undefined && sourceId !== null;
+        if (!sourceId || typeof sourceId !== "object") return false;
+        const record = sourceId as Record<string, unknown>;
+        const idCandidate = typeof record.id === "string" ? record.id.trim() : "";
+        const sourceIdCandidate = typeof record.sourceId === "string" ? record.sourceId.trim() : "";
+        return idCandidate !== "" || sourceIdCandidate !== "";
     });
     return normalizeExternalSourceId(requestedSources) !== "";
 }

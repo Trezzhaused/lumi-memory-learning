@@ -234,6 +234,16 @@ test("unknown source selections return no sources", () => {
   assert.equal(context, null);
 });
 
+test("empty selector objects fall back to the default catalog", () => {
+  const plan = planExternalBrowserSources([{}]);
+  const context = buildExternalBrowserSourceContext([{}]);
+
+  assert.deepEqual(plan.requestedSources, plan.sources.map(source => source.id));
+  assert.ok(plan.sources.length > 0);
+  assert.ok(context);
+  assert.match(context, /External browser-based source workflow:/i);
+});
+
 test("prompt enhancement includes Yuanbao source context", () => {
   const script = [
     "const {enhancePrompt} = require('./dist/lumi');",
