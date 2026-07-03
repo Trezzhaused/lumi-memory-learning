@@ -27,6 +27,7 @@ test("free Hugging Face media model repositories are catalogued", () => {
   const sharegpt = sources.find(source => source.id === "sharegpt-4o-image");
   const uniworld = sources.find(source => source.id === "uniworld-v1-nf4");
   const qwenOmniThinking = sources.find(source => source.id === "qwen3-omni-30b-a3b-thinking-awq-8bit");
+  const qwenOmni3b = sources.find(source => source.id === "qwen2.5-omni-3b-gguf");
 
   assert.ok(locateAnything);
   assert.equal(locateAnything.category, "research");
@@ -47,6 +48,8 @@ test("free Hugging Face media model repositories are catalogued", () => {
   assert.match(uniworld.url, /huggingface\.co\/wikeeyang\/UniWorld-V1-NF4/);
   assert.ok(qwenOmniThinking);
   assert.match(qwenOmniThinking.url, /huggingface\.co\/cyankiwi\/Qwen3-Omni-30B-A3B-Thinking-AWQ-8bit/);
+  assert.ok(qwenOmni3b);
+  assert.match(qwenOmni3b.url, /huggingface\.co\/aoiandroid\/Qwen2\.5-Omni-3B-GGUF/);
 });
 
 test("unknown external browser sources fail cleanly", async () => {

@@ -467,6 +467,17 @@ const DEFAULT_EXTERNAL_SOURCES: ExternalBrowserSource[] = [
         sessionHint: "Open this repo when the task benefits from a reasoning-focused multimodal reference.",
     },
     {
+        id: "qwen2.5-omni-3b-gguf",
+        name: "Qwen2.5 Omni 3B GGUF (aoiandroid)",
+        url: "https://huggingface.co/aoiandroid/Qwen2.5-Omni-3B-GGUF/tree/main",
+        category: "research",
+        requiresBrowserAutomation: true,
+        backend: "browser-automation",
+        availability: "pending",
+        notes: "Compact multimodal repository for speech, vision, and text workflows in lightweight browser-assisted experiments.",
+        sessionHint: "Use this repo when the task needs a smaller multimodal reference for quick experiments.",
+    },
+    {
         id: "qwen3-omni-30b-a3b-instruct",
         name: "Qwen3 Omni 30B A3B Instruct (Alibaba)",
         url: "https://huggingface.co/Qwen/Qwen3-Omni-30B-A3B-Instruct/tree/main",
