@@ -229,7 +229,8 @@ Lumi now includes a production-oriented deployment path that keeps the runtime c
 ### Quick deployment recipe
 
 1. If you want a single-file workflow, keep the values in `.env` and skip `.env.production`; otherwise copy `.env.production.example` to `.env.production` and fill the values you want to use.
-2. Build and start the container stack:
+2. The production compose stack will look for `/app/.env` by default, so a connected `.env` file is enough for deployment.
+3. Build and start the container stack:
 
 ```bash
 docker compose -f docker/docker-compose.prod.yml up -d --build

@@ -6,14 +6,13 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.lumi
     image: lumi:prod
-    env_file:
-      - ../.env.production
     environment:
       NODE_ENV: production
       PORT: 3001
       LUMI_ALLOW_LOCAL_TOOL_EXECUTION: "true"
       LUMI_ALLOW_CLOUD_TOOL_REQUESTS: "false"
       LUMI_FAIL_FAST: "true"
+      LUMI_ENV_FILE: /app/.env
     ports:
       - "3001:3001"
     healthcheck:
