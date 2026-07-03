@@ -217,6 +217,38 @@ GET /api/lumi/conversations → All ConversationSessions
 
 ---
 
+## Production deployment and smoke testing
+
+Lumi now includes a production-oriented deployment path that keeps the runtime configurable through environment variables and exposes a lightweight health surface for automated checks.
+
+- Container entrypoint: `docker/Dockerfile.lumi` and `docker/entrypoint.sh`
+- Production compose template: `docker/docker-compose.prod.yml`
+- Environment bundle: `.env.production.example`
+- Smoke test script: `scripts/smoke-test.sh`
+
+### Quick deployment recipe
+
+1. Copy `.env.production.example` to `.env.production` and fill the values you want to use.
+2. Build and start the container stack:
+
+```bash
+docker compose -f docker/docker-compose.prod.yml up -d --build
+```
+
+3. Smoke test the deployment:
+
+```bash
+bash ./scripts/smoke-test.sh
+```
+
+The app now exposes:
+- `GET /healthz` — lightweight liveness probe
+- `GET /readyz` — readiness summary with bridge/storage/provider status
+
+### Container behavior
+
+The container entrypoint installs dependencies, builds the TypeScript app, validates the runtime configuration in production mode, prints a startup readiness summary, and exits fast if required deployment settings are missing.
+
 ## Local media workflows
 
 For local ComfyUI-based video generation, the repository now includes ready-to-use workflow examples under [`docs/comfyui/`](docs/comfyui/):

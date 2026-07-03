@@ -27,13 +27,24 @@ import {buildAutonomyPlan, buildComparativeResearchContext, buildSelfDirectedDir
 import {generateUserGuide, ingestFile} from "./lumi-ingestion";
 import {evaluateToolExecutionPolicy, executeApprovedAction, getExecutionPolicySnapshot, getRemoteOwnerRuntimeStatus} from "./lumi-tools";
 import {buildPublicChatResponse, enforceBilling, getBillingLedger, getTenantScriptPath, registerTenant, upgradeBilling} from "./lumi-tenant";
+import {buildRuntimeConfigurationSummary, formatRuntimeSummary, validateRuntimeConfiguration} from "./lumi-runtime";
 
 // ============================================================================
 // App setup
 // ============================================================================
 
 const app = express();
-const port = process.env.PORT || 3001;
+const port = Number(process.env.PORT || 3001);
+const runtimeValidation = validateRuntimeConfiguration(process.env);
+const startupSummary = runtimeValidation.summary;
+
+if (runtimeValidation.shouldExit) {
+    console.error(`[Lumi] Startup validation failed.\n${formatRuntimeSummary(startupSummary)}`);
+    process.exit(1);
+}
+
+console.log(`[Lumi] Startup summary:\n${formatRuntimeSummary(startupSummary)}`);
+app.locals.runtimeSummary = startupSummary;
 
 app.use(express.static(path.join(process.cwd(), "public")));
 
@@ -133,6 +144,16 @@ app.get('/', (_req: Request, res: Response) => {
         studioUrl: "https://studio.trezzhaus.com",
         docs: "/api/lumi/status",
     });
+});
+
+app.get('/healthz', (_req: Request, res: Response) => {
+    res.json({ok: true, status: "ok"});
+});
+
+app.get('/readyz', (_req: Request, res: Response) => {
+    const summary = buildRuntimeConfigurationSummary(process.env);
+    const ready = summary.ready;
+    res.status(ready ? 200 : 503).json({ok: ready, ...summary});
 });
 
 app.get('/public-chat', (_req: Request, res: Response) => {

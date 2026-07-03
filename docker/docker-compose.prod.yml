@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  lumi:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.lumi
+    image: lumi:prod
+    env_file:
+      - ../.env.production
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      LUMI_ALLOW_LOCAL_TOOL_EXECUTION: "true"
+      LUMI_ALLOW_CLOUD_TOOL_REQUESTS: "false"
+      LUMI_FAIL_FAST: "true"
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/healthz').then((res) => res.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s

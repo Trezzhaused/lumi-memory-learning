@@ -6,6 +6,153 @@ export interface ProviderIssue {
     retryable: boolean;
 }
 
+export interface RuntimeEnvironmentSummary {
+    environment: string;
+    ready: boolean;
+    missingRequirements: string[];
+    warnings: string[];
+    bridge: {
+        enabled: boolean;
+        configured: boolean;
+        mode: string;
+    };
+    storage: {
+        backend: "local" | "r2";
+        configured: boolean;
+        reason: string;
+    };
+    providers: {
+        openrouter: {configured: boolean; label: string};
+        ollama: {configured: boolean; label: string};
+        huggingface: {configured: boolean; label: string};
+        fal: {configured: boolean; label: string};
+        replicate: {configured: boolean; label: string};
+        roblox: {configured: boolean; label: string};
+        externalBrowser: {configured: boolean; label: string};
+    };
+    publicChat: {
+        enabled: boolean;
+    };
+}
+
+export interface RuntimeValidationResult {
+    summary: RuntimeEnvironmentSummary;
+    shouldExit: boolean;
+}
+
+function toBoolean(value: string | undefined): boolean {
+    return value === "true";
+}
+
+export function buildRuntimeConfigurationSummary(env: NodeJS.ProcessEnv = process.env): RuntimeEnvironmentSummary {
+    const environment = (env.NODE_ENV || "development").toLowerCase();
+    const isProduction = environment === "production";
+    const localToolExecution = toBoolean(env.LUMI_ALLOW_LOCAL_TOOL_EXECUTION) || (isProduction && !env.LUMI_ALLOW_LOCAL_TOOL_EXECUTION);
+    const cloudToolRequests = toBoolean(env.LUMI_ALLOW_CLOUD_TOOL_REQUESTS);
+    const bridgeEnabled = localToolExecution || cloudToolRequests;
+    const missingRequirements: string[] = [];
+    const warnings: string[] = [];
+
+    if (bridgeEnabled && !env.LUMI_BRIDGE_SECRET?.trim()) {
+        missingRequirements.push("LUMI_BRIDGE_SECRET");
+    }
+    if (!bridgeEnabled) {
+        warnings.push("Bridge execution is disabled; set LUMI_ALLOW_LOCAL_TOOL_EXECUTION=true and LUMI_BRIDGE_SECRET for secure owner-side actions.");
+    }
+
+    const openrouterConfigured = Boolean(env.OPENROUTER_API_KEY?.trim());
+    const ollamaConfigured = Boolean(env.OLLAMA_HOST?.trim() && env.OLLAMA_HOST !== "http://127.0.0.1:11434");
+    const huggingfaceConfigured = Boolean(env.HUGGINGFACE_API_KEY?.trim());
+    const falConfigured = Boolean(env.FAL_KEY?.trim());
+    const replicateConfigured = Boolean(env.REPLICATE_API_KEY?.trim());
+    const robloxConfigured = Boolean(env.ROBLOX_API_KEY?.trim() && env.ROBLOX_UNIVERSE_ID?.trim() && env.ROBLOX_PLACE_ID?.trim());
+    const externalBrowserConfigured = Boolean(env.EXTERNAL_BROWSER_PROXY_URL?.trim() || env.EXTERNAL_BROWSER_API_URL?.trim());
+
+    if (!openrouterConfigured && !ollamaConfigured) {
+        warnings.push("No chat provider API is configured; Lumi will use its built-in fallback path.");
+    }
+    if (!huggingfaceConfigured && !falConfigured && !replicateConfigured) {
+        warnings.push("No media generation provider is configured; image/video/audio features will remain unavailable until credentials are added.");
+    }
+    if (!robloxConfigured) {
+        warnings.push("Roblox publishing credentials are not configured; publishing stays disabled.");
+    }
+    if (!externalBrowserConfigured) {
+        warnings.push("No external browser automation endpoint is configured; browser-based research stays workflow-only.");
+    }
+
+    const r2Configured = Boolean(
+        env.CLOUDFLARE_R2_ACCOUNT_ID?.trim()
+        && env.CLOUDFLARE_R2_ACCESS_KEY_ID?.trim()
+        && env.CLOUDFLARE_R2_SECRET_ACCESS_KEY?.trim()
+        && env.CLOUDFLARE_R2_BUCKET?.trim(),
+    );
+    const storage = r2Configured
+        ? {backend: "r2" as const, configured: true, reason: "R2 credentials are configured."}
+        : {backend: "local" as const, configured: false, reason: "R2 credentials are missing; local filesystem storage will be used."};
+
+    return {
+        environment,
+        ready: missingRequirements.length === 0,
+        missingRequirements,
+        warnings,
+        bridge: {
+            enabled: bridgeEnabled,
+            configured: Boolean(env.LUMI_BRIDGE_SECRET?.trim()),
+            mode: bridgeEnabled ? "secure-bridge" : "disabled",
+        },
+        storage,
+        providers: {
+            openrouter: {configured: openrouterConfigured, label: openrouterConfigured ? "configured" : "missing"},
+            ollama: {configured: ollamaConfigured, label: ollamaConfigured ? "configured" : "missing"},
+            huggingface: {configured: huggingfaceConfigured, label: huggingfaceConfigured ? "configured" : "missing"},
+            fal: {configured: falConfigured, label: falConfigured ? "configured" : "missing"},
+            replicate: {configured: replicateConfigured, label: replicateConfigured ? "configured" : "missing"},
+            roblox: {configured: robloxConfigured, label: robloxConfigured ? "configured" : "missing"},
+            externalBrowser: {configured: externalBrowserConfigured, label: externalBrowserConfigured ? "configured" : "missing"},
+        },
+        publicChat: {enabled: true},
+    };
+}
+
+export function validateRuntimeConfiguration(env: NodeJS.ProcessEnv = process.env): RuntimeValidationResult {
+    const summary = buildRuntimeConfigurationSummary(env);
+    const failFast = env.LUMI_FAIL_FAST === "true" || (env.NODE_ENV || "development").toLowerCase() === "production";
+    return {
+        summary,
+        shouldExit: failFast && summary.missingRequirements.length > 0,
+    };
+}
+
+export function formatRuntimeSummary(summary: RuntimeEnvironmentSummary): string {
+    const providerSummary = [
+        `openrouter=${summary.providers.openrouter.label}`,
+        `ollama=${summary.providers.ollama.label}`,
+        `huggingface=${summary.providers.huggingface.label}`,
+        `fal=${summary.providers.fal.label}`,
+        `replicate=${summary.providers.replicate.label}`,
+        `roblox=${summary.providers.roblox.label}`,
+        `browser=${summary.providers.externalBrowser.label}`,
+    ].join(", ");
+
+    const lines = [
+        `environment=${summary.environment}`,
+        `ready=${summary.ready ? "yes" : "no"}`,
+        `bridge=${summary.bridge.enabled ? (summary.bridge.configured ? "enabled" : "missing-secret") : "disabled"}`,
+        `storage=${summary.storage.backend}`,
+        `providers=${providerSummary}`,
+    ];
+
+    if (summary.missingRequirements.length) {
+        lines.push(`missing=${summary.missingRequirements.join(", ")}`);
+    }
+    if (summary.warnings.length) {
+        lines.push(`warnings=${summary.warnings.join(" | ")}`);
+    }
+
+    return lines.join("\n");
+}
+
 function normalizeMessage(value: unknown): string {
     if (value instanceof Error) return value.message;
     if (typeof value === "string") return value;

@@ -13,7 +13,8 @@
     "dev": "tsnd --respawn app.ts",
     "typecheck": "tsc --noEmit --pretty",
     "test:guardrails": "pnpm run build && node --test tests/golden-eval.test.js",
-    "test:resources": "pnpm run build && node --test tests/external-sources.test.js tests/training-resources.test.js"
+    "test:resources": "pnpm run build && node --test tests/external-sources.test.js tests/training-resources.test.js",
+    "smoke:test": "bash ./scripts/smoke-test.sh"
   },
   "keywords": [],
   "dependencies": {
