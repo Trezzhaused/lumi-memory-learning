@@ -19,12 +19,15 @@ test("Yuanbao is catalogued as the Tencent browser source", () => {
 test("free Hugging Face media model repositories are catalogued", () => {
   const sources = getExternalBrowserSources();
   const locateAnything = sources.find(source => source.id === "locateanything-3b");
+  const preferredQwen = sources.find(source => source.id === "qwen3.6-40b-claude-opus-deckard-heretic-uncensored-thinking");
   const skyReels = sources.find(source => source.id === "skyreels-v2-t2v-14b-540p");
   const audio = sources.find(source => source.id === "mimo-audio-7b-instruct");
 
   assert.ok(locateAnything);
   assert.equal(locateAnything.category, "research");
   assert.match(locateAnything.url, /huggingface\.co\/nvidia\/LocateAnything-3B/);
+  assert.ok(preferredQwen);
+  assert.match(preferredQwen.notes, /user-preferred/i);
   assert.ok(skyReels);
   assert.match(skyReels.notes, /video/i);
   assert.ok(audio);
