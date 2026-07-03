@@ -4,7 +4,7 @@ const http = require("node:http");
 const path = require("node:path");
 const {test} = require("node:test");
 
-const {buildExternalBrowserSourceContext, getExternalBrowserSources, queryExternalBrowserSource} = require("../dist/lumi-external-sources");
+const {buildExternalBrowserSourceContext, getExternalBrowserSources, planExternalBrowserSources, queryExternalBrowserSource} = require("../dist/lumi-external-sources");
 
 test("Yuanbao is catalogued as the Tencent browser source", () => {
   const sources = getExternalBrowserSources();
@@ -203,6 +203,19 @@ test("nested proxy error payloads are surfaced as structured failures", async ()
       process.env.EXTERNAL_BROWSER_API_URL = previousApiUrl;
     }
   }
+});
+
+test("source planning preserves the requested order for explicit source selections", () => {
+  const plan = planExternalBrowserSources(["qwen2.5-omni-3b-gguf", "sharegpt-4o-image"]);
+
+  assert.deepEqual(plan.requestedSources, [
+    "qwen2.5-omni-3b-gguf",
+    "sharegpt-4o-image",
+  ]);
+  assert.deepEqual(plan.sources.map(source => source.id), [
+    "qwen2.5-omni-3b-gguf",
+    "sharegpt-4o-image",
+  ]);
 });
 
 test("unknown source selections return no sources", () => {

@@ -42,3 +42,12 @@ test("free model repositories are registered in the training resource catalog", 
   assert.equal(analysis.resources[0].category, "model");
   assert.match(analysis.resources[0].url, /github\.com\/FreedomIntelligence\/ShareGPT-4o-Image/);
 });
+
+test("training resource analysis preserves the requested order for explicit resource selections", () => {
+  const analysis = buildTrainingResourceAnalysis({resources: ["qwen2.5-omni-3b-gguf", "sharegpt-4o-image"]});
+
+  assert.deepEqual(analysis.resources.map(resource => resource.id), [
+    "qwen2.5-omni-3b-gguf",
+    "sharegpt-4o-image",
+  ]);
+});
