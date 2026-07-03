@@ -1,3 +1,5 @@
+import {extractNormalizedSelectorValue} from "./lumi-selector-utils";
+
 export interface ExternalBrowserSourceSelectorRecord {
     id?: string;
     sourceId?: string;
@@ -511,42 +513,6 @@ const DEFAULT_EXTERNAL_SOURCES: ExternalBrowserSource[] = [
         sessionHint: "Use this repo when the workflow needs a reward or scoring reference for agent behavior.",
     },
 ];
-
-function extractNormalizedSelectorValue(value: unknown, aliases: string[]): string {
-    if (typeof value === "string") {
-        return value.trim().toLowerCase();
-    }
-
-    if (Array.isArray(value)) {
-        for (const entry of value) {
-            const normalized = extractNormalizedSelectorValue(entry, aliases);
-            if (normalized) return normalized;
-        }
-        return "";
-    }
-
-    if (!value || typeof value !== "object") {
-        return "";
-    }
-
-    const record = value as Record<string, unknown>;
-    for (const alias of aliases) {
-        const candidate = record[alias];
-        if (typeof candidate === "string") {
-            const normalized = candidate.trim().toLowerCase();
-            if (normalized) return normalized;
-        }
-    }
-
-    for (const nestedValue of Object.values(record)) {
-        if (nestedValue && typeof nestedValue === "object") {
-            const normalized = extractNormalizedSelectorValue(nestedValue, aliases);
-            if (normalized) return normalized;
-        }
-    }
-
-    return "";
-}
 
 function normalizeExternalSourceId(sourceId: unknown): string {
     return extractNormalizedSelectorValue(sourceId, ["id", "sourceId", "source", "value"]);
