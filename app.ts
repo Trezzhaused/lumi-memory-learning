@@ -21,6 +21,7 @@ import {converseSpeech, formatBraille, speakText, transcribeAudio} from "./lumi-
 import {buildPromptTrainer} from "./lumi-prompt-trainer";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 import {getExternalBrowserSources, planExternalBrowserSources, queryExternalBrowserSource} from "./lumi-external-sources";
+import {classifyText} from "./lumi-classification";
 import {runLocalStudioPipeline} from "./lumi-local-studio";
 import {buildAutonomyPlan, buildComparativeResearchContext, buildSelfDirectedDirective, executeSelfDirectedDirective} from "./lumi-autonomy";
 import {generateUserGuide, ingestFile} from "./lumi-ingestion";
@@ -243,6 +244,19 @@ lumiRouter.post("/enhance-prompt", async (req: Request, res: Response, next: Nex
         const {prompt, domain, externalSources} = req.body;
         if (!prompt) { res.status(400).json({error: "prompt is required"}); return; }
         const result = await enhancePrompt(prompt, domain, externalSources);
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/classify
+lumiRouter.post("/classify", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {text, labels, model} = req.body || {};
+        if (typeof text !== "string" || !text.trim()) {
+            res.status(400).json({error: "text is required"});
+            return;
+        }
+        const result = await classifyText({text, labels, model});
         res.json(result);
     } catch (err) { next(err); }
 });
