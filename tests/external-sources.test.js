@@ -24,6 +24,9 @@ test("free Hugging Face media model repositories are catalogued", () => {
   const dyslexiaSimplifier = sources.find(source => source.id === "dyslexia-friendly-text-simplifier");
   const skyReels = sources.find(source => source.id === "skyreels-v2-t2v-14b-540p");
   const audio = sources.find(source => source.id === "mimo-audio-7b-instruct");
+  const sharegpt = sources.find(source => source.id === "sharegpt-4o-image");
+  const uniworld = sources.find(source => source.id === "uniworld-v1-nf4");
+  const qwenOmniThinking = sources.find(source => source.id === "qwen3-omni-30b-a3b-thinking-awq-8bit");
 
   assert.ok(locateAnything);
   assert.equal(locateAnything.category, "research");
@@ -38,6 +41,12 @@ test("free Hugging Face media model repositories are catalogued", () => {
   assert.match(skyReels.notes, /video/i);
   assert.ok(audio);
   assert.match(audio.notes, /audio/i);
+  assert.ok(sharegpt);
+  assert.match(sharegpt.url, /github\.com\/FreedomIntelligence\/ShareGPT-4o-Image/);
+  assert.ok(uniworld);
+  assert.match(uniworld.url, /huggingface\.co\/wikeeyang\/UniWorld-V1-NF4/);
+  assert.ok(qwenOmniThinking);
+  assert.match(qwenOmniThinking.url, /huggingface\.co\/cyankiwi\/Qwen3-Omni-30B-A3B-Thinking-AWQ-8bit/);
 });
 
 test("unknown external browser sources fail cleanly", async () => {
