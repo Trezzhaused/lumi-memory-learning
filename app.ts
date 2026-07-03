@@ -3,6 +3,8 @@ import express, {NextFunction, Request, Response} from "express";
 import fs from "node:fs";
 import path from "node:path";
 import {Webhook, WebhookUnbrandedRequiredHeaders, WebhookVerificationError} from "standardwebhooks"
+import "./env-bootstrap";
+import {buildRuntimeConfigurationSummary, formatRuntimeSummary, loadEnvironmentFiles, validateRuntimeConfiguration} from "./lumi-runtime";
 import {RenderDeploy, RenderEvent, RenderService, WebhookPayload} from "./render";
 import {
     acamMiddleware, acamContentGuard, defaultAcamConfig, auditLog,
@@ -27,7 +29,6 @@ import {buildAutonomyPlan, buildComparativeResearchContext, buildSelfDirectedDir
 import {generateUserGuide, ingestFile} from "./lumi-ingestion";
 import {evaluateToolExecutionPolicy, executeApprovedAction, getExecutionPolicySnapshot, getRemoteOwnerRuntimeStatus} from "./lumi-tools";
 import {buildPublicChatResponse, enforceBilling, getBillingLedger, getTenantScriptPath, registerTenant, upgradeBilling} from "./lumi-tenant";
-import {buildRuntimeConfigurationSummary, formatRuntimeSummary, loadEnvironmentFiles, validateRuntimeConfiguration} from "./lumi-runtime";
 
 // ============================================================================
 // App setup

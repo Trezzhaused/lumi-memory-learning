@@ -115,8 +115,6 @@ export function loadEnvironmentFiles(baseDir: string = process.cwd(), env: NodeJ
     return loadedFiles;
 }
 
-loadEnvironmentFiles(process.cwd(), process.env);
-
 export function buildRuntimeConfigurationSummary(env: NodeJS.ProcessEnv = process.env): RuntimeEnvironmentSummary {
     const environment = (env.NODE_ENV || "development").toLowerCase();
     const isProduction = environment === "production";
