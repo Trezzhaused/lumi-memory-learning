@@ -197,13 +197,35 @@ export async function queryExternalBrowserSource(
         };
     }
 
+    const errorMessage = typeof payload?.error === "string"
+        ? payload.error
+        : typeof payload?.message === "string"
+            ? payload.message
+            : typeof payload?.detail === "string"
+                ? payload.detail
+                : "";
+
     const content = typeof payload?.content === "string"
         ? payload.content
         : typeof payload?.text === "string"
             ? payload.text
             : typeof payload?.result === "string"
                 ? payload.result
-                : "";
+                : typeof payload?.output === "string"
+                    ? payload.output
+                    : typeof payload?.answer === "string"
+                        ? payload.answer
+                        : "";
+
+    if (errorMessage || payload?.ok === false || payload?.success === false) {
+        return {
+            sourceId: normalizedSourceId,
+            ok: false,
+            status: typeof payload?.status === "number" ? payload.status : response.status,
+            usedBackend: "proxy",
+            error: errorMessage || "Automation endpoint returned an error payload",
+        };
+    }
 
     return {
         sourceId: normalizedSourceId,
