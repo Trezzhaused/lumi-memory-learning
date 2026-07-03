@@ -120,6 +120,13 @@ test("source planning accepts case-insensitive nested selector aliases", () => {
   assert.equal(plan.sources[0].id, "yuanbao");
 });
 
+test("source planning accepts selector aliases with punctuation separators", () => {
+  const plan = require("../dist/lumi-external-sources").planExternalBrowserSources([{source: {"source-id": "YUANBAO"}}]);
+
+  assert.deepEqual(plan.requestedSources, ["yuanbao"]);
+  assert.equal(plan.sources[0].id, "yuanbao");
+});
+
 test("source planning accepts selector values nested in arrays", () => {
   const plan = require("../dist/lumi-external-sources").planExternalBrowserSources([{source: [{sourceId: "YUANBAO"}]}]);
 

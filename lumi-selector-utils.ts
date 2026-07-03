@@ -3,6 +3,10 @@
  * Aliases are treated case-insensitively and may be present in strings, arrays,
  * or nested objects so the selector can be supplied in a variety of shapes.
  */
+function normalizeSelectorKey(value: string): string {
+    return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
 function normalizeSelectorCandidate(candidate: unknown, aliases: string[]): string {
     if (typeof candidate === "string") {
         const normalized = candidate.trim().toLowerCase();
@@ -27,11 +31,11 @@ function normalizeSelectorCandidate(candidate: unknown, aliases: string[]): stri
 
     const record = candidate as Record<string, unknown>;
     const aliasLookup = new Map(
-        Object.entries(record).map(([key, nestedValue]) => [key.toLowerCase(), nestedValue])
+        Object.entries(record).map(([key, nestedValue]) => [normalizeSelectorKey(key), nestedValue])
     );
 
     for (const alias of aliases) {
-        const nestedCandidate = aliasLookup.get(alias.toLowerCase());
+        const nestedCandidate = aliasLookup.get(normalizeSelectorKey(alias));
         const normalized = normalizeSelectorCandidate(nestedCandidate, aliases);
         if (normalized) return normalized;
     }
