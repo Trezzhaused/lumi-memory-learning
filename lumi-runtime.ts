@@ -1,9 +1,17 @@
+import fs from "node:fs";
+import path from "node:path";
+
 export interface ProviderIssue {
     category: "missing_credentials" | "invalid_config" | "provider_unavailable" | "timeout" | "backend_error" | "unknown";
     provider: string;
     message: string;
     detail?: string;
     retryable: boolean;
+}
+
+export interface LoadedEnvironmentFile {
+    path: string;
+    entries: string[];
 }
 
 export interface RuntimeEnvironmentSummary {
@@ -43,6 +51,71 @@ export interface RuntimeValidationResult {
 function toBoolean(value: string | undefined): boolean {
     return value === "true";
 }
+
+function parseEnvValue(rawValue: string): string {
+    const trimmed = rawValue.trim();
+    if (!trimmed) return "";
+    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+        return trimmed.slice(1, -1);
+    }
+    return trimmed.replace(/\s+#.*$/, "").trim();
+}
+
+function parseEnvFile(filePath: string): Record<string, string> {
+    const contents = fs.readFileSync(filePath, "utf8");
+    const entries: Record<string, string> = {};
+
+    for (const rawLine of contents.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith("#")) continue;
+
+        const normalizedLine = line.replace(/^export\s+/, "");
+        const separatorIndex = normalizedLine.indexOf("=");
+        if (separatorIndex === -1) continue;
+
+        const key = normalizedLine.slice(0, separatorIndex).trim();
+        const rawValue = normalizedLine.slice(separatorIndex + 1).trim();
+        if (!key) continue;
+
+        entries[key] = parseEnvValue(rawValue);
+    }
+
+    return entries;
+}
+
+export function loadEnvironmentFiles(baseDir: string = process.cwd(), env: NodeJS.ProcessEnv = process.env): LoadedEnvironmentFile[] {
+    const userProvidedKeys = new Set(Object.keys(env));
+    const environment = (env.NODE_ENV || "development").toLowerCase();
+    const fileNames = [".env", ".env.local"];
+
+    if (environment === "production") {
+        fileNames.push(".env.production", ".env.production.local");
+    } else {
+        fileNames.push(".env.development", ".env.development.local");
+    }
+
+    const loadedFiles: LoadedEnvironmentFile[] = [];
+    for (const fileName of fileNames) {
+        const filePath = path.join(baseDir, fileName);
+        if (!fs.existsSync(filePath)) continue;
+
+        const entries = parseEnvFile(filePath);
+        for (const [key, value] of Object.entries(entries)) {
+            if (!userProvidedKeys.has(key)) {
+                env[key] = value;
+            }
+        }
+
+        loadedFiles.push({
+            path: filePath,
+            entries: Object.keys(entries),
+        });
+    }
+
+    return loadedFiles;
+}
+
+loadEnvironmentFiles(process.cwd(), process.env);
 
 export function buildRuntimeConfigurationSummary(env: NodeJS.ProcessEnv = process.env): RuntimeEnvironmentSummary {
     const environment = (env.NODE_ENV || "development").toLowerCase();

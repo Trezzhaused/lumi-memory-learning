@@ -27,13 +27,17 @@ import {buildAutonomyPlan, buildComparativeResearchContext, buildSelfDirectedDir
 import {generateUserGuide, ingestFile} from "./lumi-ingestion";
 import {evaluateToolExecutionPolicy, executeApprovedAction, getExecutionPolicySnapshot, getRemoteOwnerRuntimeStatus} from "./lumi-tools";
 import {buildPublicChatResponse, enforceBilling, getBillingLedger, getTenantScriptPath, registerTenant, upgradeBilling} from "./lumi-tenant";
-import {buildRuntimeConfigurationSummary, formatRuntimeSummary, validateRuntimeConfiguration} from "./lumi-runtime";
+import {buildRuntimeConfigurationSummary, formatRuntimeSummary, loadEnvironmentFiles, validateRuntimeConfiguration} from "./lumi-runtime";
 
 // ============================================================================
 // App setup
 // ============================================================================
 
 const app = express();
+const loadedEnvFiles = loadEnvironmentFiles(process.cwd(), process.env);
+if (loadedEnvFiles.length > 0) {
+    console.log(`[Lumi] Loaded environment files: ${loadedEnvFiles.map(file => path.basename(file.path)).join(", ")}`);
+}
 const port = Number(process.env.PORT || 3001);
 const runtimeValidation = validateRuntimeConfiguration(process.env);
 const startupSummary = runtimeValidation.summary;
