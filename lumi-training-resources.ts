@@ -48,7 +48,9 @@ function normalizeTrainingResourceIds(resourceIds: unknown): string[] {
         ? [resourceIds]
         : Array.isArray(resourceIds)
             ? resourceIds
-            : [];
+            : resourceIds && typeof resourceIds === "object"
+                ? [resourceIds]
+                : [];
 
     return Array.from(new Set(
         sourceValues

@@ -66,7 +66,9 @@ function normalizeExternalSourceIds(sourceIds: unknown): string[] {
         ? [sourceIds]
         : Array.isArray(sourceIds)
             ? sourceIds
-            : [];
+            : sourceIds && typeof sourceIds === "object"
+                ? [sourceIds]
+                : [];
 
     return Array.from(new Set(
         sourceValues
@@ -92,7 +94,7 @@ function hasExplicitExternalSourceSelection(requestedSources: unknown): boolean 
         if (typeof sourceId === "string") return sourceId.trim() !== "";
         return sourceId !== undefined && sourceId !== null;
     });
-    return false;
+    return normalizeExternalSourceId(requestedSources) !== "";
 }
 
 function getKnownRequestedSources(requestedSources: unknown): string[] {

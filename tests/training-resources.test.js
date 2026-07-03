@@ -16,3 +16,9 @@ test("training resource analysis accepts object-style resource IDs", () => {
 
   assert.deepEqual(analysis.resources.map(resource => resource.id), ["yuanbao"]);
 });
+
+test("training resource analysis accepts a single object selector", () => {
+  const analysis = buildTrainingResourceAnalysis({resources: {id: "YUANBAO"}});
+
+  assert.deepEqual(analysis.resources.map(resource => resource.id), ["yuanbao"]);
+});
