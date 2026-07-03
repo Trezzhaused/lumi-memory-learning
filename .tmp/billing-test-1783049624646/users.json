@@ -1,0 +1,14 @@
+[
+  {
+    "user_id": "USER-C37EEE78",
+    "username": "billing_user",
+    "secret_tunnel_token": "Sovereign_8f949c36bbce5994017f5d88b91cda5a",
+    "cloud_storage_directory": "/home/runner/work/lumi-memory-learning/lumi-memory-learning/.tmp/billing-test-1783049624646/users/USER-C37EEE78",
+    "created_at": "2026-07-03T03:33:44.647Z",
+    "active_task_queue": [],
+    "tier_status": "Free",
+    "credits_total_monthly": 10,
+    "credits_used_this_month": 0,
+    "subscription_expires": "2026-08-02T03:33:44.647Z"
+  }
+]
