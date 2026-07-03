@@ -3,43 +3,47 @@
  * Aliases are treated case-insensitively and may be present in strings, arrays,
  * or nested objects so the selector can be supplied in a variety of shapes.
  */
-export function extractNormalizedSelectorValue(value: unknown, aliases: string[]): string {
-    // Recursively extract and normalize a selector value from strings, arrays, or nested objects.
-    if (typeof value === "string") {
-        return value.trim().toLowerCase();
+function normalizeSelectorCandidate(candidate: unknown, aliases: string[]): string {
+    if (typeof candidate === "string") {
+        const normalized = candidate.trim().toLowerCase();
+        return normalized;
     }
 
-    if (Array.isArray(value)) {
-        for (const entry of value) {
-            const normalized = extractNormalizedSelectorValue(entry, aliases);
+    if (typeof candidate === "number" || typeof candidate === "boolean") {
+        return String(candidate).trim().toLowerCase();
+    }
+
+    if (Array.isArray(candidate)) {
+        for (const entry of candidate) {
+            const normalized = normalizeSelectorCandidate(entry, aliases);
             if (normalized) return normalized;
         }
         return "";
     }
 
-    if (!value || typeof value !== "object") {
+    if (!candidate || typeof candidate !== "object") {
         return "";
     }
 
-    const record = value as Record<string, unknown>;
+    const record = candidate as Record<string, unknown>;
     const aliasLookup = new Map(
         Object.entries(record).map(([key, nestedValue]) => [key.toLowerCase(), nestedValue])
     );
 
     for (const alias of aliases) {
-        const candidate = aliasLookup.get(alias.toLowerCase());
-        if (typeof candidate === "string") {
-            const normalized = candidate.trim().toLowerCase();
-            if (normalized) return normalized;
-        }
+        const nestedCandidate = aliasLookup.get(alias.toLowerCase());
+        const normalized = normalizeSelectorCandidate(nestedCandidate, aliases);
+        if (normalized) return normalized;
     }
 
     for (const nestedValue of Object.values(record)) {
-        if (nestedValue && typeof nestedValue === "object") {
-            const normalized = extractNormalizedSelectorValue(nestedValue, aliases);
-            if (normalized) return normalized;
-        }
+        const normalized = normalizeSelectorCandidate(nestedValue, aliases);
+        if (normalized) return normalized;
     }
 
     return "";
+}
+
+export function extractNormalizedSelectorValue(value: unknown, aliases: string[]): string {
+    return normalizeSelectorCandidate(value, aliases);
 }
