@@ -13,6 +13,11 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 # Temporary safety-test artifacts
 .tmp-*.jsonl
 
+# Optional local HunyuanVideo checkout (keep only the placeholder docs)
+vendor/hunyuan-video/*
+!vendor/hunyuan-video/.gitkeep
+!vendor/hunyuan-video/README.md
+
 # Runtime data
 pids
 *.pid

@@ -105,8 +105,10 @@ Body: { type: "image"|"video"|"audio"|"code"|"text"|"document", prompt, provider
 
 For video requests, `provider` can be set to `"auto"` (default), `"nvidia"`, `"fal"`, `"hunyuan"`, `"replicate"`, or `"comfyui"`.
 Use `"nvidia"` to target the NVIDIA-backed video path when `NVIDIA_API_BASE` is configured.
-Use `"hunyuan"` to explicitly target the Hugging Face-backed HunyuanVideo path when `HUGGINGFACE_API_KEY` is configured.
+Use `"hunyuan"` to explicitly target the Hugging Face-backed HunyuanVideo path when `HUGGINGFACE_API_KEY` is configured, or a local checkout/script when `HUNYUAN_VIDEO_SCRIPT_PATH` or `HUNYUAN_VIDEO_REPO_PATH` is configured.
 Use `"comfyui"` to submit the request to a local ComfyUI instance using the bundled Wan 2.1 workflows.
+
+To plug in a local checkout of Tencent HunyuanVideo, clone the upstream repository into `vendor/hunyuan-video/` or point `HUNYUAN_VIDEO_REPO_PATH` at another location. Lumi will look for a Python entrypoint such as `scripts/hunyuan_video_generate.py`, `hunyuan_video_generate.py`, `generate.py`, `run.py`, or `infer.py`. If you want to use a custom wrapper, set `HUNYUAN_VIDEO_SCRIPT_PATH` to its absolute path and make sure it writes an MP4 file to the `--output` argument.
 
 GET /api/lumi/artifacts/:artifactId
 → downloads the stored artifact from local storage or redirects to R2

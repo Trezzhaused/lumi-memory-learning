@@ -14,6 +14,9 @@
  * depending on the backend.
  */
 
+import {execFile} from "child_process";
+import {promises as fs} from "fs";
+import path from "path";
 import {callOpenRouterChat} from "./openrouter";
 import {callNvidiaChat, callNvidiaVideoGeneration, NvidiaVideoGenerationRequest} from "./nvidia";
 import {generateVideoComfyUI} from "./comfyui";
@@ -274,6 +277,73 @@ export async function generateVideoNvidia(req: GenerationRequest): Promise<Gener
     };
 }
 
+async function runLocalHunyuanVideo(req: GenerationRequest): Promise<GenerationResult | null> {
+    const explicitScriptPath = process.env.HUNYUAN_VIDEO_SCRIPT_PATH?.trim();
+    const defaultRepoRoot = process.env.HUNYUAN_VIDEO_REPO_PATH?.trim() || path.resolve(process.cwd(), "vendor", "hunyuan-video");
+    const candidates = new Set<string>();
+
+    if (explicitScriptPath) {
+        candidates.add(path.resolve(explicitScriptPath));
+    }
+
+    if (defaultRepoRoot) {
+        candidates.add(path.join(defaultRepoRoot, "scripts", "hunyuan_video_generate.py"));
+        candidates.add(path.join(defaultRepoRoot, "hunyuan_video_generate.py"));
+        candidates.add(path.join(defaultRepoRoot, "generate.py"));
+        candidates.add(path.join(defaultRepoRoot, "run.py"));
+        candidates.add(path.join(defaultRepoRoot, "infer.py"));
+    }
+
+    for (const candidate of candidates) {
+        try {
+            await fs.access(candidate);
+            const outputDir = path.resolve(process.cwd(), process.env.HUNYUAN_VIDEO_OUTPUT_DIR || ".data/video");
+            const outputPath = path.join(outputDir, `hunyuan-${Date.now()}.mp4`);
+            await fs.mkdir(outputDir, {recursive: true});
+
+            const pythonCommand = process.env.HUNYUAN_VIDEO_PYTHON_BIN || (process.platform === "win32" ? "python" : "python3");
+            const args = [candidate, "--prompt", req.prompt, "--output", outputPath];
+            if (req.negativePrompt) args.push("--negative-prompt", req.negativePrompt);
+            if (req.width) args.push("--width", String(req.width));
+            if (req.height) args.push("--height", String(req.height));
+            if (req.duration) args.push("--duration", String(req.duration));
+            if (req.seed !== undefined) args.push("--seed", String(req.seed));
+            if (req.model) args.push("--model", req.model);
+
+            await new Promise<void>((resolve, reject) => {
+                execFile(pythonCommand, args, {maxBuffer: 10 * 1024 * 1024}, (error, _stdout, stderr) => {
+                    if (error) {
+                        reject(new Error(`Local HunyuanVideo script failed (${pythonCommand} ${args.join(" ")}): ${stderr || error.message}`));
+                        return;
+                    }
+                    resolve();
+                });
+            });
+
+            const outputExists = await fs.access(outputPath).then(() => true).catch(() => false);
+            if (!outputExists) {
+                throw new Error(`Local HunyuanVideo script did not produce ${outputPath}`);
+            }
+            const buffer = await fs.readFile(outputPath);
+            return {
+                type: "video",
+                backend: "hunyuan-local",
+                model: req.model || "local-hunyuan-video",
+                data: buffer.toString("base64"),
+                mimeType: "video/mp4",
+                prompt: req.prompt,
+                createdAt: new Date().toISOString(),
+            };
+        } catch (error) {
+            if (candidate === explicitScriptPath) {
+                throw error;
+            }
+        }
+    }
+
+    return null;
+}
+
 // ---------------------------------------------------------------------------
 // Video Generation — NVIDIA / Hugging Face / FAL.ai / Replicate
 // ---------------------------------------------------------------------------
@@ -489,9 +559,12 @@ export async function generateVideo(req: GenerationRequest): Promise<GenerationR
         case "fal":
             if (!FAL_API_KEY) throw new Error("FAL_KEY is not configured.");
             return generateVideoFal(req);
-        case "hunyuan":
-            if (!HF_API_KEY) throw new Error("HUGGINGFACE_API_KEY is not configured for HunyuanVideo.");
+        case "hunyuan": {
+            const localResult = await runLocalHunyuanVideo(req);
+            if (localResult) return localResult;
+            if (!HF_API_KEY) throw new Error("HUNYUAN_VIDEO_SCRIPT_PATH is not configured and HUGGINGFACE_API_KEY is not configured for HunyuanVideo.");
             return generateVideoHF(req);
+        }
         case "replicate":
             if (!REPLICATE_API_KEY) throw new Error("REPLICATE_API_KEY is not configured.");
             return generateVideoReplicate(req);
@@ -500,7 +573,7 @@ export async function generateVideo(req: GenerationRequest): Promise<GenerationR
         case "comfyui":
             return generateVideoComfyUI(req);
         case undefined:
-        case "auto":
+        case "auto": {
             if (process.env.COMFYUI_BASE_URL) {
                 try {
                     return await generateVideoComfyUI(req);
@@ -515,6 +588,12 @@ export async function generateVideo(req: GenerationRequest): Promise<GenerationR
                     console.warn("[Lumi Generators] NVIDIA video generation failed, falling back:", error);
                 }
             }
+            try {
+                const localResult = await runLocalHunyuanVideo(req);
+                if (localResult) return localResult;
+            } catch (error) {
+                console.warn("[Lumi Generators] Local HunyuanVideo checkout failed, falling back:", error);
+            }
             if (FAL_API_KEY) return generateVideoFal(req);
             if (HF_API_KEY) return generateVideoHF(req);
             if (REPLICATE_API_KEY) return generateVideoReplicate(req);
@@ -522,6 +601,7 @@ export async function generateVideo(req: GenerationRequest): Promise<GenerationR
                 "No video generation API key configured. " +
                 "Set COMFYUI_BASE_URL, NVIDIA_API_BASE (primary), FAL_KEY, HUGGINGFACE_API_KEY, or REPLICATE_API_KEY."
             );
+        }
         default:
             throw new Error(`Unsupported video provider: ${req.provider}`);
     }
