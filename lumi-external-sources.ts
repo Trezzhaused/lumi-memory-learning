@@ -519,12 +519,10 @@ function normalizeExternalSourceId(sourceId: unknown): string {
 
     if (sourceId && typeof sourceId === "object") {
         const record = sourceId as Record<string, unknown>;
-        const candidate = typeof record.id === "string"
-            ? record.id
-            : typeof record.sourceId === "string"
-                ? record.sourceId
-                : "";
-        return candidate.trim().toLowerCase();
+        const idCandidate = typeof record.id === "string" ? record.id.trim() : "";
+        const sourceIdCandidate = typeof record.sourceId === "string" ? record.sourceId.trim() : "";
+        const candidate = idCandidate || sourceIdCandidate;
+        return candidate.toLowerCase();
     }
 
     return "";

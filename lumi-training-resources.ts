@@ -39,12 +39,10 @@ function normalizeTrainingResourceId(resourceId: unknown): string {
 
     if (resourceId && typeof resourceId === "object") {
         const record = resourceId as Record<string, unknown>;
-        const candidate = typeof record.id === "string"
-            ? record.id
-            : typeof record.resourceId === "string"
-                ? record.resourceId
-                : "";
-        return candidate.trim().toLowerCase();
+        const idCandidate = typeof record.id === "string" ? record.id.trim() : "";
+        const resourceIdCandidate = typeof record.resourceId === "string" ? record.resourceId.trim() : "";
+        const candidate = idCandidate || resourceIdCandidate;
+        return candidate.toLowerCase();
     }
 
     return "";
