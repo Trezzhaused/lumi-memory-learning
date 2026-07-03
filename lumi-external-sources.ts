@@ -557,15 +557,20 @@ function isKnownExternalSource(sourceId: unknown): boolean {
 function hasExplicitExternalSourceSelection(requestedSources: unknown): boolean {
     if (requestedSources === undefined || requestedSources === null) return false;
     if (typeof requestedSources === "string") return requestedSources.trim() !== "";
-    if (Array.isArray(requestedSources)) return requestedSources.some(sourceId => {
-        if (typeof sourceId === "string") return sourceId.trim() !== "";
-        if (!sourceId || typeof sourceId !== "object") return false;
-        const record = sourceId as Record<string, unknown>;
-        const idCandidate = typeof record.id === "string" ? record.id.trim() : "";
-        const sourceIdCandidate = typeof record.sourceId === "string" ? record.sourceId.trim() : "";
-        return idCandidate !== "" || sourceIdCandidate !== "";
-    });
-    return normalizeExternalSourceId(requestedSources) !== "";
+    if (Array.isArray(requestedSources)) {
+        return requestedSources.some(sourceId => {
+            if (typeof sourceId === "string") return sourceId.trim() !== "";
+            if (!sourceId || typeof sourceId !== "object") return false;
+            const record = sourceId as Record<string, unknown>;
+            const idCandidate = typeof record.id === "string" ? record.id.trim() : "";
+            const sourceIdCandidate = typeof record.sourceId === "string" ? record.sourceId.trim() : "";
+            return idCandidate !== "" || sourceIdCandidate !== "";
+        });
+    }
+    if (requestedSources && typeof requestedSources === "object") {
+        return normalizeExternalSourceId(requestedSources) !== "";
+    }
+    return false;
 }
 
 function getKnownRequestedSources(requestedSources: unknown): string[] {
