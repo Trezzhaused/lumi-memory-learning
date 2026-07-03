@@ -766,7 +766,7 @@ export function getExternalBrowserSources(): ExternalBrowserSource[] {
     }));
 }
 
-export function buildExternalBrowserSourceContext(requestedSources: ExternalBrowserSourceSelector | null | undefined = []): string | null {
+export function buildExternalBrowserSourceContext(requestedSources: ExternalBrowserSourceSelector | null | undefined = undefined): string | null {
     const selectedSources = selectExternalSources(requestedSources);
 
     if (!selectedSources.length) return null;
@@ -788,7 +788,7 @@ export function buildExternalBrowserSourceContext(requestedSources: ExternalBrow
 }
 
 export function planExternalBrowserSources(
-    requestedSources: ExternalBrowserSourceSelector | null | undefined = [],
+    requestedSources: ExternalBrowserSourceSelector | null | undefined = undefined,
     options: {goal?: string; sessionMode?: string} = {}
 ): ExternalBrowserSourcePlan {
     const normalizedRequestedSources = getKnownRequestedSources(requestedSources);

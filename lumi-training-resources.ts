@@ -31,7 +31,7 @@ import {extractNormalizedSelectorValue} from "./lumi-selector-utils";
 
 export interface TrainingResourceAnalysisRequest {
     resources?: TrainingResourceSelector | null;
-    goals?: string[] | string;
+    goals?: string[] | string | null;
 }
 
 function normalizeTrainingResourceId(resourceId: unknown): string {
