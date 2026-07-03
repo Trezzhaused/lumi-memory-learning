@@ -70,7 +70,7 @@ To enable live browser-backed retrieval, set one of the following in your enviro
 - `EXTERNAL_BROWSER_API_URL` — fallback for direct automation endpoints
 - `EXTERNAL_BROWSER_API_KEY` — optional bearer token for authenticated automation endpoints
 
-A starter template is available in [`.env.example`](.env.example).
+A starter template is available in [`.env.example`](.env.example). You can keep everything in a single `.env` file if you prefer; Lumi loads `.env` first and only uses `.env.production`/`.env.development` as optional overrides for environment-specific values.
 
 ### Mission / Pipeline (Studio Control Plane)
 ```
@@ -228,7 +228,7 @@ Lumi now includes a production-oriented deployment path that keeps the runtime c
 
 ### Quick deployment recipe
 
-1. Copy `.env.production.example` to `.env.production` and fill the values you want to use.
+1. If you want a single-file workflow, keep the values in `.env` and skip `.env.production`; otherwise copy `.env.production.example` to `.env.production` and fill the values you want to use.
 2. Build and start the container stack:
 
 ```bash

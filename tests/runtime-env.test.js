@@ -20,3 +20,16 @@ test("loadEnvironmentFiles loads env files while preserving explicit env values"
   assert.ok(loadedFiles.some(file => file.path.endsWith(".env")));
   assert.ok(loadedFiles.some(file => file.path.endsWith(".env.production")));
 });
+
+test("loadEnvironmentFiles can rely on a single .env file in production mode", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "lumi-runtime-"));
+  fs.writeFileSync(path.join(tempDir, ".env"), "PORT=3001\nLUMI_BRIDGE_SECRET=from-env\n");
+
+  const env = {NODE_ENV: "production"};
+  const loadedFiles = loadEnvironmentFiles(tempDir, env);
+
+  assert.equal(env.PORT, "3001");
+  assert.equal(env.LUMI_BRIDGE_SECRET, "from-env");
+  assert.ok(loadedFiles.some(file => file.path.endsWith(".env")));
+  assert.ok(!loadedFiles.some(file => file.path.endsWith(".env.production")));
+});
