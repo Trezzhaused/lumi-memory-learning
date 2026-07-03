@@ -119,6 +119,11 @@ function isExpired(entry: MemoryEntry): boolean {
     return new Date(entry.expiresAt) < new Date();
 }
 
+function normalizeLimit(limit: number): number {
+    if (!Number.isFinite(limit)) return 0;
+    return Math.max(0, Math.floor(limit));
+}
+
 // ---------------------------------------------------------------------------
 // GitHub Gist persistence
 // ---------------------------------------------------------------------------
@@ -273,11 +278,14 @@ export async function recall(
     tags?: string[]
 ): Promise<MemoryEntry[]> {
     const snapshot = await getStore();
+    const normalizedLimit = normalizeLimit(limit);
+    if (normalizedLimit === 0) return [];
+
     let entries = snapshot.entries.filter(e => e.sessionId === sessionId && !isExpired(e));
     if (tags && tags.length > 0) {
         entries = entries.filter(e => tags.some(t => e.tags.includes(t)));
     }
-    return entries.slice(-limit).reverse();
+    return entries.slice(-normalizedLimit).reverse();
 }
 
 /**
@@ -285,10 +293,13 @@ export async function recall(
  */
 export async function search(query: string, limit = 10): Promise<MemoryEntry[]> {
     const snapshot = await getStore();
+    const normalizedLimit = normalizeLimit(limit);
+    if (normalizedLimit === 0) return [];
+
     const q = query.toLowerCase();
     return snapshot.entries
         .filter(e => !isExpired(e) && e.content.toLowerCase().includes(q))
-        .slice(-limit)
+        .slice(-normalizedLimit)
         .reverse();
 }
 

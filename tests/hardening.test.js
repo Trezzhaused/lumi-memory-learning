@@ -6,7 +6,7 @@ const {test, afterEach} = require("node:test");
 const {classifyProviderError, formatProviderError} = require("../dist/lumi-runtime");
 const {generateAudio} = require("../dist/lumi-generators");
 const {runLocalStudioPipeline} = require("../dist/lumi-local-studio");
-const {remember, recall} = require("../dist/lumi-memory");
+const {remember, recall, search} = require("../dist/lumi-memory");
 const {formatBraille, transcribeAudio} = require("../dist/lumi-speech");
 
 const testOutputDir = ".tmp/hardening-test-output";
@@ -58,6 +58,13 @@ test("memory remembers and recalls entries in in-memory fallback mode", async ()
   await remember("hardening-session", "user", "hello from tests", ["chat", "test"]);
   const results = await recall("hardening-session", 5);
   assert.ok(results.some(entry => entry.content.includes("hello from tests")));
+});
+
+test("memory recall and search respect zero limits", async () => {
+  await remember("zero-limit-session", "user", "zero limit message", ["limit"]);
+
+  assert.deepEqual(await recall("zero-limit-session", 0), []);
+  assert.deepEqual(await search("zero limit message", 0), []);
 });
 
 test("speech helpers return a clear fallback and braille output", async () => {
