@@ -33,3 +33,18 @@ test("loadEnvironmentFiles can rely on a single .env file in production mode", (
   assert.ok(loadedFiles.some(file => file.path.endsWith(".env")));
   assert.ok(!loadedFiles.some(file => file.path.endsWith(".env.production")));
 });
+
+test("loadEnvironmentFiles can load a shared master env file via an explicit path", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "lumi-runtime-"));
+  const masterEnvFile = path.join(tempDir, "master.env");
+  fs.writeFileSync(masterEnvFile, "LUMI_BRIDGE_SECRET=from-master\n");
+  fs.writeFileSync(path.join(tempDir, ".env"), "OPENROUTER_API_KEY=abc123\n");
+
+  const env = {NODE_ENV: "development", LUMI_ENV_FILE: masterEnvFile};
+  const loadedFiles = loadEnvironmentFiles(tempDir, env);
+
+  assert.equal(env.LUMI_BRIDGE_SECRET, "from-master");
+  assert.equal(env.OPENROUTER_API_KEY, "abc123");
+  assert.ok(loadedFiles.some(file => file.path === masterEnvFile));
+  assert.ok(loadedFiles.some(file => file.path.endsWith(".env")));
+});

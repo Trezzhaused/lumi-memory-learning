@@ -70,7 +70,7 @@ To enable live browser-backed retrieval, set one of the following in your enviro
 - `EXTERNAL_BROWSER_API_URL` — fallback for direct automation endpoints
 - `EXTERNAL_BROWSER_API_KEY` — optional bearer token for authenticated automation endpoints
 
-A starter template is available in [`.env.example`](.env.example). You can keep everything in a single `.env` file if you prefer; Lumi loads `.env` first and only uses `.env.production`/`.env.development` as optional overrides for environment-specific values.
+A starter template is available in [`.env.example`](.env.example). You can keep everything in a single `.env` file if you prefer; Lumi loads `.env` first and only uses `.env.production`/`.env.development` as optional overrides for environment-specific values. If you want to share a single master env file across repos or branches, set `LUMI_ENV_FILE=/path/to/master.env` (or `LUMI_MASTER_ENV_FILE`) and Lumi will load that file before the local project files.
 
 ### Mission / Pipeline (Studio Control Plane)
 ```

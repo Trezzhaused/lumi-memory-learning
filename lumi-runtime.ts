@@ -83,6 +83,10 @@ function parseEnvFile(filePath: string): Record<string, string> {
     return entries;
 }
 
+function resolveEnvFilePath(filePath: string, baseDir: string): string {
+    return path.isAbsolute(filePath) ? filePath : path.resolve(baseDir, filePath);
+}
+
 export function loadEnvironmentFiles(baseDir: string = process.cwd(), env: NodeJS.ProcessEnv = process.env): LoadedEnvironmentFile[] {
     const userProvidedKeys = new Set(Object.keys(env));
     const environment = (env.NODE_ENV || "development").toLowerCase();
@@ -94,9 +98,25 @@ export function loadEnvironmentFiles(baseDir: string = process.cwd(), env: NodeJ
         fileNames.push(".env.development", ".env.development.local");
     }
 
-    const loadedFiles: LoadedEnvironmentFile[] = [];
+    const configuredFilePath = env.LUMI_ENV_FILE?.trim() || env.LUMI_MASTER_ENV_FILE?.trim();
+    const candidatePaths = [] as string[];
+    const seenPaths = new Set<string>();
+
+    if (configuredFilePath) {
+        const resolvedPath = resolveEnvFilePath(configuredFilePath, baseDir);
+        candidatePaths.push(resolvedPath);
+        seenPaths.add(resolvedPath);
+    }
+
     for (const fileName of fileNames) {
-        const filePath = path.join(baseDir, fileName);
+        const resolvedPath = resolveEnvFilePath(fileName, baseDir);
+        if (seenPaths.has(resolvedPath)) continue;
+        seenPaths.add(resolvedPath);
+        candidatePaths.push(resolvedPath);
+    }
+
+    const loadedFiles: LoadedEnvironmentFile[] = [];
+    for (const filePath of candidatePaths) {
         if (!fs.existsSync(filePath)) continue;
 
         const entries = parseEnvFile(filePath);
