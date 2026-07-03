@@ -40,16 +40,34 @@ import {buildAutonomyPlan, buildComparativeResearchContext} from "./lumi-autonom
 // Configuration
 // ---------------------------------------------------------------------------
 
-export const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
-export const OPENROUTER_API_URL = "https://openrouter.ai/api/v1";
-export const OLLAMA_HOST = process.env.OLLAMA_HOST || "http://127.0.0.1:11434";
-export const NVIDIA_API_BASE = process.env.NVIDIA_API_BASE || process.env.NVIDIA_BASE_URL || "";
-export const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY || "";
-export const NVIDIA_CHAT_MODEL = process.env.NVIDIA_CHAT_MODEL || "";
+export function getOpenRouterApiUrl(): string {
+    return "https://openrouter.ai/api/v1";
+}
+
+export function getOpenRouterApiKey(): string {
+    return process.env.OPENROUTER_API_KEY || "";
+}
+
+export function getOllamaHost(): string {
+    return process.env.OLLAMA_HOST || "http://127.0.0.1:11434";
+}
+
+export function getNvidiaApiBase(): string {
+    return process.env.NVIDIA_API_BASE || process.env.NVIDIA_BASE_URL || "";
+}
+
+export function getNvidiaApiKey(): string {
+    return process.env.NVIDIA_API_KEY || "";
+}
+
+export function getNvidiaChatModel(): string {
+    return process.env.NVIDIA_CHAT_MODEL || "";
+}
 
 /** Default chat model — free tier on OpenRouter */
-export const DEFAULT_CHAT_MODEL =
-    process.env.LUMI_CHAT_MODEL || "mistralai/mistral-7b-instruct:free";
+export function getDefaultChatModel(): string {
+    return process.env.LUMI_CHAT_MODEL || "mistralai/mistral-7b-instruct:free";
+}
 
 // ---------------------------------------------------------------------------
 // Singleton conversation manager (session lifecycle)
@@ -204,8 +222,9 @@ async function ollamaChat(
     messages: Array<{role: string; content: string}>,
     model: string
 ): Promise<string> {
-    if (!OLLAMA_HOST) throw new Error("Ollama host not configured");
-    const res = await fetch(`${OLLAMA_HOST}/api/chat`, {
+    const ollamaHost = getOllamaHost();
+    if (!ollamaHost) throw new Error("Ollama host not configured");
+    const res = await fetch(`${ollamaHost}/api/chat`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({model, messages, stream: false}),
@@ -222,7 +241,8 @@ export async function getOllamaStatus(): Promise<{
     superGemmaReady: boolean;
     installHint: string;
 }> {
-    if (!OLLAMA_HOST) {
+    const ollamaHost = getOllamaHost();
+    if (!ollamaHost) {
         return {
             available: false, host: "", localModels: [],
             superGemmaReady: false,
@@ -230,7 +250,7 @@ export async function getOllamaStatus(): Promise<{
         };
     }
     try {
-        const res = await fetch(`${OLLAMA_HOST}/api/tags`);
+        const res = await fetch(`${ollamaHost}/api/tags`);
         if (!res.ok) throw new Error("unreachable");
         const json: any = await res.json();
         const models: Array<{name: string}> = json.models || [];
@@ -238,13 +258,13 @@ export async function getOllamaStatus(): Promise<{
             m.name.toLowerCase().includes("gemma") || m.name.toLowerCase().includes("mistral")
         );
         return {
-            available: true, host: OLLAMA_HOST, localModels: models,
+            available: true, host: ollamaHost, localModels: models,
             superGemmaReady: localModelReady,
             installHint: "Ollama is running.",
         };
     } catch {
         return {
-            available: false, host: OLLAMA_HOST, localModels: [],
+            available: false, host: ollamaHost, localModels: [],
             superGemmaReady: false,
             installHint: "Ollama host is configured but not reachable.",
         };
@@ -259,7 +279,8 @@ async function openRouterChat(
     messages: Array<{role: string; content: string}>,
     model: string
 ): Promise<string> {
-    if (!OPENROUTER_API_KEY) {
+    const openRouterApiKey = getOpenRouterApiKey();
+    if (!openRouterApiKey) {
         return (
             "Hi, I'm Lumi! I'm running in a degraded mode because OPENROUTER_API_KEY is not configured. " +
             "I can still help with structured guidance, but full model-backed replies need a provider key."
@@ -267,7 +288,7 @@ async function openRouterChat(
     }
     try {
         return await callOpenRouterChat(messages, model, {
-            apiKey: OPENROUTER_API_KEY,
+            apiKey: openRouterApiKey,
             httpReferer: "https://trezzhaus.com",
             appTitle: "Lumi — Trezzhaus AI",
             appCategories: "cli-agent,cloud-agent",
@@ -281,13 +302,14 @@ async function nvidiaChat(
     messages: Array<{role: string; content: string}>,
     model: string
 ): Promise<string> {
-    if (!NVIDIA_API_BASE) {
+    const nvidiaApiBase = getNvidiaApiBase();
+    if (!nvidiaApiBase) {
         throw new Error("NVIDIA_API_BASE is not configured.");
     }
     try {
         return await callNvidiaChat(messages, model, {
-            apiKey: NVIDIA_API_KEY,
-            apiBase: NVIDIA_API_BASE,
+            apiKey: getNvidiaApiKey(),
+            apiBase: nvidiaApiBase,
         });
     } catch (error) {
         throw new Error(formatProviderError(error, "nvidia"));
@@ -425,13 +447,15 @@ async function buildSystemPrompt(message: string, domain: string, externalSource
 
 export function resolveChatBackendSelection(req: LumiChatRequest): {kind: "ollama" | "nvidia" | "openrouter" | "degraded"; model: string} {
     const prefersLocal = Boolean(req.useOllama || req.runtime === "local" || process.env.LUMI_LOCAL_FIRST === "true");
-    if (prefersLocal && OLLAMA_HOST) {
+    const ollamaHost = getOllamaHost();
+    if (prefersLocal && ollamaHost) {
         return {kind: "ollama", model: req.ollamaModel || "mistral"};
     }
-    if (NVIDIA_API_BASE) {
-        return {kind: "nvidia", model: NVIDIA_CHAT_MODEL || DEFAULT_CHAT_MODEL};
+    const nvidiaApiBase = getNvidiaApiBase();
+    if (nvidiaApiBase) {
+        return {kind: "nvidia", model: getNvidiaChatModel() || getDefaultChatModel()};
     }
-    return {kind: OPENROUTER_API_KEY ? "openrouter" : "degraded", model: DEFAULT_CHAT_MODEL};
+    return {kind: getOpenRouterApiKey() ? "openrouter" : "degraded", model: getDefaultChatModel()};
 }
 
 export async function lumiChat(
@@ -483,7 +507,7 @@ export async function lumiChat(
     }
 
     let responseText = "";
-    let usedModel = DEFAULT_CHAT_MODEL;
+    let usedModel = getDefaultChatModel();
     const backendSelection = resolveChatBackendSelection(req);
 
     if (backendSelection.kind === "ollama") {
@@ -506,7 +530,7 @@ export async function lumiChat(
         if (!responseText) {
             try {
                 responseText = await openRouterChat(messages, backendSelection.model);
-                usedModel = DEFAULT_CHAT_MODEL;
+                usedModel = getDefaultChatModel();
             } catch (error) {
                 const detail = error instanceof Error ? error.message : String(error);
                 failures.push(detail);
@@ -567,16 +591,16 @@ export async function getModelCascade(): Promise<ModelCascadeEntry[]> {
         {id: "nousresearch/hermes-3-llama-3.1-405b:free", provider: "openrouter", label: "Hermes 3 405B (Free)", free: true, contextWindow: 131072},
     ];
 
-    if (OLLAMA_HOST) {
+    if (getOllamaHost()) {
         const status = await getOllamaStatus();
         for (const m of status.localModels) {
             cascade.unshift({id: m.name, provider: "ollama", label: `${m.name} (Local)`, free: true});
         }
     }
 
-    if (NVIDIA_API_BASE) {
+    if (getNvidiaApiBase()) {
         cascade.unshift({
-            id: NVIDIA_CHAT_MODEL || "nvidia-local-model",
+            id: getNvidiaChatModel() || "nvidia-local-model",
             provider: "nvidia",
             label: "NVIDIA NIM Chat (Configured)",
             free: true,
@@ -618,15 +642,31 @@ export async function enhancePrompt(
 
 const missions = new Map<string, MissionStatus>();
 const missionEvents = new Map<string, MissionEvent[]>();
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), ".data");
-const FINETUNE_DIR = path.join(DATA_DIR, "finetune");
-const MISSION_STORE_PATH = path.join(DATA_DIR, "missions", "missions.json");
-const MISSION_CHECKPOINT_DIR = path.join(DATA_DIR, "missions", "checkpoints");
-const MISSION_STALLED_TIMEOUT_MS = Number(process.env.LUMI_MISSION_STALLED_TIMEOUT_MS || "30000");
-const MISSION_WORKER_INTERVAL_MS = Number(process.env.LUMI_MISSION_WORKER_INTERVAL_MS || "2000");
 let missionStoreLoaded = false;
 let missionWorkerTimer: NodeJS.Timeout | null = null;
 let missionWorkerBusy = false;
+
+function getDataDir(): string {
+    return process.env.DATA_DIR || path.join(process.cwd(), ".data");
+}
+
+function getMissionPaths() {
+    const dataDir = getDataDir();
+    return {
+        dataDir,
+        finetuneDir: path.join(dataDir, "finetune"),
+        missionStorePath: path.join(dataDir, "missions", "missions.json"),
+        missionCheckpointDir: path.join(dataDir, "missions", "checkpoints"),
+    };
+}
+
+function getMissionStalledTimeoutMs(): number {
+    return Number(process.env.LUMI_MISSION_STALLED_TIMEOUT_MS || "30000");
+}
+
+function getMissionWorkerIntervalMs(): number {
+    return Number(process.env.LUMI_MISSION_WORKER_INTERVAL_MS || "2000");
+}
 
 function generateId(): string {
     return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -657,8 +697,9 @@ function buildArtifactUrl(artifactId?: string): string | undefined {
 
 function persistMissionCheckpoint(mission: MissionStatus): void {
     try {
-        mkdirSync(MISSION_CHECKPOINT_DIR, {recursive: true});
-        const checkpointPath = path.join(MISSION_CHECKPOINT_DIR, `${mission.id}.json`);
+        const missionPaths = getMissionPaths();
+        mkdirSync(missionPaths.missionCheckpointDir, {recursive: true});
+        const checkpointPath = path.join(missionPaths.missionCheckpointDir, `${mission.id}.json`);
         writeFileSync(checkpointPath, JSON.stringify({
             ...mission,
             jobs: mission.jobs.map(job => ({...job})),
@@ -673,8 +714,9 @@ function persistMissionCheckpoint(mission: MissionStatus): void {
 
 function persistMissionStore(): void {
     try {
-        mkdirSync(path.dirname(MISSION_STORE_PATH), {recursive: true});
-        writeFileSync(MISSION_STORE_PATH, JSON.stringify([...missions.values()], null, 2), "utf8");
+        const missionPaths = getMissionPaths();
+        mkdirSync(path.dirname(missionPaths.missionStorePath), {recursive: true});
+        writeFileSync(missionPaths.missionStorePath, JSON.stringify([...missions.values()], null, 2), "utf8");
         for (const mission of missions.values()) {
             persistMissionCheckpoint(mission);
         }
@@ -685,9 +727,10 @@ function persistMissionStore(): void {
 
 function loadMissionCheckpoints(): MissionStatus[] {
     try {
-        const entries = readdirSync(MISSION_CHECKPOINT_DIR, {withFileTypes: true})
+        const missionPaths = getMissionPaths();
+        const entries = readdirSync(missionPaths.missionCheckpointDir, {withFileTypes: true})
             .filter(entry => entry.isFile() && entry.name.endsWith(".json"))
-            .map(entry => path.join(MISSION_CHECKPOINT_DIR, entry.name))
+            .map(entry => path.join(missionPaths.missionCheckpointDir, entry.name))
             .sort();
         return entries
             .map(filePath => {
@@ -707,8 +750,9 @@ function loadMissionCheckpoints(): MissionStatus[] {
 function ensureMissionStoreLoaded(): void {
     if (missionStoreLoaded) return;
     try {
-        if (existsSync(MISSION_STORE_PATH)) {
-            const raw = readFileSync(MISSION_STORE_PATH, "utf8");
+        const missionPaths = getMissionPaths();
+        if (existsSync(missionPaths.missionStorePath)) {
+            const raw = readFileSync(missionPaths.missionStorePath, "utf8");
             const parsed = JSON.parse(raw) as MissionStatus[];
             if (Array.isArray(parsed)) {
                 parsed.forEach(mission => missions.set(mission.id, mission));
@@ -779,7 +823,7 @@ async function buildMissionPlan(prompt: string, policy: MissionPolicy): Promise<
         rawPlan = await openRouterChat(
             [{role: "system", content: "You are a JSON-only mission planner."},
              {role: "user", content: planPrompt}],
-            DEFAULT_CHAT_MODEL
+            getDefaultChatModel()
         );
     } catch {
         // fall through to a conservative fallback plan
@@ -979,7 +1023,7 @@ export async function bootMission(prompt: string): Promise<MissionBootResult> {
         objective: prompt,
         status: policy.requiresApproval ? "awaiting-approval" : "executing",
         summary: mission.summary,
-        plannerModel: DEFAULT_CHAT_MODEL,
+        plannerModel: getDefaultChatModel(),
         executionQueue: plan.map(step => ({
             jobId: step.id,
             name: step.title,
@@ -1051,7 +1095,7 @@ async function processMissionQueue(): Promise<void> {
         const staleRunning = [...missions.values()].filter(mission => mission.status === "running");
         for (const mission of staleRunning) {
             const heartbeat = mission.lastHeartbeatAt ? new Date(mission.lastHeartbeatAt).getTime() : new Date(mission.updatedAt).getTime();
-            if (Date.now() - heartbeat > MISSION_STALLED_TIMEOUT_MS) {
+            if (Date.now() - heartbeat > getMissionStalledTimeoutMs()) {
                 mission.status = "stalled";
                 mission.updatedAt = new Date().toISOString();
                 emitMissionEvent(mission, "Mission stalled", "No heartbeat detected; resuming on the next worker cycle.", "status");
@@ -1078,7 +1122,7 @@ function startMissionWorker(): void {
     if (missionWorkerTimer) return;
     missionWorkerTimer = setInterval(() => {
         void processMissionQueue();
-    }, MISSION_WORKER_INTERVAL_MS);
+    }, getMissionWorkerIntervalMs());
     void processMissionQueue();
 }
 
@@ -1262,10 +1306,11 @@ startMissionWorker();
 
 async function listFineTuneDatasets(): Promise<string[]> {
     try {
-        const entries = await fs.readdir(FINETUNE_DIR, {withFileTypes: true});
+        const {finetuneDir} = getMissionPaths();
+        const entries = await fs.readdir(finetuneDir, {withFileTypes: true});
         return entries
             .filter(entry => entry.isFile() && entry.name.endsWith(".jsonl"))
-            .map(entry => path.join(FINETUNE_DIR, entry.name))
+            .map(entry => path.join(finetuneDir, entry.name))
             .sort();
     } catch {
         return [];
@@ -1292,9 +1337,10 @@ export async function assembleFineTuneDataset(): Promise<{path: string; example_
         }))
         .filter(example => example.messages.length >= 2);
 
-    await fs.mkdir(FINETUNE_DIR, {recursive: true});
+    const {finetuneDir} = getMissionPaths();
+    await fs.mkdir(finetuneDir, {recursive: true});
 
-    const fineTuneDatasetPath = path.join(FINETUNE_DIR, `lumi-finetune-${Date.now()}.jsonl`);
+    const fineTuneDatasetPath = path.join(finetuneDir, `lumi-finetune-${Date.now()}.jsonl`);
     const fileContent = examples.map(example => JSON.stringify(example)).join("\n");
     await fs.writeFile(fineTuneDatasetPath, fileContent ? `${fileContent}\n` : "", "utf8");
 
@@ -1399,12 +1445,12 @@ export async function getLumiStatus(): Promise<LumiStatus> {
     const memoryStorage = getMemoryStorageStatus();
     const independentMode = await getIndependentModeStatus();
     const capabilities: string[] = ["chat"];
-    if (OPENROUTER_API_KEY) capabilities.push("multi-model-chat", "code-generation", "prompt-enhancement");
+    if (getOpenRouterApiKey()) capabilities.push("multi-model-chat", "code-generation", "prompt-enhancement");
     if (process.env.HUGGINGFACE_API_KEY) capabilities.push("image-generation-hf", "audio-generation");
     if (process.env.STABILITY_API_KEY) capabilities.push("image-generation-stability");
     if (process.env.FAL_KEY) capabilities.push("video-generation-fal");
     if (process.env.REPLICATE_API_KEY) capabilities.push("video-generation-replicate");
-    if (NVIDIA_API_BASE) capabilities.push("nvidia-chat", "video-generation-nvidia");
+    if (getNvidiaApiBase()) capabilities.push("nvidia-chat", "video-generation-nvidia");
     if (ollamaStatus.available) capabilities.push("local-model-ollama");
     if (process.env.ROBLOX_API_KEY) capabilities.push("roblox-publishing");
     if (artifactStorage.configured) capabilities.push("artifact-storage-r2");
@@ -1414,7 +1460,7 @@ export async function getLumiStatus(): Promise<LumiStatus> {
         version: "1.0.0",
         platform: "Trezzhaus",
         studioUrl: "https://studio.trezzhaus.com",
-        openRouterConnected: !!OPENROUTER_API_KEY,
+        openRouterConnected: !!getOpenRouterApiKey(),
         ollamaConnected: ollamaStatus.available,
         memoryBackend: memoryStorage.backend,
         storage: {

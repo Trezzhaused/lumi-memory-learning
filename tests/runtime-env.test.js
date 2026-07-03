@@ -48,3 +48,19 @@ test("loadEnvironmentFiles can load a shared master env file via an explicit pat
   assert.ok(loadedFiles.some(file => file.path === masterEnvFile));
   assert.ok(loadedFiles.some(file => file.path.endsWith(".env")));
 });
+
+test("tool execution policy reads env values after files are loaded", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "lumi-runtime-"));
+  fs.writeFileSync(path.join(tempDir, ".env"), "LUMI_ALLOW_LOCAL_TOOL_EXECUTION=true\nLUMI_ALLOWED_TOOL_COMMANDS=python\n");
+
+  const env = process.env;
+  env.NODE_ENV = "development";
+  loadEnvironmentFiles(tempDir, env);
+  delete require.cache[require.resolve("../dist/lumi-tools")];
+
+  const {getExecutionPolicySnapshot} = require("../dist/lumi-tools");
+  const snapshot = getExecutionPolicySnapshot();
+
+  assert.equal(snapshot.localToolExecutionEnabled, true);
+  assert.ok(snapshot.allowedCommands.includes("python"));
+});

@@ -50,9 +50,6 @@ export interface RemoteOwnerRuntimeStatus {
 }
 
 const DEFAULT_WORKSPACE_ROOT = process.cwd();
-const TOOL_EXECUTION_ENABLED = process.env.LUMI_ALLOW_LOCAL_TOOL_EXECUTION === "true";
-const TOOL_EXECUTION_ROOT = process.env.LUMI_WORKSPACE_DIR || DEFAULT_WORKSPACE_ROOT;
-const ALLOWED_COMMANDS = new Set((process.env.LUMI_ALLOWED_TOOL_COMMANDS || "node,npm,pnpm,python,python3").split(",").map(value => value.trim()).filter(Boolean));
 const EXECUTABLES = new Map<string, string>([
     ["node", process.execPath],
     ["npm", "npm"],
@@ -60,23 +57,40 @@ const EXECUTABLES = new Map<string, string>([
     ["python", "python"],
     ["python3", "python3"],
 ]);
-const CLOUD_TOOL_REQUESTS_ENABLED = process.env.LUMI_ALLOW_CLOUD_TOOL_REQUESTS === "true";
-const REMOTE_OWNER_RUNTIME_URL = process.env.LUMI_REMOTE_OWNER_RUNTIME_URL || "";
-const REMOTE_OWNER_RUNTIME_TOKEN = process.env.LUMI_REMOTE_OWNER_RUNTIME_TOKEN || "";
 const ALLOWED_ACTIONS = new Set(["write-file", "create-directory", "list-directory", "run-command", "run-example-script", "remote-owner-runtime"]);
+
+function getToolExecutionConfig() {
+    const env = process.env;
+    const allowLocalToolExecution = env.LUMI_ALLOW_LOCAL_TOOL_EXECUTION === "true";
+    const allowCloudToolRequests = env.LUMI_ALLOW_CLOUD_TOOL_REQUESTS === "true";
+    const workspaceRoot = env.LUMI_WORKSPACE_DIR || DEFAULT_WORKSPACE_ROOT;
+    const allowedCommands = new Set((env.LUMI_ALLOWED_TOOL_COMMANDS || "node,npm,pnpm,python,python3").split(",").map(value => value.trim()).filter(Boolean));
+    const remoteOwnerRuntimeUrl = env.LUMI_REMOTE_OWNER_RUNTIME_URL || "";
+    const remoteOwnerRuntimeToken = env.LUMI_REMOTE_OWNER_RUNTIME_TOKEN || "";
+
+    return {
+        allowLocalToolExecution,
+        allowCloudToolRequests,
+        workspaceRoot,
+        allowedCommands,
+        remoteOwnerRuntimeUrl,
+        remoteOwnerRuntimeToken,
+    };
+}
 
 function resolveWorkspacePath(relativePath: string, options: {allowRoot?: boolean} = {}): string {
     if (!relativePath || relativePath.includes("\0")) {
         throw new Error(`Invalid workspace path: ${relativePath}`);
     }
 
+    const config = getToolExecutionConfig();
     const normalizedPath = relativePath.replace(/\\/g, "/").trim();
     if (!normalizedPath) {
-        if (options.allowRoot) return path.resolve(TOOL_EXECUTION_ROOT);
+        if (options.allowRoot) return path.resolve(config.workspaceRoot);
         throw new Error(`Invalid workspace path: ${relativePath}`);
     }
     if (normalizedPath === ".") {
-        if (options.allowRoot) return path.resolve(TOOL_EXECUTION_ROOT);
+        if (options.allowRoot) return path.resolve(config.workspaceRoot);
         throw new Error(`Invalid workspace path: ${relativePath}`);
     }
     if (normalizedPath.startsWith("/") || normalizedPath.startsWith("./")) {
@@ -89,7 +103,7 @@ function resolveWorkspacePath(relativePath: string, options: {allowRoot?: boolea
     }
 
     const safeSegments = segments.map(segment => path.basename(segment));
-    const workspaceRoot = path.resolve(TOOL_EXECUTION_ROOT);
+    const workspaceRoot = path.resolve(config.workspaceRoot);
     const candidatePath = path.resolve(workspaceRoot, ...safeSegments);
     const relative = path.relative(workspaceRoot, candidatePath);
     if (relative.startsWith("..") || path.isAbsolute(relative)) {
@@ -105,22 +119,24 @@ function normalizeCommand(command: string): string {
 }
 
 export function isLocalToolExecutionEnabled(): boolean {
-    return TOOL_EXECUTION_ENABLED;
+    return getToolExecutionConfig().allowLocalToolExecution;
 }
 
 export function getRemoteOwnerRuntimeStatus(): RemoteOwnerRuntimeStatus {
+    const config = getToolExecutionConfig();
     return {
-        enabled: Boolean(REMOTE_OWNER_RUNTIME_URL),
-        endpointConfigured: Boolean(REMOTE_OWNER_RUNTIME_URL),
-        tokenConfigured: Boolean(REMOTE_OWNER_RUNTIME_TOKEN),
+        enabled: Boolean(config.remoteOwnerRuntimeUrl),
+        endpointConfigured: Boolean(config.remoteOwnerRuntimeUrl),
+        tokenConfigured: Boolean(config.remoteOwnerRuntimeToken),
     };
 }
 
 export function getExecutionPolicySnapshot(): {localToolExecutionEnabled: boolean; cloudToolRequestsEnabled: boolean; allowedCommands: string[]; remoteOwnerRuntime: RemoteOwnerRuntimeStatus} {
+    const config = getToolExecutionConfig();
     return {
-        localToolExecutionEnabled: TOOL_EXECUTION_ENABLED,
-        cloudToolRequestsEnabled: CLOUD_TOOL_REQUESTS_ENABLED,
-        allowedCommands: [...ALLOWED_COMMANDS],
+        localToolExecutionEnabled: config.allowLocalToolExecution,
+        cloudToolRequestsEnabled: config.allowCloudToolRequests,
+        allowedCommands: [...config.allowedCommands],
         remoteOwnerRuntime: getRemoteOwnerRuntimeStatus(),
     };
 }
@@ -178,6 +194,7 @@ export function evaluateNonHumanTouchCriteria(
 }
 
 export function evaluateToolExecutionPolicy(action: string, source: ToolExecutionSource = "local"): RuntimeActionPolicy {
+    const config = getToolExecutionConfig();
     const normalizedAction = action.trim();
     if (!normalizedAction) {
         return {allowed: false, blocked: true, requiresApproval: true, reason: "Action is required."};
@@ -187,17 +204,17 @@ export function evaluateToolExecutionPolicy(action: string, source: ToolExecutio
         return {allowed: false, blocked: true, requiresApproval: true, reason: `Action ${normalizedAction} is not allow-listed.`};
     }
 
-    if (!TOOL_EXECUTION_ENABLED) {
+    if (!config.allowLocalToolExecution) {
         return {allowed: false, blocked: true, requiresApproval: true, reason: "Local tool execution is disabled. Set LUMI_ALLOW_LOCAL_TOOL_EXECUTION=true to enable it."};
     }
 
-    if (source !== "local" && !CLOUD_TOOL_REQUESTS_ENABLED) {
+    if (source !== "local" && !config.allowCloudToolRequests) {
         return {allowed: false, blocked: true, requiresApproval: true, reason: "Cloud/browser tool requests are disabled. Set LUMI_ALLOW_CLOUD_TOOL_REQUESTS=true to enable them."};
     }
 
     const nonHumanTouchEvaluation = evaluateNonHumanTouchCriteria(normalizedAction, source, {
-        allowLocalExecution: TOOL_EXECUTION_ENABLED,
-        allowCloudToolRequests: CLOUD_TOOL_REQUESTS_ENABLED,
+        allowLocalExecution: config.allowLocalToolExecution,
+        allowCloudToolRequests: config.allowCloudToolRequests,
         workspaceBounded: true,
     });
 
@@ -210,7 +227,8 @@ export function evaluateToolExecutionPolicy(action: string, source: ToolExecutio
 }
 
 export async function writeWorkspaceFile(relativePath: string, content: string): Promise<LocalExecutionResult> {
-    if (!TOOL_EXECUTION_ENABLED) {
+    const config = getToolExecutionConfig();
+    if (!config.allowLocalToolExecution) {
         return {
             ok: false,
             blocked: true,
@@ -239,7 +257,8 @@ export async function writeWorkspaceFile(relativePath: string, content: string):
 }
 
 export async function createWorkspaceDirectory(relativePath: string): Promise<LocalExecutionResult> {
-    if (!TOOL_EXECUTION_ENABLED) {
+    const config = getToolExecutionConfig();
+    if (!config.allowLocalToolExecution) {
         return {
             ok: false,
             blocked: true,
@@ -267,7 +286,8 @@ export async function createWorkspaceDirectory(relativePath: string): Promise<Lo
 }
 
 export async function listWorkspaceDirectory(relativePath = "."): Promise<LocalExecutionResult> {
-    if (!TOOL_EXECUTION_ENABLED) {
+    const config = getToolExecutionConfig();
+    if (!config.allowLocalToolExecution) {
         return {
             ok: false,
             blocked: true,
@@ -296,7 +316,8 @@ export async function listWorkspaceDirectory(relativePath = "."): Promise<LocalE
 }
 
 export async function runWorkspaceCommand(command: string, args: string[] = [], options: {cwd?: string} = {}): Promise<LocalExecutionResult> {
-    if (!TOOL_EXECUTION_ENABLED) {
+    const config = getToolExecutionConfig();
+    if (!config.allowLocalToolExecution) {
         return {
             ok: false,
             blocked: true,
@@ -306,7 +327,7 @@ export async function runWorkspaceCommand(command: string, args: string[] = [], 
 
     const executable = normalizeCommand(command);
     const executableName = path.basename(executable);
-    if (!ALLOWED_COMMANDS.has(executableName)) {
+    if (!config.allowedCommands.has(executableName)) {
         return {
             ok: false,
             blocked: false,
@@ -325,7 +346,7 @@ export async function runWorkspaceCommand(command: string, args: string[] = [], 
 
     return new Promise((resolve) => {
         const child = spawn(resolvedExecutable, args, {
-            cwd: options.cwd || TOOL_EXECUTION_ROOT,
+            cwd: options.cwd || getToolExecutionConfig().workspaceRoot,
             stdio: ["ignore", "pipe", "pipe"],
             shell: false,
         });
@@ -377,7 +398,8 @@ export async function runWorkspaceCommand(command: string, args: string[] = [], 
 }
 
 export async function runExampleScript(scriptName: string, options: {cwd?: string; args?: string[]} = {}): Promise<LocalExecutionResult> {
-    if (!TOOL_EXECUTION_ENABLED) {
+    const config = getToolExecutionConfig();
+    if (!config.allowLocalToolExecution) {
         return {
             ok: false,
             blocked: true,
@@ -390,7 +412,7 @@ export async function runExampleScript(scriptName: string, options: {cwd?: strin
         return {ok: false, blocked: true, message: "scriptName must be a .py file."};
     }
 
-    const examplesRoot = path.resolve(TOOL_EXECUTION_ROOT, ".data", "examples");
+    const examplesRoot = path.resolve(config.workspaceRoot, ".data", "examples");
     const candidateScriptPath = path.resolve(examplesRoot, normalizedScriptName);
     const relativeToExamples = path.relative(examplesRoot, candidateScriptPath);
     if (relativeToExamples.startsWith("..") || path.isAbsolute(relativeToExamples)) {
@@ -403,11 +425,12 @@ export async function runExampleScript(scriptName: string, options: {cwd?: strin
         return {ok: false, blocked: true, message: `Example script ${normalizedScriptName} does not exist.`};
     }
 
-    return runWorkspaceCommand("python", [candidateScriptPath, ...(options.args || [])], {cwd: options.cwd || TOOL_EXECUTION_ROOT});
+    return runWorkspaceCommand("python", [candidateScriptPath, ...(options.args || [])], {cwd: options.cwd || getToolExecutionConfig().workspaceRoot});
 }
 
 export async function dispatchToRemoteOwnerRuntime(request: RuntimeActionRequest): Promise<LocalExecutionResult> {
-    if (!REMOTE_OWNER_RUNTIME_URL) {
+    const config = getToolExecutionConfig();
+    if (!config.remoteOwnerRuntimeUrl) {
         return {
             ok: false,
             blocked: true,
@@ -419,12 +442,12 @@ export async function dispatchToRemoteOwnerRuntime(request: RuntimeActionRequest
     const headers: Record<string, string> = {
         "content-type": "application/json",
     };
-    if (REMOTE_OWNER_RUNTIME_TOKEN) {
-        headers.authorization = "Bearer " + REMOTE_OWNER_RUNTIME_TOKEN;
+    if (config.remoteOwnerRuntimeToken) {
+        headers.authorization = "Bearer " + config.remoteOwnerRuntimeToken;
     }
 
     try {
-        const response = await fetch(REMOTE_OWNER_RUNTIME_URL, {
+        const response = await fetch(config.remoteOwnerRuntimeUrl, {
             method: "POST",
             headers,
             body: JSON.stringify({

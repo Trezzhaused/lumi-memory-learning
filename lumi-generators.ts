@@ -27,11 +27,25 @@ import {fetchWithRetry} from "./lumi-runtime";
 // Configuration
 // ---------------------------------------------------------------------------
 
-const HF_API_KEY = process.env.HUGGINGFACE_API_KEY || "";
-const STABILITY_API_KEY = process.env.STABILITY_API_KEY || "";
-const FAL_API_KEY = process.env.FAL_KEY || "";
-const REPLICATE_API_KEY = process.env.REPLICATE_API_KEY || "";
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
+function getHfApiKey(): string {
+    return process.env.HUGGINGFACE_API_KEY || "";
+}
+
+function getStabilityApiKey(): string {
+    return process.env.STABILITY_API_KEY || "";
+}
+
+function getFalApiKey(): string {
+    return process.env.FAL_KEY || "";
+}
+
+function getReplicateApiKey(): string {
+    return process.env.REPLICATE_API_KEY || "";
+}
+
+function getOpenRouterApiKey(): string {
+    return process.env.OPENROUTER_API_KEY || "";
+}
 
 const HF_API_URL = "https://api-inference.huggingface.co/models";
 const STABILITY_API_URL = "https://api.stability.ai/v1/generation";
@@ -140,7 +154,7 @@ export async function generateImageHF(req: GenerationRequest): Promise<Generatio
     const res = await fetchWithRetry(`${HF_API_URL}/${model}`, {
         method: "POST",
         headers: {
-            Authorization: "Bearer " + HF_API_KEY,
+            Authorization: "Bearer " + getHfApiKey(),
             "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
@@ -191,7 +205,7 @@ export async function generateImageStability(req: GenerationRequest): Promise<Ge
             method: "POST",
             headers: {
                 Accept: "application/json",
-                Authorization: "Bearer " + STABILITY_API_KEY,
+                Authorization: "Bearer " + getStabilityApiKey(),
                 "Content-Type": "application/json",
             },
             body: JSON.stringify(body),
@@ -225,14 +239,14 @@ export async function generateImageStability(req: GenerationRequest): Promise<Ge
  */
 export async function generateImage(req: GenerationRequest): Promise<GenerationResult> {
     const attempts: Array<{provider: string; error: string}> = [];
-    if (STABILITY_API_KEY) {
+    if (getStabilityApiKey()) {
         try {
             return await generateImageStability(req);
         } catch (error) {
             attempts.push({provider: "stability-ai", error: error instanceof Error ? error.message : String(error)});
         }
     }
-    if (HF_API_KEY) {
+    if (getHfApiKey()) {
         try {
             return await generateImageHF(req);
         } catch (error) {
@@ -353,7 +367,7 @@ async function runLocalHunyuanVideo(req: GenerationRequest): Promise<GenerationR
  * This provides a Hugging Face-backed path for video generation when no FAL key is configured.
  */
 export async function generateVideoHF(req: GenerationRequest): Promise<GenerationResult> {
-    if (!HF_API_KEY) {
+    if (!getHfApiKey()) {
         throw new Error("HUGGINGFACE_API_KEY is not configured.");
     }
 
@@ -372,7 +386,7 @@ export async function generateVideoHF(req: GenerationRequest): Promise<Generatio
     const res = await fetchWithRetry(`${HF_API_URL}/${model}`, {
         method: "POST",
         headers: {
-            Authorization: "Bearer " + HF_API_KEY,
+            Authorization: "Bearer " + getHfApiKey(),
             "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
@@ -403,7 +417,7 @@ export async function generateVideoHF(req: GenerationRequest): Promise<Generatio
  * TrezzWorld Production Studio.
  */
 export async function generateVideoFal(req: GenerationRequest): Promise<GenerationResult> {
-    if (!FAL_API_KEY) throw new Error("FAL_KEY is not configured.");
+    if (!getFalApiKey()) throw new Error("FAL_KEY is not configured.");
 
     const model = validateModelId(req.model || "fal-ai/wan/t2v-14b");
 
@@ -411,7 +425,7 @@ export async function generateVideoFal(req: GenerationRequest): Promise<Generati
     const submitRes = await fetchWithRetry(`${FAL_API_URL}/${model}`, {
         method: "POST",
         headers: {
-            Authorization: "Key " + FAL_API_KEY,
+            Authorization: "Key " + getFalApiKey(),
             "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -443,14 +457,14 @@ export async function generateVideoFal(req: GenerationRequest): Promise<Generati
     while (Date.now() < deadline) {
         await new Promise(r => setTimeout(r, 4000));
         const pollRes = await fetchWithRetry(statusUrl, {
-            headers: {Authorization: "Key " + FAL_API_KEY},
+            headers: {Authorization: "Key " + getFalApiKey()},
         }, {provider: "fal-ai", retries: 1, timeoutMs: 15_000});
         if (!pollRes.ok) continue;
         const pollData: any = await pollRes.json();
         if (pollData.status === "COMPLETED" || pollData.status === "completed") {
             const resultRes = await fetchWithRetry(
                 `${FAL_API_URL}/${model}/requests/${requestId}`,
-                {headers: {Authorization: "Key " + FAL_API_KEY}},
+                {headers: {Authorization: "Key " + getFalApiKey()}},
                 {provider: "fal-ai", retries: 1, timeoutMs: 15_000}
             );
             const result: any = await resultRes.json();
@@ -479,7 +493,7 @@ export async function generateVideoFal(req: GenerationRequest): Promise<Generati
 // ---------------------------------------------------------------------------
 
 export async function generateVideoReplicate(req: GenerationRequest): Promise<GenerationResult> {
-    if (!REPLICATE_API_KEY) {
+    if (!getReplicateApiKey()) {
         throw new Error("REPLICATE_API_KEY is not configured.");
     }
 
@@ -493,7 +507,7 @@ export async function generateVideoReplicate(req: GenerationRequest): Promise<Ge
     const startRes = await fetchWithRetry(`${REPLICATE_API_URL}/predictions`, {
         method: "POST",
         headers: {
-            Authorization: `Token ${REPLICATE_API_KEY}`,
+            Authorization: `Token ${getReplicateApiKey()}`,
             "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -524,7 +538,7 @@ export async function generateVideoReplicate(req: GenerationRequest): Promise<Ge
     while (Date.now() < deadline) {
         await new Promise(r => setTimeout(r, 3000));
         const pollRes = await fetchWithRetry(pollUrl, {
-            headers: {Authorization: `Token ${REPLICATE_API_KEY}`},
+            headers: {Authorization: `Token ${getReplicateApiKey()}`},
         }, {provider: "replicate", retries: 1, timeoutMs: 15_000});
         const pollData: any = await pollRes.json();
         if (pollData.status === "succeeded") {
@@ -557,16 +571,16 @@ export async function generateVideoReplicate(req: GenerationRequest): Promise<Ge
 export async function generateVideo(req: GenerationRequest): Promise<GenerationResult> {
     switch (req.provider) {
         case "fal":
-            if (!FAL_API_KEY) throw new Error("FAL_KEY is not configured.");
+            if (!getFalApiKey()) throw new Error("FAL_KEY is not configured.");
             return generateVideoFal(req);
         case "hunyuan": {
             const localResult = await runLocalHunyuanVideo(req);
             if (localResult) return localResult;
-            if (!HF_API_KEY) throw new Error("HUNYUAN_VIDEO_SCRIPT_PATH is not configured and HUGGINGFACE_API_KEY is not configured for HunyuanVideo.");
+            if (!getHfApiKey()) throw new Error("HUNYUAN_VIDEO_SCRIPT_PATH is not configured and HUGGINGFACE_API_KEY is not configured for HunyuanVideo.");
             return generateVideoHF(req);
         }
         case "replicate":
-            if (!REPLICATE_API_KEY) throw new Error("REPLICATE_API_KEY is not configured.");
+            if (!getReplicateApiKey()) throw new Error("REPLICATE_API_KEY is not configured.");
             return generateVideoReplicate(req);
         case "nvidia":
             return generateVideoNvidia(req);
@@ -594,9 +608,9 @@ export async function generateVideo(req: GenerationRequest): Promise<GenerationR
             } catch (error) {
                 console.warn("[Lumi Generators] Local HunyuanVideo checkout failed, falling back:", error);
             }
-            if (FAL_API_KEY) return generateVideoFal(req);
-            if (HF_API_KEY) return generateVideoHF(req);
-            if (REPLICATE_API_KEY) return generateVideoReplicate(req);
+            if (getFalApiKey()) return generateVideoFal(req);
+            if (getHfApiKey()) return generateVideoHF(req);
+            if (getReplicateApiKey()) return generateVideoReplicate(req);
             throw new Error(
                 "No video generation API key configured. " +
                 "Set COMFYUI_BASE_URL, NVIDIA_API_BASE (primary), FAL_KEY, HUGGINGFACE_API_KEY, or REPLICATE_API_KEY."
@@ -612,7 +626,7 @@ export async function generateVideo(req: GenerationRequest): Promise<GenerationR
 // ---------------------------------------------------------------------------
 
 export async function generateAudio(req: GenerationRequest): Promise<GenerationResult> {
-    if (!HF_API_KEY) {
+    if (!getHfApiKey()) {
         return {
             type: "audio",
             backend: "unavailable",
@@ -627,7 +641,7 @@ export async function generateAudio(req: GenerationRequest): Promise<GenerationR
     const res = await fetchWithRetry(`${HF_API_URL}/${model}`, {
         method: "POST",
         headers: {
-            Authorization: "Bearer " + HF_API_KEY,
+            Authorization: "Bearer " + getHfApiKey(),
             "Content-Type": "application/json",
         },
         body: JSON.stringify({inputs: req.prompt}),
@@ -670,14 +684,14 @@ async function callFreeChat(
 ): Promise<{text: string; backend: string}> {
     const attempts: Array<{provider: string; error: string}> = [];
 
-    if (OPENROUTER_API_KEY) {
+    if (getOpenRouterApiKey()) {
         try {
             return {
                 text: await callOpenRouterChat(
                     messages,
                     model,
                     {
-                        apiKey: OPENROUTER_API_KEY,
+                        apiKey: getOpenRouterApiKey(),
                         httpReferer: "https://trezzhaus.com",
                         appTitle: "Lumi — Trezzhaus AI",
                         appCategories: "cli-agent,cloud-agent",
