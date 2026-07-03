@@ -22,3 +22,17 @@ test("training resource analysis accepts a single object selector", () => {
 
   assert.deepEqual(analysis.resources.map(resource => resource.id), ["yuanbao"]);
 });
+
+test("free model repositories are registered in the training resource catalog", () => {
+  const analysis = buildTrainingResourceAnalysis({resources: ["sharegpt-4o-image", "uniworld-v1-nf4", "qwen3-omni-30b-a3b-thinking-awq-8bit", "qwen2.5-omni-3b-gguf"]});
+  const resourceIds = analysis.resources.map(resource => resource.id);
+
+  assert.deepEqual(resourceIds, [
+    "sharegpt-4o-image",
+    "uniworld-v1-nf4",
+    "qwen3-omni-30b-a3b-thinking-awq-8bit",
+    "qwen2.5-omni-3b-gguf",
+  ]);
+  assert.equal(analysis.resources[0].category, "model");
+  assert.match(analysis.resources[0].url, /github\.com\/FreedomIntelligence\/ShareGPT-4o-Image/);
+});
