@@ -10,3 +10,9 @@ test("training resource analysis accepts a single string or mixed-case resource 
   assert.deepEqual(fromString.resources.map(resource => resource.id), ["yuanbao"]);
   assert.deepEqual(fromArray.resources.map(resource => resource.id), ["yuanbao"]);
 });
+
+test("training resource analysis accepts object-style resource IDs", () => {
+  const analysis = buildTrainingResourceAnalysis({resources: [{id: "YUANBAO"}]});
+
+  assert.deepEqual(analysis.resources.map(resource => resource.id), ["yuanbao"]);
+});

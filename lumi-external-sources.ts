@@ -44,7 +44,21 @@ const DEFAULT_EXTERNAL_SOURCES: ExternalBrowserSource[] = [
 ];
 
 function normalizeExternalSourceId(sourceId: unknown): string {
-    return typeof sourceId === "string" ? sourceId.trim().toLowerCase() : "";
+    if (typeof sourceId === "string") {
+        return sourceId.trim().toLowerCase();
+    }
+
+    if (sourceId && typeof sourceId === "object") {
+        const record = sourceId as Record<string, unknown>;
+        const candidate = typeof record.id === "string"
+            ? record.id
+            : typeof record.sourceId === "string"
+                ? record.sourceId
+                : "";
+        return candidate.trim().toLowerCase();
+    }
+
+    return "";
 }
 
 function normalizeExternalSourceIds(sourceIds: unknown): string[] {

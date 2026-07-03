@@ -26,7 +26,21 @@ export interface TrainingResourceAnalysisRequest {
 }
 
 function normalizeTrainingResourceId(resourceId: unknown): string {
-    return typeof resourceId === "string" ? resourceId.trim().toLowerCase() : "";
+    if (typeof resourceId === "string") {
+        return resourceId.trim().toLowerCase();
+    }
+
+    if (resourceId && typeof resourceId === "object") {
+        const record = resourceId as Record<string, unknown>;
+        const candidate = typeof record.id === "string"
+            ? record.id
+            : typeof record.resourceId === "string"
+                ? record.resourceId
+                : "";
+        return candidate.trim().toLowerCase();
+    }
+
+    return "";
 }
 
 function normalizeTrainingResourceIds(resourceIds: unknown): string[] {
