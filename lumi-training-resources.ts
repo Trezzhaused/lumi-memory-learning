@@ -319,6 +319,16 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         priority: "medium",
         notes: "Treat this as a manual or browser-driven knowledge source rather than an API-backed provider; for repeated usage, start from a fresh anonymous or non-persisted session and reinitialize between runs if the platform limits continuity.",
     },
+    {
+        id: "nvidia-qwen3-6-27b-nvfp4",
+        name: "NVIDIA Qwen3.6-27B-NVFP4",
+        url: "https://huggingface.co/nvidia/Qwen3.6-27B-NVFP4/tree/main",
+        category: "model",
+        rationale: "A Hugging Face-hosted NVIDIA model card and repository reference for a quantized Qwen3.6-based model that can serve as a deployment and evaluation reference.",
+        useCase: "Use as a supplemental model reference for local deployment planning, quantized inference research, and capability evaluation.",
+        priority: "medium",
+        notes: "Treat this as a documentation and repository reference rather than an API-backed provider; no direct API integration is required for Lumi's source catalog.",
+    },
 ];
 
 export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisRequest = {}): TrainingResourceAnalysis {
