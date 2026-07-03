@@ -591,10 +591,10 @@ export async function getModelCascade(): Promise<ModelCascadeEntry[]> {
 export async function enhancePrompt(
     prompt: string,
     domain?: string,
-    externalSources?: string[]
+    externalSources?: ExternalBrowserSourceSelector | null
 ): Promise<PromptEnhanceResult> {
     const detectedDomain = domain || detectDomain(prompt);
-    const externalSourceContext = buildExternalBrowserSourceContext(externalSources || []);
+    const externalSourceContext = buildExternalBrowserSourceContext(externalSources ?? []);
     const systemPrompt = await buildSystemPrompt(prompt, detectedDomain, externalSourceContext);
     return {
         domain: detectedDomain,

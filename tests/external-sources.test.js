@@ -278,3 +278,31 @@ test("prompt enhancement includes Yuanbao source context", () => {
   assert.match(payload.content, /External browser-based source workflow:/i);
   assert.match(payload.content, /Yuanbao \(Tencent\)/i);
 });
+
+test("prompt enhancement accepts object-style source selectors", () => {
+  const script = [
+    "const {enhancePrompt} = require('./dist/lumi');",
+    "enhancePrompt('Research a fresh angle for a coding workflow', 'engineering', {sourceId: 'YUANBAO'}).then(result => {",
+    "  process.stdout.write(JSON.stringify({content: result.enhancedMessages[0].content}));",
+    "}).catch(error => {",
+    "  process.stderr.write(String(error));",
+    "  process.exitCode = 1;",
+    "}).finally(() => {",
+    "  for (const handle of process._getActiveHandles()) {",
+    "    if (handle && handle.constructor && ['Timeout', 'Immediate'].includes(handle.constructor.name)) {",
+    "      clearInterval(handle);",
+    "      clearTimeout(handle);",
+    "    }",
+    "  }",
+    "  process.exit(process.exitCode || 0);",
+    "});",
+  ].join("\n");
+  const output = execFileSync(process.execPath, ["-e", script], {
+    cwd: path.join(__dirname, ".."),
+    encoding: "utf8",
+  });
+  const payload = JSON.parse(output);
+
+  assert.match(payload.content, /External browser-based source workflow:/i);
+  assert.match(payload.content, /Yuanbao \(Tencent\)/i);
+});
