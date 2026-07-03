@@ -15,3 +15,15 @@ test("heuristic classification emits ranked category probabilities", async () =>
   assert.equal(result.probabilities.positive > result.probabilities.negative, true);
   assert.equal(result.probabilities.positive > result.probabilities.neutral, true);
 });
+
+test("single-string labels are normalized for heuristic classification", async () => {
+  const result = await classifyText({
+    text: "This is a terrible experience",
+    labels: "negative",
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.source, "heuristic-fallback");
+  assert.deepEqual(result.labels, ["negative"]);
+  assert.equal(result.probabilities.negative > 0, true);
+});

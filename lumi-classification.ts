@@ -1,6 +1,6 @@
 export interface ClassificationRequest {
     text: string;
-    labels?: string[];
+    labels?: string[] | string | null;
     model?: string;
 }
 
@@ -32,6 +32,20 @@ function normalizeProbabilities(rawProbabilities: Record<string, number>): Recor
     }
 
     return Object.fromEntries(entries.map(([label, score]) => [label, score / total]));
+}
+
+function normalizeLabels(labels: unknown): string[] {
+    const rawValues = typeof labels === "string"
+        ? [labels]
+        : Array.isArray(labels)
+            ? labels
+            : [];
+
+    return Array.from(new Set(
+        rawValues
+            .map(label => typeof label === "string" ? label.trim() : "")
+            .filter(Boolean)
+    ));
 }
 
 function buildHeuristicFallback(text: string, requestedLabels: string[]): ClassificationResult {
@@ -121,9 +135,7 @@ export async function classifyText(request: ClassificationRequest): Promise<Clas
         };
     }
 
-    const requestedLabels = (request.labels || [])
-        .map(label => label.trim())
-        .filter(Boolean);
+    const requestedLabels = normalizeLabels(request.labels);
     const model = request.model || process.env.HUGGINGFACE_CLASSIFICATION_MODEL || "distilbert-base-uncased-finetuned-sms-spam-detection";
     const apiKey = process.env.HUGGINGFACE_API_KEY || "";
 
