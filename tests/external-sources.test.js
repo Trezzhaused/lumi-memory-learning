@@ -48,6 +48,33 @@ test("source planning accepts a single source string", () => {
   assert.equal(plan.sources[0].id, "yuanbao");
 });
 
+test("automation failures are surfaced as structured proxy errors", async () => {
+  const previousProxyUrl = process.env.EXTERNAL_BROWSER_PROXY_URL;
+  const previousApiUrl = process.env.EXTERNAL_BROWSER_API_URL;
+  process.env.EXTERNAL_BROWSER_PROXY_URL = "http://127.0.0.1:1";
+  delete process.env.EXTERNAL_BROWSER_API_URL;
+
+  try {
+    const result = await queryExternalBrowserSource("yuanbao", "summarize this request");
+    assert.equal(result.ok, false);
+    assert.equal(result.status, 502);
+    assert.equal(result.usedBackend, "proxy");
+    assert.match(result.error, /Automation request failed/i);
+  } finally {
+    if (previousProxyUrl === undefined) {
+      delete process.env.EXTERNAL_BROWSER_PROXY_URL;
+    } else {
+      process.env.EXTERNAL_BROWSER_PROXY_URL = previousProxyUrl;
+    }
+
+    if (previousApiUrl === undefined) {
+      delete process.env.EXTERNAL_BROWSER_API_URL;
+    } else {
+      process.env.EXTERNAL_BROWSER_API_URL = previousApiUrl;
+    }
+  }
+});
+
 test("unknown source selections return no sources", () => {
   const plan = require("../dist/lumi-external-sources").planExternalBrowserSources(["not-a-real-source"]);
   const context = buildExternalBrowserSourceContext(["not-a-real-source"]);

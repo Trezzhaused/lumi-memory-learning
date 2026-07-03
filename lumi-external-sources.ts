@@ -151,16 +151,27 @@ export async function queryExternalBrowserSource(
     const apiKey = process.env.EXTERNAL_BROWSER_API_KEY;
     if (apiKey) headers.Authorization = "Bearer " + apiKey;
 
-    const response = await fetch(endpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
+    let response: Response | null = null;
+    try {
+        response = await fetch(endpoint, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+                sourceId: normalizedSourceId,
+                query,
+                goal: options.goal,
+                sessionMode: options.sessionMode,
+            }),
+        });
+    } catch (error) {
+        return {
             sourceId: normalizedSourceId,
-            query,
-            goal: options.goal,
-            sessionMode: options.sessionMode,
-        }),
-    });
+            ok: false,
+            status: 502,
+            usedBackend: "proxy",
+            error: `Automation request failed: ${error instanceof Error ? error.message : "unknown error"}`,
+        };
+    }
 
     if (!response.ok) {
         const errorText = await response.text();
