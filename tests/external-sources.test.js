@@ -106,6 +106,13 @@ test("source planning accepts object selectors with sourceId property", () => {
   assert.equal(plan.sources[0].id, "yuanbao");
 });
 
+test("source planning accepts nested object selectors", () => {
+  const plan = require("../dist/lumi-external-sources").planExternalBrowserSources([{source: {sourceId: "YUANBAO"}}]);
+
+  assert.deepEqual(plan.requestedSources, ["yuanbao"]);
+  assert.equal(plan.sources[0].id, "yuanbao");
+});
+
 test("source planning falls back to sourceId when id is empty", () => {
   const plan = require("../dist/lumi-external-sources").planExternalBrowserSources({id: "", sourceId: "YUANBAO"});
 

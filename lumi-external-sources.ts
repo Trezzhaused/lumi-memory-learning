@@ -512,20 +512,44 @@ const DEFAULT_EXTERNAL_SOURCES: ExternalBrowserSource[] = [
     },
 ];
 
-function normalizeExternalSourceId(sourceId: unknown): string {
-    if (typeof sourceId === "string") {
-        return sourceId.trim().toLowerCase();
+function extractNormalizedSelectorValue(value: unknown, aliases: string[]): string {
+    if (typeof value === "string") {
+        return value.trim().toLowerCase();
     }
 
-    if (sourceId && typeof sourceId === "object") {
-        const record = sourceId as Record<string, unknown>;
-        const idCandidate = typeof record.id === "string" ? record.id.trim() : "";
-        const sourceIdCandidate = typeof record.sourceId === "string" ? record.sourceId.trim() : "";
-        const candidate = idCandidate || sourceIdCandidate;
-        return candidate.toLowerCase();
+    if (Array.isArray(value)) {
+        for (const entry of value) {
+            const normalized = extractNormalizedSelectorValue(entry, aliases);
+            if (normalized) return normalized;
+        }
+        return "";
+    }
+
+    if (!value || typeof value !== "object") {
+        return "";
+    }
+
+    const record = value as Record<string, unknown>;
+    for (const alias of aliases) {
+        const candidate = record[alias];
+        if (typeof candidate === "string") {
+            const normalized = candidate.trim().toLowerCase();
+            if (normalized) return normalized;
+        }
+    }
+
+    for (const nestedValue of Object.values(record)) {
+        if (nestedValue && typeof nestedValue === "object") {
+            const normalized = extractNormalizedSelectorValue(nestedValue, aliases);
+            if (normalized) return normalized;
+        }
     }
 
     return "";
+}
+
+function normalizeExternalSourceId(sourceId: unknown): string {
+    return extractNormalizedSelectorValue(sourceId, ["id", "sourceId", "source", "value"]);
 }
 
 function normalizeExternalSourceIds(sourceIds: unknown): string[] {

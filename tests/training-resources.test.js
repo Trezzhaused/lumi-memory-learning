@@ -29,6 +29,12 @@ test("training resource analysis accepts object selectors with resourceId proper
   assert.deepEqual(analysis.resources.map(resource => resource.id), ["yuanbao"]);
 });
 
+test("training resource analysis accepts nested object selectors", () => {
+  const analysis = buildTrainingResourceAnalysis({resources: [{resource: {resourceId: "YUANBAO"}}]});
+
+  assert.deepEqual(analysis.resources.map(resource => resource.id), ["yuanbao"]);
+});
+
 test("training resource analysis falls back to resourceId when id is empty", () => {
   const analysis = buildTrainingResourceAnalysis({resources: {id: "", resourceId: "YUANBAO"}});
 
