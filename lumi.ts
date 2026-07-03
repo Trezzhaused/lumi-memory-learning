@@ -28,7 +28,7 @@ import {getArtifactStorageStatus} from "./lumi-storage";
 import {existsSync, mkdirSync, promises as fs, readdirSync, readFileSync, writeFileSync} from "node:fs";
 import path from "node:path";
 import {callOpenRouterChat} from "./openrouter";
-import {buildExternalBrowserSourceContext, DEFAULT_EXTERNAL_BROWSER_SOURCE_ID, queryExternalBrowserSource} from "./lumi-external-sources";
+import {buildExternalBrowserSourceContext, DEFAULT_EXTERNAL_BROWSER_SOURCE_ID, queryExternalBrowserSource, type ExternalBrowserSourceSelector} from "./lumi-external-sources";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 import {isLocalToolExecutionEnabled, runWorkspaceCommand, writeWorkspaceFile} from "./lumi-tools";
 import {callNvidiaChat} from "./nvidia";
@@ -68,7 +68,7 @@ export interface LumiChatRequest {
     useOllama?: boolean;
     ollamaModel?: string | null;
     domain?: string | null;
-    externalSources?: string[] | null;
+    externalSources?: ExternalBrowserSourceSelector | null;
     runtime?: "local" | "cloud" | "browser";
 }
 

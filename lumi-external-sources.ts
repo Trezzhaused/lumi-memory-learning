@@ -1,3 +1,10 @@
+export interface ExternalBrowserSourceSelectorRecord {
+    id?: string;
+    sourceId?: string;
+}
+
+export type ExternalBrowserSourceSelector = string | ExternalBrowserSourceSelectorRecord | Array<string | ExternalBrowserSourceSelectorRecord>;
+
 export interface ExternalBrowserSource {
     id: string;
     name: string;
@@ -296,7 +303,7 @@ export function getExternalBrowserSources(): ExternalBrowserSource[] {
     }));
 }
 
-export function buildExternalBrowserSourceContext(requestedSources: unknown = []): string | null {
+export function buildExternalBrowserSourceContext(requestedSources: ExternalBrowserSourceSelector | null | undefined = []): string | null {
     const selectedSources = selectExternalSources(requestedSources);
 
     if (!selectedSources.length) return null;
@@ -318,7 +325,7 @@ export function buildExternalBrowserSourceContext(requestedSources: unknown = []
 }
 
 export function planExternalBrowserSources(
-    requestedSources: unknown = [],
+    requestedSources: ExternalBrowserSourceSelector | null | undefined = [],
     options: {goal?: string; sessionMode?: string} = {}
 ): ExternalBrowserSourcePlan {
     const normalizedRequestedSources = getKnownRequestedSources(requestedSources);

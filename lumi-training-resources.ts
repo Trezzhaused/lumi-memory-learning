@@ -20,8 +20,15 @@ export interface TrainingResourceAnalysis {
     resources: TrainingResource[];
 }
 
+export interface TrainingResourceSelectorRecord {
+    id?: string;
+    resourceId?: string;
+}
+
+export type TrainingResourceSelector = string | TrainingResourceSelectorRecord | Array<string | TrainingResourceSelectorRecord>;
+
 export interface TrainingResourceAnalysisRequest {
-    resources?: string[] | string;
+    resources?: TrainingResourceSelector | null;
     goals?: string[] | string;
 }
 
