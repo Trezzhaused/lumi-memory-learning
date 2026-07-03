@@ -85,6 +85,49 @@ function getKnownRequestedSources(requestedSources: unknown): string[] {
     return normalizeExternalSourceIds(requestedSources).filter(sourceId => isKnownExternalSource(sourceId));
 }
 
+function safeParseJson(value: string): unknown {
+    try {
+        return JSON.parse(value);
+    } catch {
+        return null;
+    }
+}
+
+function extractStringValue(value: unknown, candidateKeys: string[]): string {
+    if (typeof value === "string") {
+        return value.trim();
+    }
+
+    if (Array.isArray(value)) {
+        for (const entry of value) {
+            const extracted = extractStringValue(entry, candidateKeys);
+            if (extracted) return extracted;
+        }
+        return "";
+    }
+
+    if (!value || typeof value !== "object") {
+        return "";
+    }
+
+    const record = value as Record<string, unknown>;
+    for (const [key, nestedValue] of Object.entries(record)) {
+        if (candidateKeys.some(candidateKey => candidateKey.toLowerCase() === key.toLowerCase())) {
+            const extracted = extractStringValue(nestedValue, candidateKeys);
+            if (extracted) return extracted;
+        }
+    }
+
+    for (const nestedValue of Object.values(record)) {
+        if (nestedValue && typeof nestedValue === "object") {
+            const extracted = extractStringValue(nestedValue, candidateKeys);
+            if (extracted) return extracted;
+        }
+    }
+
+    return "";
+}
+
 function selectExternalSources(requestedSources: unknown): ExternalBrowserSource[] {
     const hasExplicitSelection = hasExplicitExternalSourceSelection(requestedSources);
     const knownRequestedSources = getKnownRequestedSources(requestedSources);
@@ -173,20 +216,30 @@ export async function queryExternalBrowserSource(
         };
     }
 
+    let bodyText = "";
+    try {
+        bodyText = await response.text();
+    } catch {
+        bodyText = "";
+    }
+
     if (!response.ok) {
-        const errorText = await response.text();
+        const parsedBody = bodyText ? safeParseJson(bodyText) : null;
+        const errorMessage = extractStringValue(parsedBody, ["error", "message", "detail"])
+            || extractStringValue(bodyText, ["error", "message", "detail"])
+            || `Automation request failed with status ${response.status}`;
         return {
             sourceId: normalizedSourceId,
             ok: false,
             status: response.status,
             usedBackend: "proxy",
-            error: errorText || `Automation request failed with status ${response.status}`,
+            error: errorMessage,
         };
     }
 
     let payload: any;
     try {
-        payload = await response.json();
+        payload = bodyText ? JSON.parse(bodyText) : null;
     } catch (error) {
         return {
             sourceId: normalizedSourceId,
@@ -197,25 +250,8 @@ export async function queryExternalBrowserSource(
         };
     }
 
-    const errorMessage = typeof payload?.error === "string"
-        ? payload.error
-        : typeof payload?.message === "string"
-            ? payload.message
-            : typeof payload?.detail === "string"
-                ? payload.detail
-                : "";
-
-    const content = typeof payload?.content === "string"
-        ? payload.content
-        : typeof payload?.text === "string"
-            ? payload.text
-            : typeof payload?.result === "string"
-                ? payload.result
-                : typeof payload?.output === "string"
-                    ? payload.output
-                    : typeof payload?.answer === "string"
-                        ? payload.answer
-                        : "";
+    const errorMessage = extractStringValue(payload, ["error", "message", "detail"]);
+    const content = extractStringValue(payload, ["content", "text", "result", "output", "answer"]);
 
     if (errorMessage || payload?.ok === false || payload?.success === false) {
         return {

@@ -112,6 +112,42 @@ test("proxy error payloads are surfaced as structured failures", async () => {
   }
 });
 
+test("nested proxy error payloads are surfaced as structured failures", async () => {
+  const previousProxyUrl = process.env.EXTERNAL_BROWSER_PROXY_URL;
+  const previousApiUrl = process.env.EXTERNAL_BROWSER_API_URL;
+  const server = http.createServer((req, res) => {
+    res.writeHead(200, {"Content-Type": "application/json"});
+    res.end(JSON.stringify({ok: false, error: {message: "Proxy denied by policy"}}));
+  });
+
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  process.env.EXTERNAL_BROWSER_PROXY_URL = `http://127.0.0.1:${address.port}`;
+  delete process.env.EXTERNAL_BROWSER_API_URL;
+
+  try {
+    const result = await queryExternalBrowserSource("yuanbao", "summarize this request");
+    assert.equal(result.ok, false);
+    assert.equal(result.status, 200);
+    assert.equal(result.usedBackend, "proxy");
+    assert.equal(result.error, "Proxy denied by policy");
+  } finally {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+
+    if (previousProxyUrl === undefined) {
+      delete process.env.EXTERNAL_BROWSER_PROXY_URL;
+    } else {
+      process.env.EXTERNAL_BROWSER_PROXY_URL = previousProxyUrl;
+    }
+
+    if (previousApiUrl === undefined) {
+      delete process.env.EXTERNAL_BROWSER_API_URL;
+    } else {
+      process.env.EXTERNAL_BROWSER_API_URL = previousApiUrl;
+    }
+  }
+});
+
 test("unknown source selections return no sources", () => {
   const plan = require("../dist/lumi-external-sources").planExternalBrowserSources(["not-a-real-source"]);
   const context = buildExternalBrowserSourceContext(["not-a-real-source"]);
