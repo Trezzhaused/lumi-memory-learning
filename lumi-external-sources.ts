@@ -515,7 +515,7 @@ const DEFAULT_EXTERNAL_SOURCES: ExternalBrowserSource[] = [
 ];
 
 function normalizeExternalSourceId(sourceId: unknown): string {
-    return extractNormalizedSelectorValue(sourceId, ["id", "sourceId", "source", "value"]);
+    return extractNormalizedSelectorValue(sourceId, ["id", "sourceId", "source", "sourceValue", "value"]);
 }
 
 function normalizeExternalSourceIds(sourceIds: unknown): string[] {

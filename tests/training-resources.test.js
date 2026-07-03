@@ -53,6 +53,12 @@ test("training resource analysis accepts selector aliases with punctuation separ
   assert.deepEqual(analysis.resources.map(resource => resource.id), ["yuanbao"]);
 });
 
+test("training resource analysis accepts explicit resourceValue aliases", () => {
+  const analysis = buildTrainingResourceAnalysis({resources: [{resourceValue: "YUANBAO"}]});
+
+  assert.deepEqual(analysis.resources.map(resource => resource.id), ["yuanbao"]);
+});
+
 test("free model repositories are registered in the training resource catalog", () => {
   const analysis = buildTrainingResourceAnalysis({resources: ["sharegpt-4o-image", "uniworld-v1-nf4", "qwen3-omni-30b-a3b-thinking-awq-8bit", "qwen2.5-omni-3b-gguf"]});
   const resourceIds = analysis.resources.map(resource => resource.id);

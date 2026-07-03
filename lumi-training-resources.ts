@@ -35,7 +35,7 @@ export interface TrainingResourceAnalysisRequest {
 }
 
 function normalizeTrainingResourceId(resourceId: unknown): string {
-    return extractNormalizedSelectorValue(resourceId, ["id", "resourceId", "resource", "value"]);
+    return extractNormalizedSelectorValue(resourceId, ["id", "resourceId", "resource", "resourceValue", "value"]);
 }
 
 function normalizeTrainingResourceIds(resourceIds: unknown): string[] {
