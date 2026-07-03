@@ -30,6 +30,19 @@ export interface RuntimeActionPolicy {
     reason?: string;
 }
 
+export interface NonHumanTouchCriterion {
+    id: string;
+    title: string;
+    satisfied: boolean;
+    detail: string;
+}
+
+export interface NonHumanTouchEvaluation {
+    meetsCriteria: boolean;
+    requiresApproval: boolean;
+    criteria: NonHumanTouchCriterion[];
+}
+
 export interface RemoteOwnerRuntimeStatus {
     enabled: boolean;
     endpointConfigured: boolean;
@@ -112,6 +125,58 @@ export function getExecutionPolicySnapshot(): {localToolExecutionEnabled: boolea
     };
 }
 
+export function evaluateNonHumanTouchCriteria(
+    action: string,
+    source: ToolExecutionSource = "local",
+    options: {allowLocalExecution?: boolean; allowCloudToolRequests?: boolean; workspaceBounded?: boolean} = {}
+): NonHumanTouchEvaluation {
+    const normalizedAction = (action || "").trim();
+    const destructiveMarkers = /\b(delete|remove|wipe|shutdown|overwrite|revert|destroy|purge|reset)\b/i;
+    const privilegedMarkers = /\b(secret|token|password|credential|api key|sudo|ssh|root)\b/i;
+    const externalPublishingMarkers = /\b(publish|deploy|release|post to|broadcast|mailing list)\b/i;
+
+    const criteria: NonHumanTouchCriterion[] = [
+        {
+            id: "bounded-scope",
+            title: "Bounded scope",
+            satisfied: !destructiveMarkers.test(normalizedAction),
+            detail: "The request should avoid destructive or irreversible actions.",
+        },
+        {
+            id: "credential-safe",
+            title: "Credential-safe",
+            satisfied: !privilegedMarkers.test(normalizedAction),
+            detail: "The request should not require secrets, credentials, or privileged system access.",
+        },
+        {
+            id: "reviewable-public-actions",
+            title: "Reviewable public actions",
+            satisfied: !externalPublishingMarkers.test(normalizedAction),
+            detail: "The request should avoid public release or deployment actions that need owner review.",
+        },
+        {
+            id: "workspace-bounded",
+            title: "Workspace bounded",
+            satisfied: options.workspaceBounded !== false,
+            detail: "The request should stay within the approved workspace or local review path.",
+        },
+        {
+            id: "execution-mode",
+            title: "Execution mode",
+            satisfied: source === "local" ? (options.allowLocalExecution !== false) : (options.allowCloudToolRequests !== false),
+            detail: "The selected execution mode should be enabled for automated, non-human-touch work.",
+        },
+    ];
+
+    const requiresApproval = !criteria.every(criterion => criterion.satisfied) || (source !== "local" && options.allowCloudToolRequests === false);
+
+    return {
+        meetsCriteria: criteria.every(criterion => criterion.satisfied),
+        requiresApproval,
+        criteria,
+    };
+}
+
 export function evaluateToolExecutionPolicy(action: string, source: ToolExecutionSource = "local"): RuntimeActionPolicy {
     const normalizedAction = action.trim();
     if (!normalizedAction) {
@@ -130,10 +195,17 @@ export function evaluateToolExecutionPolicy(action: string, source: ToolExecutio
         return {allowed: false, blocked: true, requiresApproval: true, reason: "Cloud/browser tool requests are disabled. Set LUMI_ALLOW_CLOUD_TOOL_REQUESTS=true to enable them."};
     }
 
+    const nonHumanTouchEvaluation = evaluateNonHumanTouchCriteria(normalizedAction, source, {
+        allowLocalExecution: TOOL_EXECUTION_ENABLED,
+        allowCloudToolRequests: CLOUD_TOOL_REQUESTS_ENABLED,
+        workspaceBounded: true,
+    });
+
     return {
         allowed: true,
         blocked: false,
-        requiresApproval: source !== "local",
+        requiresApproval: nonHumanTouchEvaluation.requiresApproval || source !== "local",
+        reason: nonHumanTouchEvaluation.requiresApproval ? "This action needs human review under the non-human-touch criteria." : undefined,
     };
 }
 

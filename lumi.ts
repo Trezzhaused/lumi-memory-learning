@@ -30,7 +30,7 @@ import path from "node:path";
 import {callOpenRouterChat} from "./openrouter";
 import {buildExternalBrowserSourceContext, DEFAULT_EXTERNAL_BROWSER_SOURCE_ID, queryExternalBrowserSource, type ExternalBrowserSourceSelector} from "./lumi-external-sources";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
-import {isLocalToolExecutionEnabled, runWorkspaceCommand, writeWorkspaceFile} from "./lumi-tools";
+import {evaluateNonHumanTouchCriteria, isLocalToolExecutionEnabled, runWorkspaceCommand, writeWorkspaceFile} from "./lumi-tools";
 import {callNvidiaChat} from "./nvidia";
 import {buildGuardrailSystemPrompt, evaluateGuardrailRequest, logGuardrailDecision, normalizeGuardedResponse} from "./lumi-guardrails";
 import {formatProviderError} from "./lumi-runtime";
@@ -136,6 +136,8 @@ export interface MissionPolicy {
     allowExternalResearch: boolean;
     allowLocalExecution: boolean;
     requiresApproval: boolean;
+    nonHumanTouchReady: boolean;
+    nonHumanTouchCriteria: string[];
 }
 
 export interface MissionStatus {
@@ -722,13 +724,21 @@ function ensureMissionStoreLoaded(): void {
 }
 
 function getMissionPolicy(prompt: string): MissionPolicy {
+    const nonHumanTouchEvaluation = evaluateNonHumanTouchCriteria(prompt, "local", {
+        allowLocalExecution: isLocalToolExecutionEnabled(),
+        allowCloudToolRequests: process.env.LUMI_ALLOW_CLOUD_TOOL_REQUESTS === "true",
+        workspaceBounded: true,
+    });
+
     return {
         maxSteps: Number(process.env.LUMI_MAX_MISSION_STEPS || "5"),
         maxAttempts: Number(process.env.LUMI_MAX_MISSION_ATTEMPTS || "2"),
         maxRuntimeMs: Number(process.env.LUMI_MISSION_MAX_RUNTIME_MS || "180000"),
         allowExternalResearch: process.env.LUMI_ALLOW_EXTERNAL_RESEARCH !== "false",
         allowLocalExecution: isLocalToolExecutionEnabled(),
-        requiresApproval: /\b(deploy|publish|delete|remove|wipe|shutdown|execute|shell|secret|token|api key)\b/i.test(prompt),
+        requiresApproval: nonHumanTouchEvaluation.requiresApproval || /\b(deploy|publish|delete|remove|wipe|shutdown|execute|shell|secret|token|api key)\b/i.test(prompt),
+        nonHumanTouchReady: nonHumanTouchEvaluation.meetsCriteria && !nonHumanTouchEvaluation.requiresApproval,
+        nonHumanTouchCriteria: nonHumanTouchEvaluation.criteria.map(criterion => criterion.title),
     };
 }
 

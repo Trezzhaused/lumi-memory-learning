@@ -2,6 +2,7 @@ import {mkdirSync, writeFileSync} from "node:fs";
 import path from "node:path";
 import {DEFAULT_EXTERNAL_BROWSER_SOURCE_ID, queryExternalBrowserSource} from "./lumi-external-sources";
 import {evaluateGuardrailRequest, logGuardrailDecision} from "./lumi-guardrails";
+import {evaluateNonHumanTouchCriteria} from "./lumi-tools";
 
 export type AutonomyMode = "research-before-create" | "business-automation" | "local-maintenance" | "finance-maintenance" | "sovereign-autonomy" | "scheduled-automation" | "general";
 
@@ -21,6 +22,8 @@ export interface AutonomyPlan {
     safetyNotes: string[];
     requiresExternalResearch: boolean;
     comparativeTarget?: string | null;
+    nonHumanTouchCriteria: string[];
+    nonHumanTouchReady: boolean;
 }
 
 export interface SelfDirectedState {
@@ -41,6 +44,8 @@ export interface SelfDirectedDirective {
     planMode: AutonomyMode;
     safe: boolean;
     requiresApproval: boolean;
+    nonHumanTouchCriteria: string[];
+    nonHumanTouchReady: boolean;
 }
 
 export interface SelfDirectedExecutionResult {
@@ -123,6 +128,11 @@ export function buildAutonomyPlan(prompt: string, options: {workspaceRoot?: stri
     const normalized = (prompt || "").trim();
     const lower = normalized.toLowerCase();
     const workspaceRoot = options.workspaceRoot || process.cwd();
+    const nonHumanTouchEvaluation = evaluateNonHumanTouchCriteria(normalized, "local", {
+        allowLocalExecution: process.env.LUMI_ALLOW_LOCAL_TOOL_EXECUTION === "true",
+        allowCloudToolRequests: process.env.LUMI_ALLOW_CLOUD_TOOL_REQUESTS === "true",
+        workspaceBounded: true,
+    });
 
     const isResearchBeforeCreate = /\b(create|build|make|design|ship|launch|clone|prototype|draft|website|app|landing page|dashboard|product|system)\b/i.test(lower)
         && /\b(like|similar|inspired by|based on|clone of|modeled after|as|copy of)\b/i.test(lower);
@@ -130,6 +140,8 @@ export function buildAutonomyPlan(prompt: string, options: {workspaceRoot?: stri
     const isFinanceMaintenance = isFinanceMaintenancePrompt(normalized);
     const isBusinessAutomation = /\b(inventory|pricing|price|stock|sales|business|crm|slack|airtable|competitor|market)\b/i.test(lower);
     const isLocalMaintenance = /\b(clean|defrag|disk|repair|virus|scan|maintenance|windows|computer|optimize|cleanup)\b/i.test(lower);
+    const nonHumanTouchCriteria = nonHumanTouchEvaluation.criteria.map(criterion => criterion.title);
+    const nonHumanTouchReady = nonHumanTouchEvaluation.meetsCriteria && !nonHumanTouchEvaluation.requiresApproval;
 
     if (isResearchBeforeCreate) {
         const comparativeTarget = extractComparativeTarget(normalized) || "the requested experience";
@@ -173,6 +185,8 @@ export function buildAutonomyPlan(prompt: string, options: {workspaceRoot?: stri
             ],
             requiresExternalResearch: process.env.LUMI_ALLOW_EXTERNAL_RESEARCH !== "false",
             comparativeTarget,
+            nonHumanTouchCriteria,
+            nonHumanTouchReady,
         };
     }
 
@@ -224,6 +238,8 @@ export function buildAutonomyPlan(prompt: string, options: {workspaceRoot?: stri
                 "Keep schedulers and connectors as optional deployment recipes until the workflow is validated.",
             ],
             requiresExternalResearch: false,
+            nonHumanTouchCriteria,
+            nonHumanTouchReady,
         };
     }
 
@@ -268,6 +284,8 @@ export function buildAutonomyPlan(prompt: string, options: {workspaceRoot?: stri
                 "Require owner confirmation before any owner-side repair or external publishing loop.",
             ],
             requiresExternalResearch: false,
+            nonHumanTouchCriteria,
+            nonHumanTouchReady,
         };
     }
 
@@ -312,6 +330,8 @@ export function buildAutonomyPlan(prompt: string, options: {workspaceRoot?: stri
                 "Prefer self-hosted components and local data stores for sovereignty.",
             ],
             requiresExternalResearch: false,
+            nonHumanTouchCriteria,
+            nonHumanTouchReady,
         };
     }
 
@@ -348,6 +368,8 @@ export function buildAutonomyPlan(prompt: string, options: {workspaceRoot?: stri
                 "Require human review for destructive or revenue-affecting changes.",
             ],
             requiresExternalResearch: process.env.LUMI_ALLOW_EXTERNAL_RESEARCH !== "false",
+            nonHumanTouchCriteria,
+            nonHumanTouchReady,
         };
     }
 
@@ -384,6 +406,8 @@ export function buildAutonomyPlan(prompt: string, options: {workspaceRoot?: stri
                 "Keep command execution within the allow-list and workspace guardrails.",
             ],
             requiresExternalResearch: false,
+            nonHumanTouchCriteria,
+            nonHumanTouchReady,
         };
     }
 
@@ -404,6 +428,8 @@ export function buildAutonomyPlan(prompt: string, options: {workspaceRoot?: stri
             "Prefer transparent, reviewable actions over irreversible changes.",
         ],
         requiresExternalResearch: false,
+        nonHumanTouchCriteria,
+        nonHumanTouchReady,
     };
 }
 
@@ -450,6 +476,8 @@ export function buildSelfDirectedDirective(state: SelfDirectedState = {}, option
         planMode,
         safe: true,
         requiresApproval: false,
+        nonHumanTouchCriteria: ["Bounded scope", "Credential-safe", "Reviewable public actions", "Workspace bounded"],
+        nonHumanTouchReady: true,
     };
 }
 

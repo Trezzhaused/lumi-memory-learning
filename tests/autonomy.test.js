@@ -3,7 +3,8 @@ const {existsSync} = require("node:fs");
 const path = require("node:path");
 const {test} = require("node:test");
 
-const {buildAutonomyPlan, buildComparativeResearchContext, executeSelfDirectedDirective} = require("../dist/lumi-autonomy");
+const {buildAutonomyPlan, buildComparativeResearchContext, buildSelfDirectedDirective, executeSelfDirectedDirective} = require("../dist/lumi-autonomy");
+const {evaluateNonHumanTouchCriteria} = require("../dist/lumi-tools");
 
 test("research-before-create prompts produce a research-first plan", async () => {
   const plan = buildAutonomyPlan("Create a website like Shopify for a new coffee brand");
@@ -46,8 +47,51 @@ test("finance and maintenance prompts produce a guardrailed audit plan", () => {
   assert.ok(plan.safetyNotes.some(note => /approval/i.test(note)));
 });
 
+test("non-human touch criteria separate safe review from approval-bound work", () => {
+  const safe = evaluateNonHumanTouchCriteria("Audit the ledger and scan local files for syntax bugs and maintenance issues", "local", {
+    allowLocalExecution: true,
+    allowCloudToolRequests: true,
+    workspaceBounded: true,
+  });
+  const risky = evaluateNonHumanTouchCriteria("Deploy the release and publish the secrets to production", "local", {
+    allowLocalExecution: true,
+    allowCloudToolRequests: true,
+    workspaceBounded: true,
+  });
+
+  assert.equal(safe.meetsCriteria, true);
+  assert.equal(safe.requiresApproval, false);
+  assert.equal(risky.meetsCriteria, false);
+  assert.equal(risky.requiresApproval, true);
+});
+
+test("autonomy plans expose non-human touch readiness for downstream decision-making", () => {
+  const previousLocalToolExecution = process.env.LUMI_ALLOW_LOCAL_TOOL_EXECUTION;
+  process.env.LUMI_ALLOW_LOCAL_TOOL_EXECUTION = "true";
+
+  try {
+    const safePlan = buildAutonomyPlan("Audit the ledger and scan local files for syntax bugs and maintenance issues");
+    const riskyPlan = buildAutonomyPlan("Deploy the release and publish the secrets to production");
+
+    assert.equal(safePlan.nonHumanTouchReady, true);
+    assert.ok(safePlan.nonHumanTouchCriteria.length > 0);
+    assert.equal(riskyPlan.nonHumanTouchReady, false);
+  } finally {
+    if (previousLocalToolExecution === undefined) {
+      delete process.env.LUMI_ALLOW_LOCAL_TOOL_EXECUTION;
+    } else {
+      process.env.LUMI_ALLOW_LOCAL_TOOL_EXECUTION = previousLocalToolExecution;
+    }
+  }
+});
+
 test("self-directed directives create a reviewable local artifact", () => {
   const artifactRoot = path.join(__dirname, "..", ".tmp", "self-directed-tests");
+  const directive = buildSelfDirectedDirective({
+    activeProjects: ["lumi-memory-learning"],
+    focus: "audit the local maintenance state and prepare a bounded review note",
+    notes: ["Keep the change local and reviewable."],
+  }, {workspaceRoot: artifactRoot});
   const result = executeSelfDirectedDirective({
     activeProjects: ["lumi-memory-learning"],
     focus: "audit the local maintenance state and prepare a bounded review note",
@@ -57,6 +101,7 @@ test("self-directed directives create a reviewable local artifact", () => {
   assert.equal(result.ok, true);
   assert.equal(result.blocked, false);
   assert.ok(result.directive);
+  assert.equal(directive.nonHumanTouchReady, true);
   assert.ok(result.artifactPath);
   assert.ok(existsSync(result.artifactPath));
   assert.match(result.message, /Self-directed autonomy report written/i);
