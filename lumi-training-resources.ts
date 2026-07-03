@@ -367,7 +367,7 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         rationale: "A Hugging Face-hosted NVIDIA model card and repository reference for a quantized Qwen3.6-based model that can serve as a deployment and evaluation reference.",
         useCase: "Use as a supplemental model reference for local deployment planning, quantized inference research, and capability evaluation.",
         priority: "medium",
-        notes: "Treat this as a documentation and repository reference rather than an API-backed provider; no direct API integration is required for Lumi's source catalog.",
+        notes: "Treat this as a documentation and repository reference rather than an API-backed provider; Lumi can use it as a deployment-planning and evaluation reference when comparing quantized open-weight models or drafting local-inference strategies.",
     },
 ];
 

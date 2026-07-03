@@ -99,6 +99,13 @@ test("source planning accepts a single object selector", () => {
   assert.equal(plan.sources[0].id, "yuanbao");
 });
 
+test("source planning accepts object selectors with sourceId property", () => {
+  const plan = require("../dist/lumi-external-sources").planExternalBrowserSources({sourceId: "YUANBAO"});
+
+  assert.deepEqual(plan.requestedSources, ["yuanbao"]);
+  assert.equal(plan.sources[0].id, "yuanbao");
+});
+
 test("automation failures are surfaced as structured proxy errors", async () => {
   const previousProxyUrl = process.env.EXTERNAL_BROWSER_PROXY_URL;
   const previousApiUrl = process.env.EXTERNAL_BROWSER_API_URL;

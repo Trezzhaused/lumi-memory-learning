@@ -45,7 +45,7 @@ const DEFAULT_EXTERNAL_SOURCES: ExternalBrowserSource[] = [
         requiresBrowserAutomation: true,
         backend: "browser-automation",
         availability: "pending",
-        notes: "A browser-based AI assistant surface that can be used for alternate ideation, research, and creative exploration.",
+        notes: "A browser-based AI assistant surface that can be used for alternate ideation, research, and creative exploration; reinitialize from a fresh anonymous or non-persisted session when continuity limits or session state becomes inconsistent.",
         sessionHint: "Prefer a fresh anonymous or non-persisted browser session and reinitialize between runs if continuity is limited.",
     },
     {

@@ -62,7 +62,7 @@ Body: { source, query, goal?, sessionMode? }
 → { sourceId, ok, status, usedBackend, content?, error? }
 ```
 
-These endpoints expose a generic hook for browser-based research sources such as Yuanbao. When `EXTERNAL_BROWSER_PROXY_URL` or `EXTERNAL_BROWSER_API_URL` is configured, Lumi can now issue a live retrieval request to that automation endpoint instead of stopping at workflow-only planning.
+These endpoints expose a generic hook for browser-based research sources such as Yuanbao. The default catalog now also includes free Hugging Face and GitHub-backed model repositories such as ShareGPT-4o-Image, UniWorld, Qwen Omni, and Qwen2.5 Omni so Lumi can plan around both browser-assisted research and model-reference workflows. When `EXTERNAL_BROWSER_PROXY_URL` or `EXTERNAL_BROWSER_API_URL` is configured, Lumi can now issue a live retrieval request to that automation endpoint instead of stopping at workflow-only planning.
 
 To enable live browser-backed retrieval, set one of the following in your environment:
 
