@@ -169,7 +169,7 @@ export async function queryExternalBrowserSource(
             ok: false,
             status: 502,
             usedBackend: "proxy",
-            error: `Automation request failed: ${error instanceof Error ? error.message : "unknown error"}`,
+            error: `Automation request failed while contacting the configured browser automation endpoint: ${error instanceof Error ? error.message : "unknown error"}`,
         };
     }
 

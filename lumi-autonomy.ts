@@ -548,7 +548,8 @@ export async function buildComparativeResearchContext(prompt: string): Promise<s
         if (result.ok && result.content) {
             return `Comparative research for ${target}:\n${result.content}`;
         }
-    } catch {
+    } catch (error) {
+        console.warn("[Lumi] Comparative research lookup failed:", error);
         // fall back to a deterministic plan when the automation endpoint is unavailable
     }
 
