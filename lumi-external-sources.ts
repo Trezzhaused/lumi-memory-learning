@@ -625,7 +625,11 @@ function selectExternalSources(requestedSources: unknown): ExternalBrowserSource
         return [];
     }
 
-    return getExternalBrowserSources().filter(source => knownRequestedSources.includes(source.id));
+    const sources = getExternalBrowserSources();
+    const sourcesById = new Map(sources.map(source => [source.id, source]));
+    return knownRequestedSources
+        .map(sourceId => sourcesById.get(sourceId))
+        .filter((source): source is ExternalBrowserSource => Boolean(source));
 }
 
 function isAutomationConfigured(): boolean {

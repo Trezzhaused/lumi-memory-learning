@@ -373,8 +373,11 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
 
 export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisRequest = {}): TrainingResourceAnalysis {
     const requestedResourceIds = normalizeTrainingResourceIds(req.resources);
+    const resourcesById = new Map(DEFAULT_RESOURCES.map(resource => [normalizeTrainingResourceId(resource.id), resource]));
     const selectedResources = requestedResourceIds.length > 0
-        ? DEFAULT_RESOURCES.filter(resource => requestedResourceIds.includes(normalizeTrainingResourceId(resource.id)))
+        ? requestedResourceIds
+            .map(resourceId => resourcesById.get(resourceId))
+            .filter((resource): resource is TrainingResource => Boolean(resource))
         : DEFAULT_RESOURCES;
 
     const normalizedGoals = normalizeGoals(req.goals);
