@@ -20,6 +20,8 @@ test("free Hugging Face media model repositories are catalogued", () => {
   const sources = getExternalBrowserSources();
   const locateAnything = sources.find(source => source.id === "locateanything-3b");
   const preferredQwen = sources.find(source => source.id === "qwen3.6-40b-claude-opus-deckard-heretic-uncensored-thinking");
+  const sunnyTeacher = sources.find(source => source.id === "sunnyteacher16b-v2");
+  const dyslexiaSimplifier = sources.find(source => source.id === "dyslexia-friendly-text-simplifier");
   const skyReels = sources.find(source => source.id === "skyreels-v2-t2v-14b-540p");
   const audio = sources.find(source => source.id === "mimo-audio-7b-instruct");
 
@@ -28,6 +30,10 @@ test("free Hugging Face media model repositories are catalogued", () => {
   assert.match(locateAnything.url, /huggingface\.co\/nvidia\/LocateAnything-3B/);
   assert.ok(preferredQwen);
   assert.match(preferredQwen.notes, /user-preferred/i);
+  assert.ok(sunnyTeacher);
+  assert.match(sunnyTeacher.notes, /teaching/i);
+  assert.ok(dyslexiaSimplifier);
+  assert.match(dyslexiaSimplifier.notes, /accessibility/i);
   assert.ok(skyReels);
   assert.match(skyReels.notes, /video/i);
   assert.ok(audio);
