@@ -9,6 +9,8 @@ export type IngestionCategory = "Financials" | "Manuscripts" | "System_Logs" | "
 export interface IngestionRequest {
     filename?: string;
     sourcePath?: string;
+    sourceUrl?: string;
+    url?: string;
     mimeType?: string;
     content?: string;
     contentBase64?: string;
@@ -60,6 +62,51 @@ function inferCategory(filename: string, text: string): IngestionCategory {
 function chunkText(text: string, size = CHUNK_SIZE): string[] {
     if (!text) return [];
     return Array.from({length: Math.ceil(text.length / size)}, (_v, index) => text.slice(index * size, (index + 1) * size));
+}
+
+function stripHtmlText(value: string): string {
+    const withoutScripts = value.replace(/<script[\s\S]*?<\/script>/gi, " ");
+    const withoutStyles = withoutScripts.replace(/<style[\s\S]*?<\/style>/gi, " ");
+    return withoutStyles
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/(p|div|section|article|li|ul|ol|h[1-6]|tr|table)>/gi, "\n")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&#(\d+);/g, (_match, code) => String.fromCharCode(Number(code)))
+        .replace(/&#x([0-9a-f]+);/gi, (_match, code) => String.fromCharCode(parseInt(code, 16)))
+        .replace(/\s+\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+}
+
+function inferFilenameFromUrl(url: string): string {
+    try {
+        const parsed = new URL(url);
+        const pathnameBase = path.basename(parsed.pathname || "") || "remote-source";
+        return decodeURIComponent(pathnameBase) || "remote-source";
+    } catch {
+        return "remote-source";
+    }
+}
+
+async function fetchRemoteText(url: string): Promise<{content: string; filename: string; mimeType: string}> {
+    const response = await fetch(url, {headers: {"User-Agent": "Lumi/1.0"}});
+    if (!response.ok) {
+        throw new Error(`Remote fetch failed with status ${response.status}`);
+    }
+
+    const contentType = response.headers.get("content-type") || "text/plain";
+    const rawText = await response.text();
+    const normalizedText = contentType.toLowerCase().includes("html")
+        ? stripHtmlText(rawText)
+        : rawText;
+
+    return {
+        content: normalizedText || rawText,
+        filename: inferFilenameFromUrl(url),
+        mimeType: contentType,
+    };
 }
 
 function resolvePythonBin(): string {
@@ -177,6 +224,22 @@ export async function ingestFile(payload: IngestionRequest): Promise<IngestionRe
         buffer = await fs.readFile(resolvedSource);
         sourceFilePath = resolvedSource;
         filename = path.basename(resolvedSource);
+    } else if (payload.sourceUrl || payload.url) {
+        const sourceUrl = payload.sourceUrl || payload.url || "";
+        try {
+            const remote = await fetchRemoteText(sourceUrl);
+            buffer = Buffer.from(remote.content, "utf8");
+            sourceFilePath = await writeTemporaryFile(buffer, remote.filename || filename);
+            filename = remote.filename || filename;
+            payload.mimeType = remote.mimeType || payload.mimeType;
+        } catch (error) {
+            return {
+                status: "error",
+                message: error instanceof Error ? error.message : "Unable to fetch remote URL content.",
+                filename,
+                category: "General_Reference",
+            };
+        }
     } else if (payload.contentBase64) {
         buffer = Buffer.from(payload.contentBase64, "base64");
         sourceFilePath = await writeTemporaryFile(buffer, filename);
@@ -184,7 +247,7 @@ export async function ingestFile(payload: IngestionRequest): Promise<IngestionRe
         buffer = Buffer.from(payload.content, "utf8");
         sourceFilePath = await writeTemporaryFile(buffer, filename);
     } else {
-        return {status: "error", message: "No file content or source path was provided.", filename, category: "General_Reference"};
+        return {status: "error", message: "No file content, source path, or source URL was provided.", filename, category: "General_Reference"};
     }
 
     const safeName = sanitizeFilename(filename);
@@ -198,7 +261,10 @@ export async function ingestFile(payload: IngestionRequest): Promise<IngestionRe
     });
 
     const chunks = chunkText(extractedText);
-    await remember(sessionId, "assistant", `[ingestion] ${safeName}: ${extractedText.slice(0, 4000)}`, ["ingestion", category.toLowerCase()], "knowledge");
+    const ingestedSummary = payload.sourceUrl || payload.url
+        ? `[ingestion-url] ${safeName}: ${extractedText.slice(0, 4000)}`
+        : `[ingestion] ${safeName}: ${extractedText.slice(0, 4000)}`;
+    await remember(sessionId, "assistant", ingestedSummary, ["ingestion", category.toLowerCase(), "url"], "knowledge");
     const graphResult = await injectGraphRelationship(safeName, "CLASSIFIED_AS", category);
 
     let finalPath: string | undefined;

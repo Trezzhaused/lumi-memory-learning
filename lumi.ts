@@ -35,6 +35,7 @@ import {callNvidiaChat} from "./nvidia";
 import {buildGuardrailSystemPrompt, evaluateGuardrailRequest, logGuardrailDecision, normalizeGuardedResponse} from "./lumi-guardrails";
 import {formatProviderError} from "./lumi-runtime";
 import {buildAutonomyPlan, buildComparativeResearchContext} from "./lumi-autonomy";
+import {buildEmbeddedKnowledgeContext} from "./lumi-knowledge-pack";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -402,6 +403,7 @@ async function buildSystemPrompt(message: string, domain: string, externalSource
         }).join(" | ")
         : "General platform assistance across chat, memory, studio, generation, and security modules.";
     const memoryContext = await getRelevantMemoryContext(message);
+    const embeddedKnowledgeContext = buildEmbeddedKnowledgeContext();
     const autonomyPlan = buildAutonomyPlan(message);
     const autonomyContext = autonomyPlan.mode !== "general"
         ? [
@@ -421,6 +423,10 @@ async function buildSystemPrompt(message: string, domain: string, externalSource
     prompt += `Current focus: ${moduleContext}.\n\n`;
     prompt += "When a request touches a module, tab, or workflow, use that module's specialty first and stay aligned with the repo's implemented capabilities. ";
     prompt += "If the user asks for anything that can be created autonomously, build it when possible, keep the experience safe, and persist helpful context to memory for future recall.";
+
+    if (embeddedKnowledgeContext) {
+        prompt += `\n\n${embeddedKnowledgeContext}`;
+    }
 
     if (autonomyContext) {
         prompt += `\n\n${autonomyContext}`;

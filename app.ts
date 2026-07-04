@@ -290,14 +290,15 @@ lumiRouter.post("/classify", async (req: Request, res: Response, next: NextFunct
 // POST /api/lumi/ingestion/process
 lumiRouter.post("/ingestion/process", async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const {filename, sourcePath, mimeType, content, contentBase64, sessionId} = req.body || {};
-        if (!filename && !sourcePath && content === undefined && contentBase64 === undefined) {
-            res.status(400).json({error: "filename, sourcePath, content, or contentBase64 is required"});
+        const {filename, sourcePath, sourceUrl, url, mimeType, content, contentBase64, sessionId} = req.body || {};
+        if (!filename && !sourcePath && !sourceUrl && !url && content === undefined && contentBase64 === undefined) {
+            res.status(400).json({error: "filename, sourcePath, sourceUrl, content, or contentBase64 is required"});
             return;
         }
         const result = await ingestFile({
             filename,
             sourcePath,
+            sourceUrl: typeof sourceUrl === "string" ? sourceUrl : (typeof url === "string" ? url : undefined),
             mimeType,
             content,
             contentBase64,
