@@ -67,7 +67,7 @@ export function getNvidiaChatModel(): string {
 
 /** Default chat model — free tier on OpenRouter */
 export function getDefaultChatModel(): string {
-    return process.env.LUMI_CHAT_MODEL || "mistralai/mistral-7b-instruct:free";
+    return process.env.LUMI_CHAT_MODEL || "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
 }
 
 // ---------------------------------------------------------------------------
@@ -314,9 +314,11 @@ function createOpenRouterHistoryMessages(messages: LumiConversationMessage[]): A
         });
 }
 
-function resolveOpenRouterReasoning(req: LumiChatRequest): OpenRouterReasoningConfig | undefined {
+function resolveOpenRouterReasoning(req: LumiChatRequest, model: string): OpenRouterReasoningConfig | undefined {
+    if (req.reasoning === false) return undefined;
     const enabled = req.reasoning === true || process.env.LUMI_OPENROUTER_REASONING === "true";
-    if (!enabled) return undefined;
+    const isReasoningModel = model.toLowerCase().includes("reasoning");
+    if (!enabled && !isReasoningModel) return undefined;
     const effort = (req.reasoningEffort || process.env.LUMI_OPENROUTER_REASONING_EFFORT || "medium") as OpenRouterReasoningConfig["effort"];
     return {effort};
 }
@@ -599,7 +601,7 @@ export async function lumiChat(
 
         if (!responseText) {
             try {
-                const openRouterResponse = await openRouterChat(messages, backendSelection.model, resolveOpenRouterReasoning(req));
+                const openRouterResponse = await openRouterChat(messages, backendSelection.model, resolveOpenRouterReasoning(req, backendSelection.model));
                 responseText = openRouterResponse.text;
                 assistantReasoningDetails = openRouterResponse.reasoningDetails;
                 usedModel = getDefaultChatModel();
@@ -655,6 +657,7 @@ export async function getChatHistory(
 
 export async function getModelCascade(): Promise<ModelCascadeEntry[]> {
     const cascade: ModelCascadeEntry[] = [
+        {id: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", provider: "openrouter", label: "NVIDIA Nemotron Nano Omni (Reasoning, Free)", free: true, contextWindow: 32768},
         {id: "mistralai/mistral-7b-instruct:free", provider: "openrouter", label: "Mistral 7B (Free)", free: true, contextWindow: 32768},
         {id: "mistralai/devstral-small:free",      provider: "openrouter", label: "Devstral Small — Code (Free)", free: true, contextWindow: 32768},
         {id: "google/gemma-3-4b-it:free",          provider: "openrouter", label: "Gemma 3 4B (Free)", free: true, contextWindow: 8192},

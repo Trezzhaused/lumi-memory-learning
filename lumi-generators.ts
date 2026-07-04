@@ -52,6 +52,7 @@ const STABILITY_API_URL = "https://api.stability.ai/v1/generation";
 const FAL_API_URL = "https://queue.fal.run";
 const REPLICATE_API_URL = "https://api.replicate.com/v1";
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1";
+const DEFAULT_OPENROUTER_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free";
 const MAX_HUNYUAN_VIDEO_FRAMES = 81;
 const HUNYUAN_VIDEO_FPS = 8;
 const BINARY_ARTIFACT_TYPES = ["image", "audio", "video"] as const;
@@ -735,7 +736,7 @@ async function callFreeChat(
 // ---------------------------------------------------------------------------
 
 export async function generateText(req: GenerationRequest): Promise<GenerationResult> {
-    const model = validateModelId(req.model || "mistralai/mistral-7b-instruct:free");
+    const model = validateModelId(req.model || DEFAULT_OPENROUTER_MODEL);
     const systemPrompt =
         `You are Lumi, a polished writing assistant for the Trezzhaus platform. ` +
         `Write concise, high-quality text for the user's request. ` +
@@ -765,7 +766,7 @@ export async function generateText(req: GenerationRequest): Promise<GenerationRe
 // ---------------------------------------------------------------------------
 
 export async function generateDocument(req: GenerationRequest): Promise<GenerationResult> {
-    const model = validateModelId(req.model || "mistralai/devstral-small:free");
+    const model = validateModelId(req.model || DEFAULT_OPENROUTER_MODEL);
     const systemPrompt =
         `You are Lumi, an expert document writer for the Trezzhaus platform. ` +
         `Create a polished Markdown document that fulfills the request. ` +
@@ -795,7 +796,7 @@ export async function generateDocument(req: GenerationRequest): Promise<Generati
 // ---------------------------------------------------------------------------
 
 export async function generateCode(req: GenerationRequest): Promise<GenerationResult> {
-    const model = validateModelId(req.model || "mistralai/devstral-small:free");
+    const model = validateModelId(req.model || DEFAULT_OPENROUTER_MODEL);
     const systemPrompt =
         `You are Lumi, an expert programmer for the Trezzhaus platform. ` +
         `Write clean, complete, well-commented ${req.language || "TypeScript"} code. ` +
