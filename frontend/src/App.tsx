@@ -87,10 +87,29 @@ export default function App() {
           <div className="grid gap-6 xl:grid-cols-[1.35fr_0.85fr]">
             <Chat />
             <div className="space-y-6">
-              <Canvas />
-              <ImageUpload />
-              <VideoPlayer />
-              <AudioPlayer />
+              <section className="rounded-3xl border border-slate-800/80 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/60">
+                <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.3em] text-amber-400">Asset pipeline</p>
+                    <h3 className="text-2xl font-semibold">Capture, sketch, and review media</h3>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-full border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-300">
+                      Canvas
+                    </span>
+                    <span className="rounded-full border border-slate-700 bg-slate-950/70 px-3 py-2 text-sm text-slate-300">
+                      Audio + video
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <Canvas />
+                  <ImageUpload />
+                  <VideoPlayer />
+                  <AudioPlayer />
+                </div>
+              </section>
             </div>
           </div>
         </main>
