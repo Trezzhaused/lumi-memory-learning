@@ -27,7 +27,7 @@ import {generate, GenerationRequest} from "./lumi-generators";
 import {getArtifactStorageStatus} from "./lumi-storage";
 import {existsSync, mkdirSync, promises as fs, readdirSync, readFileSync, writeFileSync} from "node:fs";
 import path from "node:path";
-import {callOpenRouterChat} from "./openrouter";
+import {callOpenRouterChatDetailed, type OpenRouterReasoningConfig} from "./openrouter";
 import {buildExternalBrowserSourceContext, DEFAULT_EXTERNAL_BROWSER_SOURCE_ID, queryExternalBrowserSource, type ExternalBrowserSourceSelector} from "./lumi-external-sources";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 import {evaluateNonHumanTouchCriteria, isLocalToolExecutionEnabled, runWorkspaceCommand, writeWorkspaceFile} from "./lumi-tools";
@@ -89,6 +89,8 @@ export interface LumiChatRequest {
     domain?: string | null;
     externalSources?: ExternalBrowserSourceSelector | null;
     runtime?: "local" | "cloud" | "browser";
+    reasoning?: boolean;
+    reasoningEffort?: "low" | "medium" | "high" | "max" | "minimal" | "none" | "xhigh";
 }
 
 export interface LumiChatResponse {
@@ -276,24 +278,74 @@ export async function getOllamaStatus(): Promise<{
 // OpenRouter chat
 // ---------------------------------------------------------------------------
 
+type LumiConversationMessage = {
+    role: string;
+    content: string;
+    metadata?: Record<string, unknown>;
+};
+
+function normalizeOpenRouterRole(role: string): "assistant" | "developer" | "system" | "tool" | "user" {
+    switch (role) {
+        case "assistant":
+        case "agent":
+            return "assistant";
+        case "developer":
+        case "system":
+        case "tool":
+        case "user":
+            return role;
+        default:
+            return "user";
+    }
+}
+
+function createOpenRouterHistoryMessages(messages: LumiConversationMessage[]): Array<{role: string; content: string; reasoningDetails?: unknown[]}> {
+    return messages
+        .filter(message => typeof message.content === "string")
+        .map(message => {
+            const reasoningDetails = Array.isArray(message.metadata?.reasoningDetails)
+                ? message.metadata.reasoningDetails as unknown[]
+                : undefined;
+            return {
+                role: normalizeOpenRouterRole(message.role),
+                content: message.content,
+                ...(reasoningDetails ? {reasoningDetails} : {}),
+            };
+        });
+}
+
+function resolveOpenRouterReasoning(req: LumiChatRequest): OpenRouterReasoningConfig | undefined {
+    const enabled = req.reasoning === true || process.env.LUMI_OPENROUTER_REASONING === "true";
+    if (!enabled) return undefined;
+    const effort = (req.reasoningEffort || process.env.LUMI_OPENROUTER_REASONING_EFFORT || "medium") as OpenRouterReasoningConfig["effort"];
+    return {effort};
+}
+
 async function openRouterChat(
-    messages: Array<{role: string; content: string}>,
-    model: string
-): Promise<string> {
+    messages: Array<{role: string; content: string; reasoningDetails?: unknown[]}>,
+    model: string,
+    reasoning?: OpenRouterReasoningConfig,
+): Promise<{text: string; reasoningDetails?: unknown[]}> {
     const openRouterApiKey = getOpenRouterApiKey();
     if (!openRouterApiKey) {
-        return (
-            "Hi, I'm Lumi! I'm running in a degraded mode because OPENROUTER_API_KEY is not configured. " +
-            "I can still help with structured guidance, but full model-backed replies need a provider key."
-        );
+        return {
+            text: "Hi, I'm Lumi! I'm running in a degraded mode because OPENROUTER_API_KEY is not configured. " +
+                "I can still help with structured guidance, but full model-backed replies need a provider key.",
+            reasoningDetails: undefined,
+        };
     }
     try {
-        return await callOpenRouterChat(messages, model, {
+        const result = await callOpenRouterChatDetailed(messages, model, {
             apiKey: openRouterApiKey,
             httpReferer: "https://trezzhaus.com",
             appTitle: "Lumi — Trezzhaus AI",
             appCategories: "cli-agent,cloud-agent",
+            reasoning,
         });
+        return {
+            text: result.text,
+            reasoningDetails: result.reasoningDetails,
+        };
     } catch (error) {
         throw new Error(formatProviderError(error, "openrouter"));
     }
@@ -499,9 +551,20 @@ export async function lumiChat(
         return {role: "assistant", content: guardrailDecision.fallbackContent, model: "guardrail-fallback", ok: true};
     }
 
-    const messages: Array<{role: string; content: string}> = [
+    const historyMessages = (req.history && req.history.length > 0)
+        ? createOpenRouterHistoryMessages(req.history.map(message => ({role: message.role, content: message.content})))
+        : (sessionId
+            ? createOpenRouterHistoryMessages(
+                conversationManager.getContextWindow(sessionId, {includeSystem: false, maxMessages: 24}).map(message => ({
+                    role: message.role,
+                    content: message.content,
+                    metadata: message.metadata,
+                }))
+            )
+            : []);
+    const messages: Array<{role: string; content: string; reasoningDetails?: unknown[]}> = [
         {role: "system", content: systemPrompt},
-        ...(req.history || []),
+        ...historyMessages,
         {role: "user", content: req.message},
     ];
 
@@ -513,6 +576,7 @@ export async function lumiChat(
     }
 
     let responseText = "";
+    let assistantReasoningDetails: unknown[] | undefined;
     let usedModel = getDefaultChatModel();
     const backendSelection = resolveChatBackendSelection(req);
 
@@ -535,7 +599,9 @@ export async function lumiChat(
 
         if (!responseText) {
             try {
-                responseText = await openRouterChat(messages, backendSelection.model);
+                const openRouterResponse = await openRouterChat(messages, backendSelection.model, resolveOpenRouterReasoning(req));
+                responseText = openRouterResponse.text;
+                assistantReasoningDetails = openRouterResponse.reasoningDetails;
                 usedModel = getDefaultChatModel();
             } catch (error) {
                 const detail = error instanceof Error ? error.message : String(error);
@@ -563,7 +629,7 @@ export async function lumiChat(
 
     if (sessionId) {
         let session = conversationManager.get(sessionId);
-        if (session) conversationManager.addMessage(session.id, "assistant", responseText);
+        if (session) conversationManager.addMessage(session.id, "assistant", responseText, assistantReasoningDetails ? {reasoningDetails: assistantReasoningDetails} : undefined);
         await remember(sessionId, "user", req.message, ["chat", domain]);
         await remember(sessionId, "assistant", responseText, ["chat", domain]);
     }
@@ -593,6 +659,7 @@ export async function getModelCascade(): Promise<ModelCascadeEntry[]> {
         {id: "mistralai/devstral-small:free",      provider: "openrouter", label: "Devstral Small — Code (Free)", free: true, contextWindow: 32768},
         {id: "google/gemma-3-4b-it:free",          provider: "openrouter", label: "Gemma 3 4B (Free)", free: true, contextWindow: 8192},
         {id: "meta-llama/llama-3.2-3b-instruct:free", provider: "openrouter", label: "Llama 3.2 3B (Free)", free: true, contextWindow: 131072},
+        {id: "poolside/laguna-xs-2.1:free",        provider: "openrouter", label: "Poolside Laguna XS 2.1 (Free)", free: true, contextWindow: 32768},
         {id: "deepseek/deepseek-r1:free",          provider: "openrouter", label: "DeepSeek R1 (Free)", free: true, contextWindow: 65536},
         {id: "nousresearch/hermes-3-llama-3.1-405b:free", provider: "openrouter", label: "Hermes 3 405B (Free)", free: true, contextWindow: 131072},
     ];
@@ -826,11 +893,12 @@ async function buildMissionPlan(prompt: string, policy: MissionPolicy): Promise<
  
     let rawPlan = "[]";
     try {
-        rawPlan = await openRouterChat(
+        const plannerResponse = await openRouterChat(
             [{role: "system", content: "You are a JSON-only mission planner."},
              {role: "user", content: planPrompt}],
             getDefaultChatModel()
         );
+        rawPlan = plannerResponse.text;
     } catch {
         // fall through to a conservative fallback plan
     }
