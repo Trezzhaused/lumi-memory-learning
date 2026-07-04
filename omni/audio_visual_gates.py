@@ -99,6 +99,9 @@ class AudioToVideoGatingMatrix:
         residual = modulated + camera_tokens
         return torch.nn.functional.layer_norm(residual, residual.shape[-1:])
 
+    def __call__(self, camera_motion_tokens: Any, raw_audio_tokens: Any) -> Any:
+        return self.forward(camera_motion_tokens, raw_audio_tokens)
+
     def forward(self, camera_motion_tokens: Any, raw_audio_tokens: Any) -> Any:
         if torch is not None and hasattr(camera_motion_tokens, "shape") and hasattr(raw_audio_tokens, "shape"):
             return self._apply_torch_gating(camera_motion_tokens, raw_audio_tokens)
