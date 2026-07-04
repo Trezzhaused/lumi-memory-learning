@@ -4,6 +4,7 @@ const path = require("node:path");
 const {test} = require("node:test");
 
 const {buildAutonomyPlan, buildComparativeResearchContext, buildSelfDirectedDirective, executeSelfDirectedDirective} = require("../dist/lumi-autonomy");
+const {shouldAutoBootMission} = require("../dist/lumi");
 const {evaluateNonHumanTouchCriteria} = require("../dist/lumi-tools");
 
 test("research-before-create prompts produce a research-first plan", async () => {
@@ -105,4 +106,11 @@ test("self-directed directives create a reviewable local artifact", () => {
   assert.ok(result.artifactPath);
   assert.ok(existsSync(result.artifactPath));
   assert.match(result.message, /Self-directed autonomy report written/i);
+});
+
+test("creation prompts trigger autonomous mission bootstrapping", () => {
+  assert.equal(shouldAutoBootMission("Create a website like Shopify for a new coffee brand"), true);
+  assert.equal(shouldAutoBootMission("Design a dashboard for our fundraising team"), true);
+  assert.equal(shouldAutoBootMission("What is the capital of France?"), false);
+  assert.equal(shouldAutoBootMission("Launch a mission to audit the local maintenance state"), true);
 });

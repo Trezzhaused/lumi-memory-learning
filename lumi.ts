@@ -93,11 +93,20 @@ export interface LumiChatRequest {
     reasoningEffort?: "low" | "medium" | "high" | "max" | "minimal" | "none" | "xhigh";
 }
 
+export interface MissionInvocationSummary {
+    missionId: string;
+    status: "executing" | "awaiting-approval";
+    summary: string;
+    objective: string;
+    streamUrl: string;
+}
+
 export interface LumiChatResponse {
     role: "assistant";
     content: string;
     model: string;
     ok: boolean;
+    mission?: MissionInvocationSummary | null;
 }
 
 export interface ModelCascadeEntry {
@@ -514,6 +523,48 @@ async function buildSystemPrompt(message: string, domain: string, externalSource
 // Core chat function (Studio-compatible)
 // ---------------------------------------------------------------------------
 
+export function shouldAutoBootMission(message: string): boolean {
+    if (process.env.LUMI_AUTO_BOOT_MISSIONS === "false") {
+        return false;
+    }
+
+    const normalized = (message || "").trim().toLowerCase();
+    if (!normalized) {
+        return false;
+    }
+
+    const creationMarkers = /(create|build|make|launch|design|prototype|ship|develop|draft|scaffold|assemble|compose|generate|author|craft|fabricate|produce)/i;
+    const artifactMarkers = /(app|application|website|web app|site|dashboard|game|video|audio|image|document|workflow|product|system|experience|asset|prototype|landing page|project|studio|pipeline|mission|agent|bot|plugin|api|service|brief|storyboard)/i;
+    const missionMarkers = /(start|boot|run|launch|execute)/i;
+    const directMissionMarkers = /(mission|autonomous workflow|autonomous system|workflow|pipeline)/i;
+
+    const generalCreationRequest = creationMarkers.test(normalized) && artifactMarkers.test(normalized);
+    const explicitMissionRequest = missionMarkers.test(normalized) && directMissionMarkers.test(normalized);
+    const autonomyRequest = /(autonomous|self-running|agentic|agent)/i.test(normalized) && /(create|build|make|launch|run|execute)/i.test(normalized);
+
+    return generalCreationRequest || explicitMissionRequest || autonomyRequest;
+}
+
+async function maybeBootAutonomousMission(message: string): Promise<MissionInvocationSummary | null> {
+    if (!shouldAutoBootMission(message)) {
+        return null;
+    }
+
+    try {
+        const result = await bootMission(message);
+        return {
+            missionId: result.missionId,
+            status: result.status,
+            summary: result.summary,
+            objective: result.objective,
+            streamUrl: result.streamUrl,
+        };
+    } catch (error) {
+        console.warn("[Lumi] Automatic mission boot failed:", error);
+        return null;
+    }
+}
+
 export function resolveChatBackendSelection(req: LumiChatRequest): {kind: "ollama" | "nvidia" | "openrouter" | "degraded"; model: string} {
     const prefersLocal = Boolean(req.useOllama || req.runtime === "local" || process.env.LUMI_LOCAL_FIRST === "true");
     const ollamaHost = getOllamaHost();
@@ -626,6 +677,19 @@ export async function lumiChat(
 
     const normalizedResponse = normalizeGuardedResponse(responseText);
     responseText = normalizedResponse.content;
+    const missionInvocation = normalizedResponse.action === "allow"
+        ? await maybeBootAutonomousMission(req.message)
+        : null;
+    if (missionInvocation) {
+        responseText = [
+            responseText,
+            "",
+            `Autonomous mission started: ${missionInvocation.summary}`,
+            `Track it at ${missionInvocation.streamUrl}`,
+        ].filter(Boolean).join("
+
+");
+    }
     if (normalizedResponse.action !== "allow") {
         logGuardrailDecision({
             sessionId: sessionId || "default",
@@ -645,7 +709,13 @@ export async function lumiChat(
         await remember(sessionId, "assistant", responseText, ["chat", domain]);
     }
 
-    return {role: "assistant", content: responseText, model: normalizedResponse.action === "allow" ? usedModel : "guardrail-fallback", ok: true};
+    return {
+        role: "assistant",
+        content: responseText,
+        model: normalizedResponse.action === "allow" ? usedModel : "guardrail-fallback",
+        ok: true,
+        mission: missionInvocation,
+    };
 }
 
 // ---------------------------------------------------------------------------
