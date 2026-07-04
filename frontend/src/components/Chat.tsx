@@ -8,6 +8,50 @@ const quickPrompts = [
   'Plan a mission',
 ];
 
+function renderMessageContent(content: string) {
+  const imagePattern = /!\[([^\]]*)\]\(([^)]+)\)/g;
+  const parts: Array<JSX.Element | string> = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = imagePattern.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(content.slice(lastIndex, match.index));
+    }
+
+    parts.push(
+      <img
+        key={`${match.index}-${match[0].length}`}
+        className="mt-2 max-h-64 rounded-2xl object-cover"
+        src={match[2]}
+        alt={match[1] || 'Uploaded image'}
+      />,
+    );
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < content.length) {
+    parts.push(content.slice(lastIndex));
+  }
+
+  return (
+    <div className="space-y-2">
+      {parts.map((part, index) => {
+        if (typeof part === 'string') {
+          return (
+            <p key={`text-${index}`} className="whitespace-pre-wrap break-words">
+              {part}
+            </p>
+          );
+        }
+
+        return <div key={`media-${index}`}>{part}</div>;
+      })}
+    </div>
+  );
+}
+
 export default function Chat() {
   const { messages, sendMessage, stream } = useChat();
   const [input, setInput] = useState('');
@@ -77,7 +121,7 @@ export default function Chat() {
               className={`rounded-2xl border p-3 text-sm ${message.role === 'assistant' ? 'border-cyan-500/20 bg-cyan-500/10 text-slate-100' : 'border-slate-800 bg-slate-900/90 text-slate-200'}`}
             >
               <p className="mb-1 text-xs uppercase tracking-[0.3em] text-slate-500">{message.role}</p>
-              <p className="whitespace-pre-wrap break-words">{message.content}</p>
+              {renderMessageContent(message.content)}
             </div>
           ))
         )}
