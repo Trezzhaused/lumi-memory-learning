@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package omnistream;
+
+message GenerationRequest {
+  repeated int32 prompt_tokens = 1;
+  int32 target_fps = 2;
+  int32 audio_sample_rate = 3;
+  int32 frame_count = 4;
+  int32 voice_id = 5;
+}
+
+message MediaStreamChunk {
+  bytes video_frame_bytes = 1;
+  bytes audio_pcm_bytes = 2;
+  bytes mesh_delta_bytes = 3;
+  int64 frame_index = 4;
+}
+
+service OmniStreamingEngine {
+  rpc GenerateMediaStream(GenerationRequest) returns (stream MediaStreamChunk);
+}
