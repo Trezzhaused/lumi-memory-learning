@@ -128,6 +128,14 @@ Body: { prompt }
 
 The Omni endpoints turn a single prompt into a shared-state production plan for text, image, audio, video, and 3D-oriented briefs. Each step uses Lumi's existing generation pipeline so you can evolve the workflow from a lightweight planning scaffold into a richer local-first pipeline as more backends become available.
 
+### Python Omni research prototype
+The repository also includes a prototype Python stack under [`omni/`](omni/) for a more training-focused architecture:
+- [`omni/cloudflare_r2_io.py`](omni/cloudflare_r2_io.py) streams multimodal chunks from Cloudflare R2 into an iterable dataset.
+- [`omni/omni_model_core.py`](omni/omni_model_core.py) defines the shared multimodal transformer backbone.
+- [`omni/distributed_train.py`](omni/distributed_train.py) provides a torchrun-compatible distributed training entrypoint.
+- [`omni/autonomous_infer.py`](omni/autonomous_infer.py) and [`omni/asset_exporters.py`](omni/asset_exporters.py) export generated tensors into video, mesh, and audio files.
+- [`omni/run_pipeline.py`](omni/run_pipeline.py) provides a single entrypoint that runs inference and writes the generated assets to disk.
+
 ### Voice / Speech
 ```
 POST /api/lumi/speech/transcribe

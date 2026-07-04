@@ -54,11 +54,11 @@ function normalizePrompt(prompt: string): string {
 
 function extractDurationSeconds(prompt: string): number {
     const normalized = prompt.toLowerCase();
-    const minuteMatch = normalized.match(/(\d+)\s*(m|min|mins|minute|minutes)/i);
+    const minuteMatch = normalized.match(/(\d+)\s*(m|min|mins|minute|minutes)\b/i);
     if (minuteMatch) {
         return Math.max(2, Number(minuteMatch[1]) * 60);
     }
-    const secondMatch = normalized.match(/(\d+)\s*(s|sec|secs|second|seconds)/i);
+    const secondMatch = normalized.match(/(\d+)\s*(s|sec|secs|second|seconds)\b/i);
     if (secondMatch) {
         return Math.max(2, Number(secondMatch[1]));
     }
@@ -66,7 +66,7 @@ function extractDurationSeconds(prompt: string): number {
 }
 
 function extractBpm(prompt: string): number {
-    const match = prompt.match(/(\d{2,3})\s*(bpm|beats per minute|tempo)/i);
+    const match = prompt.match(/(\d{2,3})\s*(bpm|beats per minute|tempo)\b/i);
     if (match) {
         return Math.max(60, Math.min(220, Number(match[1])));
     }
@@ -129,19 +129,19 @@ function buildSharedState(prompt: string): OmniSharedState {
 }
 
 function hasVisualIntent(prompt: string): boolean {
-    return /image|graphic|character|concept|poster|design|illustration|canvas|scene|visual|art|avatar|environment|style/.test(prompt);
+    return /image|graphic|character|concept|poster|design|illustration|canvas|scene|visual|art|avatar|environment|style/i.test(prompt);
 }
 
 function hasVideoIntent(prompt: string): boolean {
-    return /video|cinema|film|movie|animation|clip|scene|motion|sequence|camera|shot/.test(prompt);
+    return /video|cinema|film|movie|animation|clip|scene|motion|sequence|camera|shot/i.test(prompt);
 }
 
 function hasAudioIntent(prompt: string): boolean {
-    return /audio|music|sound|sfx|voice|score|beat|tempo|bpm|soundtrack/.test(prompt);
+    return /audio|music|sound|sfx|voice|score|beat|tempo|bpm|soundtrack/i.test(prompt);
 }
 
 function has3DIntent(prompt: string): boolean {
-    return /3d|three-dimensional|mesh|rig|model|blender|asset|character rig|environment model/.test(prompt);
+    return /3d|three-dimensional|mesh|rig|model|blender|asset|character rig|environment model/i.test(prompt);
 }
 
 function buildStepPrompt(step: OmniPlanStep, prompt: string, sharedState: OmniSharedState): string {
