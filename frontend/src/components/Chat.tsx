@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useChat } from '../hooks/useChat';
 
 const quickPrompts = [
@@ -52,10 +52,27 @@ function renderMessageContent(content: string) {
   );
 }
 
-export default function Chat() {
+type ChatProps = {
+  initialPrompt?: string;
+  focusInputSignal?: number;
+};
+
+export default function Chat({ initialPrompt = '', focusInputSignal = 0 }: ChatProps) {
   const { messages, sendMessage, stream } = useChat();
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(initialPrompt);
   const [isSending, setIsSending] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setInput(initialPrompt);
+  }, [initialPrompt]);
+
+  useEffect(() => {
+    if (focusInputSignal > 0) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [focusInputSignal]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -73,7 +90,7 @@ export default function Chat() {
   };
 
   return (
-    <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/60">
+    <section id="chat-panel" className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/60">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">Transcript-first chat</p>
@@ -129,6 +146,8 @@ export default function Chat() {
 
       <form className="flex flex-col gap-3 sm:flex-row" onSubmit={handleSubmit}>
         <input
+          id="chat-input"
+          ref={inputRef}
           className="flex-1 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none ring-0"
           placeholder="Ask LUMI to prototype, plan, or create"
           value={input}

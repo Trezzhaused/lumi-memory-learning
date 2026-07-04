@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import Chat from './components/Chat';
 import Canvas from './components/Canvas';
 import ImageUpload from './components/media/ImageUpload';
@@ -20,6 +21,24 @@ const statusItems = [
 ];
 
 export default function App() {
+  const [chatPrompt, setChatPrompt] = useState('');
+  const [chatFocusSignal, setChatFocusSignal] = useState(0);
+
+  const focusChat = () => {
+    setChatFocusSignal((value) => value + 1);
+    document.getElementById('chat-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const openMission = () => {
+    setChatPrompt('');
+    focusChat();
+  };
+
+  const runWorkflow = () => {
+    setChatPrompt('Draft a launch brief, inspect the current memory context, and prepare a release-ready storyboard with supporting media assets.');
+    focusChat();
+  };
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.16),_transparent_45%),linear-gradient(135deg,_#020617_0%,_#111827_100%)] text-slate-50">
       <Landing />
@@ -64,10 +83,16 @@ export default function App() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
-                <button className="rounded-full border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-semibold text-slate-100">
+                <button
+                  className="rounded-full border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-semibold text-slate-100"
+                  onClick={openMission}
+                >
                   Open mission
                 </button>
-                <button className="rounded-full bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950">
+                <button
+                  className="rounded-full bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950"
+                  onClick={runWorkflow}
+                >
                   Run workflow
                 </button>
               </div>
@@ -85,7 +110,7 @@ export default function App() {
           </section>
 
           <div className="grid gap-6 xl:grid-cols-[1.35fr_0.85fr]">
-            <Chat />
+            <Chat initialPrompt={chatPrompt} focusInputSignal={chatFocusSignal} />
             <div className="space-y-6">
               <section className="rounded-3xl border border-slate-800/80 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/60">
                 <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
