@@ -1,6 +1,7 @@
 import {promises as fs} from "node:fs";
 import path from "node:path";
 import {spawn} from "node:child_process";
+import {auditLog} from "./lumi-acam";
 
 export interface LocalExecutionResult {
     ok: boolean;
@@ -139,6 +140,15 @@ export function getExecutionPolicySnapshot(): {localToolExecutionEnabled: boolea
         allowedCommands: [...config.allowedCommands],
         remoteOwnerRuntime: getRemoteOwnerRuntimeStatus(),
     };
+}
+
+export function buildApprovalPrompt(action: string, source: ToolExecutionSource = "local", details?: Record<string, unknown>): string {
+    const normalizedAction = (action || "").trim() || "action";
+    const sourceLabel = source === "browser" ? "browser" : source === "cloud" ? "cloud" : "local";
+    const detailSummary = details && Object.keys(details).length
+        ? ` Details: ${JSON.stringify(details)}.`
+        : "";
+    return `Approval required for ${sourceLabel} action "${normalizedAction}".${detailSummary} Review the request, inspect the scope, and confirm before proceeding.`;
 }
 
 export function evaluateNonHumanTouchCriteria(
@@ -501,7 +511,22 @@ export async function dispatchToRemoteOwnerRuntime(request: RuntimeActionRequest
 
 export async function executeApprovedAction(request: RuntimeActionRequest): Promise<LocalExecutionResult> {
     const policy = evaluateToolExecutionPolicy(request.action, request.source || "local");
+    const approvalGranted = request.parameters?.approved === true
+        || request.parameters?.approval === true
+        || request.parameters?.approvedByOwner === true;
+    const userId = request.sessionId || "system";
+
     if (!policy.allowed) {
+        auditLog.log(userId, "other", {
+            resource: `tool-execution:${request.action}`,
+            details: {
+                action: request.action,
+                source: request.source || "local",
+                approved: approvalGranted,
+                policyReason: policy.reason,
+            },
+            success: false,
+        });
         return {
             ok: false,
             blocked: true,
@@ -510,11 +535,35 @@ export async function executeApprovedAction(request: RuntimeActionRequest): Prom
         };
     }
 
-    if (request.action === "remote-owner-runtime") {
-        return dispatchToRemoteOwnerRuntime(request);
+    if (policy.requiresApproval && !approvalGranted) {
+        const prompt = buildApprovalPrompt(request.action, request.source || "local", {
+            action: request.action,
+            source: request.source || "local",
+            sessionId: request.sessionId,
+        });
+        auditLog.log(userId, "other", {
+            resource: `tool-execution:${request.action}`,
+            details: {
+                action: request.action,
+                source: request.source || "local",
+                approved: false,
+                prompt,
+            },
+            success: false,
+        });
+        return {
+            ok: false,
+            blocked: true,
+            message: prompt,
+            requiresApproval: true,
+        };
     }
 
-    if (request.action === "write-file") {
+    let result: LocalExecutionResult;
+
+    if (request.action === "remote-owner-runtime") {
+        result = await dispatchToRemoteOwnerRuntime(request);
+    } else if (request.action === "write-file") {
         const relativePath = typeof request.parameters?.relativePath === "string"
             ? request.parameters.relativePath
             : "";
@@ -522,29 +571,25 @@ export async function executeApprovedAction(request: RuntimeActionRequest): Prom
             ? request.parameters.content
             : "";
         if (!relativePath) {
-            return {ok: false, blocked: true, message: "relativePath is required for write-file actions."};
+            result = {ok: false, blocked: true, message: "relativePath is required for write-file actions."};
+        } else {
+            result = await writeWorkspaceFile(relativePath, content);
         }
-        return writeWorkspaceFile(relativePath, content);
-    }
-
-    if (request.action === "create-directory") {
+    } else if (request.action === "create-directory") {
         const relativePath = typeof request.parameters?.relativePath === "string"
             ? request.parameters.relativePath
             : "";
         if (!relativePath) {
-            return {ok: false, blocked: true, message: "relativePath is required for create-directory actions."};
+            result = {ok: false, blocked: true, message: "relativePath is required for create-directory actions."};
+        } else {
+            result = await createWorkspaceDirectory(relativePath);
         }
-        return createWorkspaceDirectory(relativePath);
-    }
-
-    if (request.action === "list-directory") {
+    } else if (request.action === "list-directory") {
         const relativePath = typeof request.parameters?.relativePath === "string"
             ? request.parameters.relativePath
             : ".";
-        return listWorkspaceDirectory(relativePath);
-    }
-
-    if (request.action === "run-command") {
+        result = await listWorkspaceDirectory(relativePath);
+    } else if (request.action === "run-command") {
         const command = typeof request.parameters?.command === "string"
             ? request.parameters.command
             : "";
@@ -552,12 +597,11 @@ export async function executeApprovedAction(request: RuntimeActionRequest): Prom
             ? request.parameters.args
             : [];
         if (!command) {
-            return {ok: false, blocked: true, message: "command is required for run-command actions."};
+            result = {ok: false, blocked: true, message: "command is required for run-command actions."};
+        } else {
+            result = await runWorkspaceCommand(command, args, {cwd: typeof request.parameters?.cwd === "string" ? request.parameters.cwd : undefined});
         }
-        return runWorkspaceCommand(command, args, {cwd: typeof request.parameters?.cwd === "string" ? request.parameters.cwd : undefined});
-    }
-
-    if (request.action === "run-example-script") {
+    } else if (request.action === "run-example-script") {
         const scriptName = typeof request.parameters?.scriptName === "string"
             ? request.parameters.scriptName
             : "";
@@ -565,10 +609,26 @@ export async function executeApprovedAction(request: RuntimeActionRequest): Prom
             ? request.parameters.args
             : [];
         if (!scriptName) {
-            return {ok: false, blocked: true, message: "scriptName is required for run-example-script actions."};
+            result = {ok: false, blocked: true, message: "scriptName is required for run-example-script actions."};
+        } else {
+            result = await runExampleScript(scriptName, {cwd: typeof request.parameters?.cwd === "string" ? request.parameters.cwd : undefined, args});
         }
-        return runExampleScript(scriptName, {cwd: typeof request.parameters?.cwd === "string" ? request.parameters.cwd : undefined, args});
+    } else {
+        result = {ok: false, blocked: true, message: `Unsupported action: ${request.action}`};
     }
 
-    return {ok: false, blocked: true, message: `Unsupported action: ${request.action}`};
+    auditLog.log(userId, "other", {
+        resource: `tool-execution:${request.action}`,
+        details: {
+            action: request.action,
+            source: request.source || "local",
+            approved: approvalGranted,
+            result: result.message,
+            ok: result.ok,
+            blocked: result.blocked,
+        },
+        success: result.ok,
+    });
+
+    return result;
 }

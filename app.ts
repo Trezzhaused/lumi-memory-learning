@@ -27,7 +27,7 @@ import {classifyText} from "./lumi-classification";
 import {runLocalStudioPipeline} from "./lumi-local-studio";
 import {buildAutonomyPlan, buildComparativeResearchContext, buildSelfDirectedDirective, executeSelfDirectedDirective} from "./lumi-autonomy";
 import {generateUserGuide, ingestFile} from "./lumi-ingestion";
-import {evaluateToolExecutionPolicy, executeApprovedAction, getExecutionPolicySnapshot, getRemoteOwnerRuntimeStatus} from "./lumi-tools";
+import {buildApprovalPrompt, evaluateToolExecutionPolicy, executeApprovedAction, getExecutionPolicySnapshot, getRemoteOwnerRuntimeStatus} from "./lumi-tools";
 import {buildPublicChatResponse, enforceBilling, getBillingLedger, getTenantScriptPath, registerTenant, upgradeBilling} from "./lumi-tenant";
 
 // ============================================================================
@@ -230,16 +230,25 @@ lumiRouter.post("/bridge/execute", async (req: Request, res: Response, next: Nex
             ? req.body.source
             : "cloud";
         const policy = evaluateToolExecutionPolicy(action, source);
+        const sessionId = req.body?.sessionId || (req.headers["x-session-id"] as string | undefined) || "default";
         if (!policy.allowed) {
             res.status(403).json({error: policy.reason || "Action denied by policy.", requiresApproval: policy.requiresApproval});
+            return;
+        }
+        if (policy.requiresApproval && req.body?.approved !== true) {
+            const approvalPrompt = buildApprovalPrompt(action, source, {sessionId, source});
+            res.status(403).json({error: policy.reason || "Action requires explicit approval.", requiresApproval: true, approvalPrompt});
             return;
         }
 
         const result = await executeApprovedAction({
             action,
-            parameters: req.body?.parameters || {},
+            parameters: {
+                ...(req.body?.parameters || {}),
+                approved: req.body?.approved === true,
+            },
             source,
-            sessionId: req.body?.sessionId || (req.headers["x-session-id"] as string | undefined) || "default",
+            sessionId,
         });
         res.json(result);
     } catch (err) { next(err); }

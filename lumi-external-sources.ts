@@ -1,3 +1,4 @@
+import {auditLog} from "./lumi-acam";
 import {extractNormalizedSelectorValue} from "./lumi-selector-utils";
 
 export interface ExternalBrowserSourceSelectorRecord {
@@ -678,6 +679,17 @@ function isAutomationConfigured(): boolean {
     );
 }
 
+function recordExternalBrowserAudit(sourceId: string, outcome: "success" | "failure", details: Record<string, unknown> = {}): void {
+    auditLog.log("system", "other", {
+        resource: `external-browser:${sourceId}`,
+        details: {
+            outcome,
+            ...details,
+        },
+        success: outcome === "success",
+    });
+}
+
 function getAutomationEndpoint(): string | null {
     const raw = process.env.EXTERNAL_BROWSER_PROXY_URL || process.env.EXTERNAL_BROWSER_API_URL || "";
     if (!raw) return null;
@@ -697,23 +709,27 @@ export async function queryExternalBrowserSource(
 ): Promise<ExternalBrowserSourceQueryResult> {
     const normalizedSourceId = normalizeExternalSourceId(sourceId);
     if (!normalizedSourceId || !isKnownExternalSource(normalizedSourceId)) {
+        const error = `Unknown external browser source: ${normalizedSourceId || "<empty>"}`;
+        recordExternalBrowserAudit(getSourceIdForError(sourceId), "failure", {reason: "unknown-source", error});
         return {
             sourceId: getSourceIdForError(sourceId),
             ok: false,
             status: 404,
             usedBackend: "manual",
-            error: `Unknown external browser source: ${normalizedSourceId || "<empty>"}`,
+            error,
         };
     }
 
     const endpoint = getAutomationEndpoint();
     if (!endpoint) {
+        const error = "No browser automation endpoint is configured. Set EXTERNAL_BROWSER_PROXY_URL or EXTERNAL_BROWSER_API_URL.";
+        recordExternalBrowserAudit(normalizedSourceId, "failure", {reason: "missing-endpoint", error});
         return {
             sourceId: normalizedSourceId,
             ok: false,
             status: 503,
             usedBackend: "manual",
-            error: "No browser automation endpoint is configured. Set EXTERNAL_BROWSER_PROXY_URL or EXTERNAL_BROWSER_API_URL.",
+            error,
         };
     }
 
@@ -734,12 +750,14 @@ export async function queryExternalBrowserSource(
             }),
         });
     } catch (error) {
+        const errorMessage = `Automation request failed while contacting the configured browser automation endpoint: ${error instanceof Error ? error.message : "unknown error"}`;
+        recordExternalBrowserAudit(normalizedSourceId, "failure", {reason: "request-error", error: errorMessage, endpoint});
         return {
             sourceId: normalizedSourceId,
             ok: false,
             status: 502,
             usedBackend: "proxy",
-            error: `Automation request failed while contacting the configured browser automation endpoint: ${error instanceof Error ? error.message : "unknown error"}`,
+            error: errorMessage,
         };
     }
 
@@ -755,6 +773,7 @@ export async function queryExternalBrowserSource(
         const errorMessage = extractStringValue(parsedBody, ["error", "message", "detail"])
             || extractStringValue(bodyText, ["error", "message", "detail"])
             || `Automation request failed with status ${response.status}`;
+        recordExternalBrowserAudit(normalizedSourceId, "failure", {reason: "http-error", status: response.status, error: errorMessage});
         return {
             sourceId: normalizedSourceId,
             ok: false,
@@ -768,12 +787,14 @@ export async function queryExternalBrowserSource(
     try {
         payload = bodyText ? JSON.parse(bodyText) : null;
     } catch (error) {
+        const errorMessage = `Automation response was not valid JSON: ${error instanceof Error ? error.message : "unknown error"}`;
+        recordExternalBrowserAudit(normalizedSourceId, "failure", {reason: "invalid-json", status: response.status, error: errorMessage});
         return {
             sourceId: normalizedSourceId,
             ok: false,
             status: response.status,
             usedBackend: "proxy",
-            error: `Automation response was not valid JSON: ${error instanceof Error ? error.message : "unknown error"}`,
+            error: errorMessage,
         };
     }
 
@@ -781,15 +802,18 @@ export async function queryExternalBrowserSource(
     const content = extractStringValue(payload, ["content", "text", "result", "output", "answer"]);
 
     if (errorMessage || payload?.ok === false || payload?.success === false) {
+        const error = errorMessage || "Automation endpoint returned an error payload";
+        recordExternalBrowserAudit(normalizedSourceId, "failure", {reason: "proxy-error", status: typeof payload?.status === "number" ? payload.status : response.status, error});
         return {
             sourceId: normalizedSourceId,
             ok: false,
             status: typeof payload?.status === "number" ? payload.status : response.status,
             usedBackend: "proxy",
-            error: errorMessage || "Automation endpoint returned an error payload",
+            error,
         };
     }
 
+    recordExternalBrowserAudit(normalizedSourceId, "success", {status: response.status, contentLength: content?.length || 0});
     return {
         sourceId: normalizedSourceId,
         ok: true,

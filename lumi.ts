@@ -22,7 +22,7 @@
 
 import {ConversationManager, ConversationSession, ConversationMessage} from "./lumi-conversation";
 import {remember, recall, search as memSearch, getMemoryStorageStatus} from "./lumi-memory";
-import {checkContentSafety, AcamConfig, defaultAcamConfig} from "./lumi-acam";
+import {checkContentSafety, AcamConfig, auditLog, defaultAcamConfig} from "./lumi-acam";
 import {generate, GenerationRequest} from "./lumi-generators";
 import {getArtifactStorageStatus} from "./lumi-storage";
 import {existsSync, mkdirSync, promises as fs, readdirSync, readFileSync, writeFileSync} from "node:fs";
@@ -772,6 +772,18 @@ function emitMissionEvent(mission: MissionStatus, message: string, detail?: stri
     persistMissionStore();
 }
 
+function logMissionAudit(mission: MissionStatus, action: string, details: Record<string, unknown> = {}, success = true): void {
+    auditLog.log("system", "other", {
+        resource: `mission:${mission.id}`,
+        details: {
+            action,
+            missionStatus: mission.status,
+            ...details,
+        },
+        success,
+    });
+}
+
 function captureMissionArtifact(mission: MissionStatus, artifact: MissionArtifactSummary): void {
     mission.artifacts.push(artifact);
     persistMissionStore();
@@ -1101,6 +1113,10 @@ export async function bootMission(prompt: string): Promise<MissionBootResult> {
     missions.set(missionId, mission);
     persistMissionStore();
     emitMissionEvent(mission, "Mission booted", `Planning ${plan.length} work item(s).`, "status");
+    logMissionAudit(mission, policy.requiresApproval ? "booted-awaiting-approval" : "booted", {
+        promptPreview: prompt.slice(0, 160),
+        stepCount: plan.length,
+    }, true);
     if (!policy.requiresApproval) {
         void processMissionQueue();
     }
@@ -1132,6 +1148,7 @@ export function approveMission(missionId: string): MissionStatus {
     mission.status = "pending";
     mission.updatedAt = new Date().toISOString();
     emitMissionEvent(mission, "Mission approved by supervisor", "Execution resumed.", "status");
+    logMissionAudit(mission, "approved", {approvedBy: "supervisor"}, true);
     persistMissionStore();
     void processMissionQueue();
     return mission;
@@ -1148,6 +1165,7 @@ export function resumeMission(missionId: string): MissionStatus {
     mission.updatedAt = new Date().toISOString();
     mission.lastHeartbeatAt = new Date().toISOString();
     mission.completedAt = undefined;
+    logMissionAudit(mission, "resumed", {resumeReason: "manual"}, true);
     mission.plan.forEach(step => {
         if (step.status === "failed" || step.status === "blocked" || step.status === "retrying" || step.status === "running") {
             step.status = "planned";
@@ -1186,6 +1204,7 @@ async function processMissionQueue(): Promise<void> {
                 mission.status = "stalled";
                 mission.updatedAt = new Date().toISOString();
                 emitMissionEvent(mission, "Mission stalled", "No heartbeat detected; resuming on the next worker cycle.", "status");
+                logMissionAudit(mission, "stalled", {reason: "heartbeat-timeout"}, false);
                 await executeMissionAsync(mission);
                 break;
             }
@@ -1258,6 +1277,7 @@ export async function executeMissionAsync(mission: MissionStatus): Promise<void>
             emitMissionEvent(mission, `Task failed: ${step.title}`, error?.message || "unknown failure", "status");
             mission.lastHeartbeatAt = new Date().toISOString();
             mission.updatedAt = new Date().toISOString();
+            logMissionAudit(mission, "step-failed", {stepId: step.id, stepTitle: step.title, error: error?.message || "unknown failure"}, false);
             persistMissionStore();
             await recordMissionLearning(mission, step, output, "retry");
             break;
@@ -1273,6 +1293,7 @@ export async function executeMissionAsync(mission: MissionStatus): Promise<void>
             }
             mission.status = step.status === "retrying" ? "retrying" : "failed";
             emitMissionEvent(mission, `Retrying task: ${step.title}`, "Evaluator requested a retry.", "status");
+            logMissionAudit(mission, step.status === "retrying" ? "retrying-step" : "step-retry-exhausted", {stepId: step.id, stepTitle: step.title, decision}, step.status === "retrying" ? true : false);
             await recordMissionLearning(mission, step, output, decision);
             if (step.status === "retrying") {
                 index -= 1;
@@ -1317,6 +1338,7 @@ export async function executeMissionAsync(mission: MissionStatus): Promise<void>
             }
             mission.status = "blocked";
             emitMissionEvent(mission, `Blocked task: ${step.title}`, "Evaluator requested a stop.", "status");
+            logMissionAudit(mission, "blocked", {stepId: step.id, stepTitle: step.title, decision}, false);
             await recordMissionLearning(mission, step, output, decision);
             break;
         }
@@ -1343,6 +1365,11 @@ export async function executeMissionAsync(mission: MissionStatus): Promise<void>
     }
     mission.updatedAt = new Date().toISOString();
     emitMissionEvent(mission, mission.status === "completed" ? "Mission completed" : mission.status === "failed" ? "Mission failed" : "Mission stopped", mission.summary, "status");
+    logMissionAudit(mission, mission.status === "completed" ? "completed" : mission.status === "failed" ? "failed" : "stopped", {
+        progressPercent: mission.progress.percent,
+        completedSteps: mission.progress.completed,
+        erroredSteps: mission.progress.errored,
+    }, mission.status === "completed");
 }
 
 export function getPipelineStatus(missionId: string): MissionStatus {
