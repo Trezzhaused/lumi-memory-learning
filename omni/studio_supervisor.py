@@ -28,6 +28,7 @@ class StudioSupervisorEngine:
                 "voice_id": voice_id,
                 "camera_movement": camera,
                 "format": "MP4",
+                "prompt_text": prompt,
             }
             self.production_queue.put(job_manifest)
             print(f" -> Scheduled Scene #{scene_idx} | Voice Profile: {voice_id} | Move: {camera}")
