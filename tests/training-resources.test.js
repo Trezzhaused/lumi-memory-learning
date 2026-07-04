@@ -39,6 +39,14 @@ test("training resource analysis resolves GitHub URLs and repo-style selectors",
   assert.deepEqual(fromObject.resources.map(resource => resource.id), ["gpt-oss"]);
 });
 
+test("training resource analysis resolves Hugging Face URLs with repository suffixes", () => {
+  const fromTreeUrl = buildTrainingResourceAnalysis({resources: "https://huggingface.co/wikeeyang/UniWorld-V1-NF4/tree/main"});
+  const fromResolveUrl = buildTrainingResourceAnalysis({resources: "https://huggingface.co/cyankiwi/Qwen3-Omni-30B-A3B-Thinking-AWQ-8bit/resolve/main/README.md"});
+
+  assert.deepEqual(fromTreeUrl.resources.map(resource => resource.id), ["uniworld-v1-nf4"]);
+  assert.deepEqual(fromResolveUrl.resources.map(resource => resource.id), ["qwen3-omni-30b-a3b-thinking-awq-8bit"]);
+});
+
 test("training resource analysis accepts nested object selectors", () => {
   const analysis = buildTrainingResourceAnalysis({resources: [{resource: {resourceId: "YUANBAO"}}]});
 

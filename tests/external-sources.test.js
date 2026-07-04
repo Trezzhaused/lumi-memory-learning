@@ -27,6 +27,14 @@ test("external browser source planning resolves GitHub URLs and repo-style selec
   assert.deepEqual(fromObject.sources.map(source => source.id), ["sharegpt-4o-image"]);
 });
 
+test("external browser source planning resolves Hugging Face URLs with repository suffixes", () => {
+  const fromTreeUrl = planExternalBrowserSources("https://huggingface.co/wikeeyang/UniWorld-V1-NF4/tree/main");
+  const fromResolveUrl = planExternalBrowserSources("https://huggingface.co/cyankiwi/Qwen3-Omni-30B-A3B-Thinking-AWQ-8bit/resolve/main/README.md");
+
+  assert.deepEqual(fromTreeUrl.requestedSources, ["uniworld-v1-nf4"]);
+  assert.deepEqual(fromResolveUrl.requestedSources, ["qwen3-omni-30b-a3b-thinking-awq-8bit"]);
+});
+
 test("free Hugging Face media model repositories are catalogued", () => {
   const sources = getExternalBrowserSources();
   const locateAnything = sources.find(source => source.id === "locateanything-3b");

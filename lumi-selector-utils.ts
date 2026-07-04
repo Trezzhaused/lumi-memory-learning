@@ -24,6 +24,10 @@ export function normalizeSelectorStringValue(value: string): string {
         return `github:${parts[1]}/${parts[2]}`;
     }
 
+    if (parts[0] === "huggingface.co" && parts[1] && parts[2]) {
+        return `huggingface:${parts[1]}/${parts[2]}`;
+    }
+
     if (parts.length === 2 && !parts[0].includes(".") && !parts[1].includes(".")) {
         return `github:${parts[0]}/${parts[1]}`;
     }
