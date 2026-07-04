@@ -42,9 +42,14 @@ export default function ImageUpload() {
 
   return (
     <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/60">
-      <div className="mb-4">
-        <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">Image upload</p>
-        <h2 className="text-2xl font-semibold">Multimodal prompts</h2>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm uppercase tracking-[0.3em] text-cyan-400">Image upload</p>
+          <h2 className="text-2xl font-semibold">Multimodal prompts</h2>
+        </div>
+        <span className="rounded-full border border-slate-700 bg-slate-950/70 px-3 py-1 text-sm text-slate-300">
+          Visual
+        </span>
       </div>
 
       <div
@@ -66,7 +71,7 @@ export default function ImageUpload() {
       {preview ? (
         <img className="mt-4 h-56 w-full rounded-2xl object-cover" src={preview} alt="Uploaded preview" />
       ) : (
-        <p className="mt-4 text-sm text-slate-400">Upload an image to add it to the chat context.</p>
+        <p className="mt-4 text-sm text-slate-400">Upload an image to add it to the chat context and keep it beside the transcript.</p>
       )}
     </section>
   );
