@@ -35,7 +35,7 @@ export interface TrainingResourceAnalysisRequest {
 }
 
 function normalizeTrainingResourceId(resourceId: unknown): string {
-    return extractNormalizedSelectorValue(resourceId, ["id", "resourceId", "resource", "resourceValue", "value"]);
+    return extractNormalizedSelectorValue(resourceId, ["id", "resourceId", "resource", "resourceValue", "url", "value"]);
 }
 
 function normalizeTrainingResourceIds(resourceIds: unknown): string[] {
@@ -359,12 +359,27 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
     },
 ];
 
+function buildTrainingResourceLookup(resources: TrainingResource[]): Map<string, TrainingResource> {
+    const resourcesByReference = new Map<string, TrainingResource>();
+
+    for (const resource of resources) {
+        for (const reference of [resource.id, resource.url]) {
+            const normalizedReference = normalizeTrainingResourceId(reference);
+            if (normalizedReference) {
+                resourcesByReference.set(normalizedReference, resource);
+            }
+        }
+    }
+
+    return resourcesByReference;
+}
+
 export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisRequest = {}): TrainingResourceAnalysis {
     const requestedResourceIds = normalizeTrainingResourceIds(req.resources);
-    const resourcesById = new Map(DEFAULT_RESOURCES.map(resource => [normalizeTrainingResourceId(resource.id), resource]));
+    const resourcesByReference = buildTrainingResourceLookup(DEFAULT_RESOURCES);
     const selectedResources = requestedResourceIds.length > 0
         ? requestedResourceIds
-            .map(resourceId => resourcesById.get(resourceId))
+            .map(resourceId => resourcesByReference.get(resourceId))
             .filter((resource): resource is TrainingResource => Boolean(resource))
         : DEFAULT_RESOURCES;
 

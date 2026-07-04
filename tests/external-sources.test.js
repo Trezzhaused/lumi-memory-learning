@@ -16,6 +16,17 @@ test("Yuanbao is catalogued as the Tencent browser source", () => {
   assert.equal(yuanbao.backend, "browser-automation");
 });
 
+test("external browser source planning resolves GitHub URLs and repo-style selectors", () => {
+  const fromUrl = planExternalBrowserSources("https://github.com/FreedomIntelligence/ShareGPT-4o-Image");
+  const fromSlug = planExternalBrowserSources("FreedomIntelligence/ShareGPT-4o-Image");
+  const fromObject = planExternalBrowserSources([{url: "https://github.com/FreedomIntelligence/ShareGPT-4o-Image"}]);
+
+  assert.deepEqual(fromUrl.requestedSources, ["sharegpt-4o-image"]);
+  assert.deepEqual(fromSlug.requestedSources, ["sharegpt-4o-image"]);
+  assert.deepEqual(fromObject.requestedSources, ["sharegpt-4o-image"]);
+  assert.deepEqual(fromObject.sources.map(source => source.id), ["sharegpt-4o-image"]);
+});
+
 test("free Hugging Face media model repositories are catalogued", () => {
   const sources = getExternalBrowserSources();
   const locateAnything = sources.find(source => source.id === "locateanything-3b");

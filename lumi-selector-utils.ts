@@ -7,10 +7,33 @@ function normalizeSelectorKey(value: string): string {
     return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
+export function normalizeSelectorStringValue(value: string): string {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+
+    const withoutFragment = trimmed.split("?")[0].split("#")[0] || trimmed;
+    const cleaned = withoutFragment.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/+$/, "").trim();
+    const normalized = cleaned.toLowerCase();
+    if (!normalized) return "";
+
+    if (normalized.startsWith("github:")) return normalized;
+    if (normalized.startsWith("huggingface:")) return normalized;
+
+    const parts = normalized.split("/").filter(Boolean);
+    if (parts[0] === "github.com" && parts[1] && parts[2]) {
+        return `github:${parts[1]}/${parts[2]}`;
+    }
+
+    if (parts.length === 2 && !parts[0].includes(".") && !parts[1].includes(".")) {
+        return `github:${parts[0]}/${parts[1]}`;
+    }
+
+    return normalized;
+}
+
 function normalizeSelectorCandidate(candidate: unknown, aliases: string[]): string {
     if (typeof candidate === "string") {
-        const normalized = candidate.trim().toLowerCase();
-        return normalized;
+        return normalizeSelectorStringValue(candidate);
     }
 
     if (typeof candidate === "number" || typeof candidate === "boolean") {

@@ -515,7 +515,7 @@ const DEFAULT_EXTERNAL_SOURCES: ExternalBrowserSource[] = [
 ];
 
 function normalizeExternalSourceId(sourceId: unknown): string {
-    return extractNormalizedSelectorValue(sourceId, ["id", "sourceId", "source", "sourceValue", "value"]);
+    return extractNormalizedSelectorValue(sourceId, ["id", "sourceId", "source", "sourceValue", "url", "value"]);
 }
 
 function normalizeExternalSourceIds(sourceIds: unknown): string[] {
@@ -539,9 +539,24 @@ function getSourceIdForError(sourceId: unknown): string {
     return normalizedSourceId || (typeof sourceId === "string" ? sourceId : "");
 }
 
+function buildExternalSourceLookup(sources: ExternalBrowserSource[] = DEFAULT_EXTERNAL_SOURCES): Map<string, ExternalBrowserSource> {
+    const sourcesByReference = new Map<string, ExternalBrowserSource>();
+
+    for (const source of sources) {
+        for (const reference of [source.id, source.url]) {
+            const normalizedReference = normalizeExternalSourceId(reference);
+            if (normalizedReference) {
+                sourcesByReference.set(normalizedReference, source);
+            }
+        }
+    }
+
+    return sourcesByReference;
+}
+
 function isKnownExternalSource(sourceId: unknown): boolean {
     const normalizedSourceId = normalizeExternalSourceId(sourceId);
-    return DEFAULT_EXTERNAL_SOURCES.some(source => source.id === normalizedSourceId);
+    return buildExternalSourceLookup().has(normalizedSourceId);
 }
 
 function hasExplicitExternalSourceSelection(requestedSources: unknown): boolean {
@@ -557,7 +572,17 @@ function hasExplicitExternalSourceSelection(requestedSources: unknown): boolean 
 }
 
 function getKnownRequestedSources(requestedSources: unknown): string[] {
-    return normalizeExternalSourceIds(requestedSources).filter(sourceId => isKnownExternalSource(sourceId));
+    const requestedSourceIds = normalizeExternalSourceIds(requestedSources);
+    const sourcesByReference = buildExternalSourceLookup();
+
+    return Array.from(new Set(
+        requestedSourceIds
+            .map(sourceId => {
+                const normalizedSourceId = normalizeExternalSourceId(sourceId);
+                return sourcesByReference.get(normalizedSourceId)?.id ?? (isKnownExternalSource(sourceId) ? normalizedSourceId : undefined);
+            })
+            .filter((sourceId): sourceId is string => Boolean(sourceId))
+    ));
 }
 
 function safeParseJson(value: string): unknown {

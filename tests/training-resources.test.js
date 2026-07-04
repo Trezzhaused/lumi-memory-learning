@@ -29,6 +29,16 @@ test("training resource analysis accepts object selectors with resourceId proper
   assert.deepEqual(analysis.resources.map(resource => resource.id), ["yuanbao"]);
 });
 
+test("training resource analysis resolves GitHub URLs and repo-style selectors", () => {
+  const fromUrl = buildTrainingResourceAnalysis({resources: "https://github.com/FreedomIntelligence/ShareGPT-4o-Image"});
+  const fromSlug = buildTrainingResourceAnalysis({resources: "FreedomIntelligence/ShareGPT-4o-Image"});
+  const fromObject = buildTrainingResourceAnalysis({resources: [{url: "https://github.com/openai/gpt-oss"}]});
+
+  assert.deepEqual(fromUrl.resources.map(resource => resource.id), ["sharegpt-4o-image"]);
+  assert.deepEqual(fromSlug.resources.map(resource => resource.id), ["sharegpt-4o-image"]);
+  assert.deepEqual(fromObject.resources.map(resource => resource.id), ["gpt-oss"]);
+});
+
 test("training resource analysis accepts nested object selectors", () => {
   const analysis = buildTrainingResourceAnalysis({resources: [{resource: {resourceId: "YUANBAO"}}]});
 
