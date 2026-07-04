@@ -82,7 +82,7 @@ export const conversationManager = new ConversationManager();
 
 export interface LumiChatRequest {
     message: string;
-    history?: Array<{role: string; content: string}>;
+    history?: Array<{role: string; content: string; metadata?: Record<string, unknown>}>;
     missionId?: string | null;
     useOllama?: boolean;
     ollamaModel?: string | null;
@@ -282,6 +282,8 @@ type LumiConversationMessage = {
     role: string;
     content: string;
     metadata?: Record<string, unknown>;
+    reasoningDetails?: unknown[];
+    reasoning_details?: unknown[];
 };
 
 function normalizeOpenRouterRole(role: string): "assistant" | "developer" | "system" | "tool" | "user" {
@@ -299,17 +301,24 @@ function normalizeOpenRouterRole(role: string): "assistant" | "developer" | "sys
     }
 }
 
-function createOpenRouterHistoryMessages(messages: LumiConversationMessage[]): Array<{role: string; content: string; reasoningDetails?: unknown[]}> {
+function createOpenRouterHistoryMessages(messages: LumiConversationMessage[]): Array<{role: string; content: string; reasoningDetails?: unknown[]; reasoning_details?: unknown[]}> {
     return messages
         .filter(message => typeof message.content === "string")
         .map(message => {
-            const reasoningDetails = Array.isArray(message.metadata?.reasoningDetails)
+            const metadataReasoningDetails = Array.isArray(message.metadata?.reasoningDetails)
                 ? message.metadata.reasoningDetails as unknown[]
                 : undefined;
+            const explicitReasoningDetails = Array.isArray(message.reasoningDetails)
+                ? message.reasoningDetails
+                : undefined;
+            const reasoningDetails = explicitReasoningDetails ?? metadataReasoningDetails ??
+                (Array.isArray(message.metadata?.reasoning_details)
+                    ? message.metadata.reasoning_details as unknown[]
+                    : undefined);
             return {
                 role: normalizeOpenRouterRole(message.role),
                 content: message.content,
-                ...(reasoningDetails ? {reasoningDetails} : {}),
+                ...(reasoningDetails ? {reasoning_details: reasoningDetails} : {}),
             };
         });
 }
@@ -324,7 +333,7 @@ function resolveOpenRouterReasoning(req: LumiChatRequest, model: string): OpenRo
 }
 
 async function openRouterChat(
-    messages: Array<{role: string; content: string; reasoningDetails?: unknown[]}>,
+    messages: Array<{role: string; content: string; reasoningDetails?: unknown[]; reasoning_details?: unknown[]}>,
     model: string,
     reasoning?: OpenRouterReasoningConfig,
 ): Promise<{text: string; reasoningDetails?: unknown[]}> {
@@ -554,7 +563,7 @@ export async function lumiChat(
     }
 
     const historyMessages = (req.history && req.history.length > 0)
-        ? createOpenRouterHistoryMessages(req.history.map(message => ({role: message.role, content: message.content})))
+        ? createOpenRouterHistoryMessages(req.history.map(message => ({role: message.role, content: message.content, metadata: message.metadata})))
         : (sessionId
             ? createOpenRouterHistoryMessages(
                 conversationManager.getContextWindow(sessionId, {includeSystem: false, maxMessages: 24}).map(message => ({
@@ -564,7 +573,7 @@ export async function lumiChat(
                 }))
             )
             : []);
-    const messages: Array<{role: string; content: string; reasoningDetails?: unknown[]}> = [
+    const messages: Array<{role: string; content: string; reasoningDetails?: unknown[]; reasoning_details?: unknown[]}> = [
         {role: "system", content: systemPrompt},
         ...historyMessages,
         {role: "user", content: req.message},
@@ -660,6 +669,7 @@ export async function getModelCascade(): Promise<ModelCascadeEntry[]> {
         {id: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", provider: "openrouter", label: "NVIDIA Nemotron Nano Omni (Reasoning, Free)", free: true, contextWindow: 32768},
         {id: "mistralai/mistral-7b-instruct:free", provider: "openrouter", label: "Mistral 7B (Free)", free: true, contextWindow: 32768},
         {id: "mistralai/devstral-small:free",      provider: "openrouter", label: "Devstral Small — Code (Free)", free: true, contextWindow: 32768},
+        {id: "google/gemma-4-26b-a4b-it:free",     provider: "openrouter", label: "Gemma 4 26B A4B (Free)", free: true, contextWindow: 32768},
         {id: "google/gemma-3-4b-it:free",          provider: "openrouter", label: "Gemma 3 4B (Free)", free: true, contextWindow: 8192},
         {id: "meta-llama/llama-3.2-3b-instruct:free", provider: "openrouter", label: "Llama 3.2 3B (Free)", free: true, contextWindow: 131072},
         {id: "poolside/laguna-xs-2.1:free",        provider: "openrouter", label: "Poolside Laguna XS 2.1 (Free)", free: true, contextWindow: 32768},

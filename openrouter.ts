@@ -1,6 +1,6 @@
 import {withRetry} from "./lumi-runtime";
 
-type OpenRouterMessage = { role: string; content: string; reasoningDetails?: unknown[] };
+type OpenRouterMessage = { role: string; content: string; reasoningDetails?: unknown[]; reasoning_details?: unknown[] };
 
 export interface OpenRouterReasoningConfig {
     effort?: "low" | "medium" | "high" | "max" | "minimal" | "none" | "xhigh";
@@ -38,6 +38,16 @@ function normalizeReasoningConfig(reasoning?: boolean | OpenRouterReasoningConfi
     return reasoning;
 }
 
+function extractReasoningDetails(message: OpenRouterMessage): unknown[] | undefined {
+    const details = message.reasoningDetails ?? message.reasoning_details;
+    return Array.isArray(details) ? details : undefined;
+}
+
+function extractResponseReasoningDetails(responseMessage: any): unknown[] | undefined {
+    const details = responseMessage?.reasoning_details ?? responseMessage?.reasoningDetails;
+    return Array.isArray(details) ? details : undefined;
+}
+
 export async function callOpenRouterChat(
     messages: OpenRouterMessage[],
     model: string,
@@ -70,11 +80,14 @@ export async function callOpenRouterChatDetailed(
         ...clientOptions,
         chatRequest: {
             model,
-            messages: messages.map(message => ({
-                role: message.role as "user" | "assistant" | "system" | "developer" | "tool",
-                content: message.content,
-                ...(message.reasoningDetails ? {reasoning_details: message.reasoningDetails} : {}),
-            })) as any,
+            messages: messages.map(message => {
+                const reasoningDetails = extractReasoningDetails(message);
+                return {
+                    role: message.role as "user" | "assistant" | "system" | "developer" | "tool",
+                    content: message.content,
+                    ...(reasoningDetails ? {reasoning_details: reasoningDetails} : {}),
+                };
+            }) as any,
             stream: false,
             temperature: 0,
             seed: 42,
@@ -87,6 +100,6 @@ export async function callOpenRouterChatDetailed(
     return {
         text: extractTextContent(responseMessage?.content),
         reasoning: typeof responseMessage?.reasoning === "string" ? responseMessage.reasoning : null,
-        reasoningDetails: Array.isArray(responseMessage?.reasoningDetails) ? responseMessage.reasoningDetails : undefined,
+        reasoningDetails: extractResponseReasoningDetails(responseMessage),
     };
 }
