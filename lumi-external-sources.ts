@@ -542,12 +542,35 @@ function getSourceIdForError(sourceId: unknown): string {
 function buildExternalSourceLookup(sources: ExternalBrowserSource[] = DEFAULT_EXTERNAL_SOURCES): Map<string, ExternalBrowserSource> {
     const sourcesByReference = new Map<string, ExternalBrowserSource>();
 
+    const addReference = (currentSource: ExternalBrowserSource, reference: string) => {
+        const normalizedReference = normalizeExternalSourceId(reference);
+        if (normalizedReference) {
+            sourcesByReference.set(normalizedReference, currentSource);
+        }
+
+        if (reference.startsWith("http://") || reference.startsWith("https://")) {
+            try {
+                const parsed = new URL(reference);
+                const pathSegments = parsed.pathname.split("/").filter(Boolean);
+                if ((parsed.hostname === "github.com" || parsed.hostname === "www.github.com") && pathSegments.length >= 2) {
+                    const repoSlug = `${pathSegments[0]}/${pathSegments[1]}`.toLowerCase();
+                    sourcesByReference.set(repoSlug, currentSource);
+                    sourcesByReference.set(`github:${repoSlug}`, currentSource);
+                }
+                if ((parsed.hostname === "huggingface.co" || parsed.hostname === "www.huggingface.co") && pathSegments.length >= 2) {
+                    const repoSlug = `${pathSegments[0]}/${pathSegments[1]}`.toLowerCase();
+                    sourcesByReference.set(repoSlug, currentSource);
+                    sourcesByReference.set(`huggingface:${repoSlug}`, currentSource);
+                }
+            } catch {
+                // Ignore invalid URLs.
+            }
+        }
+    };
+
     for (const source of sources) {
         for (const reference of [source.id, source.url]) {
-            const normalizedReference = normalizeExternalSourceId(reference);
-            if (normalizedReference) {
-                sourcesByReference.set(normalizedReference, source);
-            }
+            addReference(source, reference);
         }
     }
 

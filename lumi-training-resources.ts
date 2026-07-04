@@ -362,12 +362,35 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
 function buildTrainingResourceLookup(resources: TrainingResource[]): Map<string, TrainingResource> {
     const resourcesByReference = new Map<string, TrainingResource>();
 
+    const addReference = (currentResource: TrainingResource, reference: string) => {
+        const normalizedReference = normalizeTrainingResourceId(reference);
+        if (normalizedReference) {
+            resourcesByReference.set(normalizedReference, currentResource);
+        }
+
+        if (reference.startsWith("http://") || reference.startsWith("https://")) {
+            try {
+                const parsed = new URL(reference);
+                const pathSegments = parsed.pathname.split("/").filter(Boolean);
+                if ((parsed.hostname === "github.com" || parsed.hostname === "www.github.com") && pathSegments.length >= 2) {
+                    const repoSlug = `${pathSegments[0]}/${pathSegments[1]}`.toLowerCase();
+                    resourcesByReference.set(repoSlug, currentResource);
+                    resourcesByReference.set(`github:${repoSlug}`, currentResource);
+                }
+                if ((parsed.hostname === "huggingface.co" || parsed.hostname === "www.huggingface.co") && pathSegments.length >= 2) {
+                    const repoSlug = `${pathSegments[0]}/${pathSegments[1]}`.toLowerCase();
+                    resourcesByReference.set(repoSlug, currentResource);
+                    resourcesByReference.set(`huggingface:${repoSlug}`, currentResource);
+                }
+            } catch {
+                // Ignore invalid URLs.
+            }
+        }
+    };
+
     for (const resource of resources) {
         for (const reference of [resource.id, resource.url]) {
-            const normalizedReference = normalizeTrainingResourceId(reference);
-            if (normalizedReference) {
-                resourcesByReference.set(normalizedReference, resource);
-            }
+            addReference(resource, reference);
         }
     }
 

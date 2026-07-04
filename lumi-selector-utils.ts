@@ -12,7 +12,18 @@ export function normalizeSelectorStringValue(value: string): string {
     if (!trimmed) return "";
 
     const withoutFragment = trimmed.split("?")[0].split("#")[0] || trimmed;
-    const cleaned = withoutFragment.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/+$/, "").trim();
+    let cleaned = withoutFragment.trim();
+    if (cleaned.startsWith("https://")) {
+        cleaned = cleaned.slice(8);
+    } else if (cleaned.startsWith("http://")) {
+        cleaned = cleaned.slice(7);
+    }
+    if (cleaned.startsWith("www.")) {
+        cleaned = cleaned.slice(4);
+    }
+    while (cleaned.endsWith("/")) {
+        cleaned = cleaned.slice(0, -1);
+    }
     const normalized = cleaned.toLowerCase();
     if (!normalized) return "";
 
@@ -29,7 +40,7 @@ export function normalizeSelectorStringValue(value: string): string {
     }
 
     if (parts.length === 2 && !parts[0].includes(".") && !parts[1].includes(".")) {
-        return `github:${parts[0]}/${parts[1]}`;
+        return `${parts[0]}/${parts[1]}`;
     }
 
     return normalized;
