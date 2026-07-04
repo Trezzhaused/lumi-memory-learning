@@ -115,6 +115,19 @@ To plug in a local checkout of Tencent HunyuanVideo, clone the upstream reposito
 GET /api/lumi/artifacts/:artifactId
 → downloads the stored artifact from local storage or redirects to R2
 
+### Multimodal orchestration
+```
+POST /api/lumi/omni/plan
+Body: { prompt }
+→ { prompt, summary, sharedState, steps }
+
+POST /api/lumi/omni/execute
+Body: { prompt }
+→ { prompt, summary, sharedState, steps, warnings }
+```
+
+The Omni endpoints turn a single prompt into a shared-state production plan for text, image, audio, video, and 3D-oriented briefs. Each step uses Lumi's existing generation pipeline so you can evolve the workflow from a lightweight planning scaffold into a richer local-first pipeline as more backends become available.
+
 ### Voice / Speech
 ```
 POST /api/lumi/speech/transcribe

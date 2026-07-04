@@ -26,6 +26,7 @@ import {getExternalBrowserSources, planExternalBrowserSources, queryExternalBrow
 import {classifyText} from "./lumi-classification";
 import {runLocalStudioPipeline} from "./lumi-local-studio";
 import {buildAutonomyPlan, buildComparativeResearchContext, buildSelfDirectedDirective, executeSelfDirectedDirective} from "./lumi-autonomy";
+import {buildOmniMediaPlan, executeOmniMediaPlan} from "./lumi-omni";
 import {generateUserGuide, ingestFile} from "./lumi-ingestion";
 import {buildApprovalPrompt, evaluateToolExecutionPolicy, executeApprovedAction, getExecutionPolicySnapshot, getRemoteOwnerRuntimeStatus} from "./lumi-tools";
 import {buildPublicChatResponse, enforceBilling, getBillingLedger, getTenantScriptPath, registerTenant, upgradeBilling} from "./lumi-tenant";
@@ -423,6 +424,31 @@ lumiRouter.post("/generate", async (req: Request, res: Response, next: NextFunct
     try {
         const result = await generate(req.body);
         res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/omni/plan
+lumiRouter.post("/omni/plan", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
+        if (!prompt.trim()) {
+            res.status(400).json({error: "prompt is required"});
+            return;
+        }
+        res.json(buildOmniMediaPlan(prompt));
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/omni/execute
+lumiRouter.post("/omni/execute", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
+        if (!prompt.trim()) {
+            res.status(400).json({error: "prompt is required"});
+            return;
+        }
+        const plan = buildOmniMediaPlan(prompt);
+        res.json(await executeOmniMediaPlan(plan));
     } catch (err) { next(err); }
 });
 
