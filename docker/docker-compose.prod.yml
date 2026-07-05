@@ -2,6 +2,7 @@ version: "3.9"
 
 services:
   lumi:
+    profiles: ["prod"]
     build:
       context: ..
       dockerfile: docker/Dockerfile.lumi
@@ -13,6 +14,8 @@ services:
       LUMI_ALLOW_CLOUD_TOOL_REQUESTS: "false"
       LUMI_FAIL_FAST: "true"
       LUMI_ENV_FILE: /app/.env
+      LUMI_ENABLE_BACKGROUND_INGESTION: ${LUMI_ENABLE_BACKGROUND_INGESTION:-false}
+      LUMI_INGESTION_WORKER_CMD: ${LUMI_INGESTION_WORKER_CMD:-}
     ports:
       - "3001:3001"
     healthcheck:
