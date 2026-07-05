@@ -248,6 +248,17 @@ Lumi now includes a production-oriented deployment path that keeps the runtime c
 - Production compose template: `docker/docker-compose.prod.yml`
 - Environment bundle: `.env.production.example`
 - Smoke test script: `scripts/smoke-test.sh`
+- Strict launch checklist: `docs/launch/PRODUCTION_LAUNCH_CHECKLIST.md`
+- Deployment runbook: `docs/launch/PRODUCTION_DEPLOYMENT_RUNBOOK.md`
+
+### Production preflight (must-have)
+
+Before a public launch, confirm the following are true:
+
+- `LUMI_BRIDGE_SECRET` is set to a long random value.
+- At least one chat provider is configured (`OPENROUTER_API_KEY`, `OLLAMA_HOST`, or `NVIDIA_API_BASE` + `NVIDIA_API_KEY` + `NVIDIA_CHAT_MODEL`).
+- The deployment uses a real `.env.production` file, not a placeholder env bundle.
+- The service starts with `NODE_ENV=production` and `/readyz` returns `200`.
 
 ### Quick deployment recipe
 

@@ -32,6 +32,7 @@ export interface RuntimeEnvironmentSummary {
     providers: {
         openrouter: {configured: boolean; label: string};
         ollama: {configured: boolean; label: string};
+        nvidia: {configured: boolean; label: string};
         huggingface: {configured: boolean; label: string};
         fal: {configured: boolean; label: string};
         replicate: {configured: boolean; label: string};
@@ -153,14 +154,20 @@ export function buildRuntimeConfigurationSummary(env: NodeJS.ProcessEnv = proces
 
     const openrouterConfigured = Boolean(env.OPENROUTER_API_KEY?.trim());
     const ollamaConfigured = Boolean(env.OLLAMA_HOST?.trim() && env.OLLAMA_HOST !== "http://127.0.0.1:11434");
+    const nvidiaConfigured = Boolean(env.NVIDIA_API_BASE?.trim() && env.NVIDIA_API_KEY?.trim() && env.NVIDIA_CHAT_MODEL?.trim());
     const huggingfaceConfigured = Boolean(env.HUGGINGFACE_API_KEY?.trim());
     const falConfigured = Boolean(env.FAL_KEY?.trim());
     const replicateConfigured = Boolean(env.REPLICATE_API_KEY?.trim());
     const robloxConfigured = Boolean(env.ROBLOX_API_KEY?.trim() && env.ROBLOX_UNIVERSE_ID?.trim() && env.ROBLOX_PLACE_ID?.trim());
     const externalBrowserConfigured = Boolean(env.EXTERNAL_BROWSER_PROXY_URL?.trim() || env.EXTERNAL_BROWSER_API_URL?.trim());
+    const chatProviderConfigured = openrouterConfigured || ollamaConfigured || nvidiaConfigured;
 
-    if (!openrouterConfigured && !ollamaConfigured) {
-        warnings.push("No chat provider API is configured; Lumi will use its built-in fallback path.");
+    if (!chatProviderConfigured) {
+        if (isProduction) {
+            missingRequirements.push("At least one chat provider (OPENROUTER_API_KEY, OLLAMA_HOST, or NVIDIA_API_BASE/NVIDIA_API_KEY/NVIDIA_CHAT_MODEL)");
+        } else {
+            warnings.push("No chat provider API is configured; Lumi will use its built-in fallback path.");
+        }
     }
     if (!huggingfaceConfigured && !falConfigured && !replicateConfigured) {
         warnings.push("No media generation provider is configured; image/video/audio features will remain unavailable until credentials are added.");
@@ -196,6 +203,7 @@ export function buildRuntimeConfigurationSummary(env: NodeJS.ProcessEnv = proces
         providers: {
             openrouter: {configured: openrouterConfigured, label: openrouterConfigured ? "configured" : "missing"},
             ollama: {configured: ollamaConfigured, label: ollamaConfigured ? "configured" : "missing"},
+            nvidia: {configured: nvidiaConfigured, label: nvidiaConfigured ? "configured" : "missing"},
             huggingface: {configured: huggingfaceConfigured, label: huggingfaceConfigured ? "configured" : "missing"},
             fal: {configured: falConfigured, label: falConfigured ? "configured" : "missing"},
             replicate: {configured: replicateConfigured, label: replicateConfigured ? "configured" : "missing"},
@@ -219,6 +227,7 @@ export function formatRuntimeSummary(summary: RuntimeEnvironmentSummary): string
     const providerSummary = [
         `openrouter=${summary.providers.openrouter.label}`,
         `ollama=${summary.providers.ollama.label}`,
+        `nvidia=${summary.providers.nvidia.label}`,
         `huggingface=${summary.providers.huggingface.label}`,
         `fal=${summary.providers.fal.label}`,
         `replicate=${summary.providers.replicate.label}`,
