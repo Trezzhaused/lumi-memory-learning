@@ -533,14 +533,14 @@ export function shouldAutoBootMission(message: string): boolean {
         return false;
     }
 
-    const creationMarkers = /(create|build|make|launch|design|prototype|ship|develop|draft|scaffold|assemble|compose|generate|author|craft|fabricate|produce)/i;
-    const artifactMarkers = /(app|application|website|web app|site|dashboard|game|video|audio|image|document|workflow|product|system|experience|asset|prototype|landing page|project|studio|pipeline|mission|agent|bot|plugin|api|service|brief|storyboard)/i;
-    const missionMarkers = /(start|boot|run|launch|execute)/i;
-    const directMissionMarkers = /(mission|autonomous workflow|autonomous system|workflow|pipeline)/i;
+    const creationMarkers = /\b(create|build|make|launch|design|prototype|ship|develop|draft|scaffold|assemble|compose|generate|author|craft|fabricate|produce)\b/i;
+    const artifactMarkers = /\b(app|application|website|web app|site|dashboard|game|video|audio|image|document|workflow|product|system|experience|asset|prototype|landing page|project|studio|pipeline|mission|agent|bot|plugin|api|service|brief|storyboard)\b/i;
+    const missionMarkers = /\b(start|boot|run|launch|execute)\b/i;
+    const directMissionMarkers = /\b(mission|autonomous workflow|autonomous system|workflow|pipeline)\b/i;
 
     const generalCreationRequest = creationMarkers.test(normalized) && artifactMarkers.test(normalized);
     const explicitMissionRequest = missionMarkers.test(normalized) && directMissionMarkers.test(normalized);
-    const autonomyRequest = /(autonomous|self-running|agentic|agent)/i.test(normalized) && /(create|build|make|launch|run|execute)/i.test(normalized);
+    const autonomyRequest = /\b(autonomous|self-running|agentic|agent)\b/i.test(normalized) && /\b(create|build|make|launch|run|execute)\b/i.test(normalized);
 
     return generalCreationRequest || explicitMissionRequest || autonomyRequest;
 }
@@ -686,9 +686,7 @@ export async function lumiChat(
             "",
             `Autonomous mission started: ${missionInvocation.summary}`,
             `Track it at ${missionInvocation.streamUrl}`,
-        ].filter(Boolean).join("
-
-");
+        ].filter(Boolean).join("\n\n");
     }
     if (normalizedResponse.action !== "allow") {
         logGuardrailDecision({
@@ -1482,7 +1480,16 @@ export function listMissions(): MissionStatus[] {
     }));
 }
 
-startMissionWorker();
+const isTestRuntime = process.env.NODE_ENV === "test"
+    || process.env.NODE_ENV === "testing"
+    || Boolean(process.env.JEST_WORKER_ID)
+    || process.env.VITEST === "true"
+    || [...process.execArgv, ...process.argv].some(arg => arg === "--test" || arg.startsWith("--test") || arg.includes("node:test"));
+const shouldStartMissionWorker = !isTestRuntime && process.env.LUMI_DISABLE_MISSION_WORKER !== "true";
+
+if (shouldStartMissionWorker) {
+    startMissionWorker();
+}
 
 // ---------------------------------------------------------------------------
 // Pipeline status (Studio-compatible)
