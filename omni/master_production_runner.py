@@ -39,6 +39,11 @@ except Exception:  # pragma: no cover - optional dependency
     MultiFormatBinaryTransmuxer = None
 
 try:  # pragma: no cover - optional dependency
+    from omni.vector_layout_decoder import OmniVectorLayoutDecoderHead
+except Exception:  # pragma: no cover - optional dependency
+    OmniVectorLayoutDecoderHead = None
+
+try:  # pragma: no cover - optional dependency
     from omni.optimized_attention import FlashBlockSparseAttention
 except Exception:  # pragma: no cover - optional dependency
     FlashBlockSparseAttention = None
@@ -52,8 +57,11 @@ class EliteStudioPipelinePipeliner:
         if torch is not None:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.attention_accelerator = None
+        self.vector_layout_decoder = None
         if FlashBlockSparseAttention is not None and torch is not None:
             self.attention_accelerator = FlashBlockSparseAttention(embed_dim=embed_dim).to(self.device)
+        if OmniVectorLayoutDecoderHead is not None:
+            self.vector_layout_decoder = OmniVectorLayoutDecoderHead(embed_dim=embed_dim).to(self.device)
         self.compilation_queue: queue.Queue = queue.Queue(maxsize=4)
         self.is_running = True
         self.compiler_thread = threading.Thread(target=self._async_compilation_worker, daemon=True)
@@ -75,7 +83,7 @@ class EliteStudioPipelinePipeliner:
             else:
                 threading.Event().wait(0.01)
 
-    def process_and_pipeline_generation(self, latent_input_tokens) -> None:
+    def process_and_pipeline_generation(self, latent_input_tokens, scene_id: str = "scene") -> None:
         if torch is None or self.attention_accelerator is None:
             self.compilation_queue.put(None)
             return
@@ -88,6 +96,17 @@ class EliteStudioPipelinePipeliner:
         self.compilation_queue.put(raw_video_matrix)
         _ = accelerated_latent_maps
 
+        if self.vector_layout_decoder is not None:
+            try:
+                tag_logits, coordinate_maps = self.vector_layout_decoder(accelerated_latent_maps)
+                svg_payload = self.vector_layout_decoder.compile_tensors_to_valid_svg_string(tag_logits, coordinate_maps)
+                os.makedirs("render_vault", exist_ok=True)
+                layout_path = f"render_vault/{scene_id}_layout.svg"
+                with open(layout_path, "w", encoding="utf-8") as handle:
+                    handle.write(svg_payload)
+            except Exception:
+                pass
+
     def shutdown(self) -> None:
         self.is_running = False
         self.compilation_queue.put(None)
@@ -98,34 +117,76 @@ class CompleteAutonomousVideoProducer:
     """Brings together motion tokens, temporal consistency locking, audio synthesis, and local export."""
 
     def __init__(self) -> None:
-        self.audio_net = OmniAudioSynthesisNetwork()
-        self.camera_tokenizer = CinematicCameraTokenizer(embed_dim=768)
-        self.consistency_buffer = SpatioTemporalConsistencyCache(cache_size=4)
+        self.audio_net = OmniAudioSynthesisNetwork() if OmniAudioSynthesisNetwork is not None else None
+        self.camera_tokenizer = (
+            CinematicCameraTokenizer(embed_dim=768) if CinematicCameraTokenizer is not None else None
+        )
+        self.consistency_buffer = (
+            SpatioTemporalConsistencyCache(cache_size=4) if SpatioTemporalConsistencyCache is not None else None
+        )
         self.av_gating_matrix = None
+        self.vector_layout_decoder = None
+        if OmniVectorLayoutDecoderHead is not None:
+            self.vector_layout_decoder = OmniVectorLayoutDecoderHead(embed_dim=768)
         os.makedirs("render_vault", exist_ok=True)
 
     def produce_autonomous_movie(self, prompt_tokens: List[int], target_format: str = "mp4") -> Tuple[str, str]:
-        mock_camera_movements = [
-            [-0.5, 0.0, 0.2, 0.1, 0.0, 0.0],
-            [-0.5, 0.0, 0.2, 0.1, 0.0, 0.0],
-            [-0.5, 0.0, 0.2, 0.1, 0.0, 0.0],
-            [-0.5, 0.0, 0.2, 0.1, 0.0, 0.0],
-        ]
-        camera_tokens = self.camera_tokenizer.forward([mock_camera_movements])
-        embed_dim = len(camera_tokens[0][0]) if camera_tokens and camera_tokens[0] and camera_tokens[0][0] else 6
-        if self.av_gating_matrix is None or self.av_gating_matrix.embed_dim != embed_dim:
-            self.av_gating_matrix = AudioToVideoGatingMatrix(embed_dim=embed_dim, n_heads=max(1, embed_dim // 2))
-
-        audio_context = [list(map(float, token)) for token in camera_tokens[0]]
-        gated_camera_tokens = self.av_gating_matrix.forward(camera_tokens, [audio_context])
-        visual_tokens = [[token] for token in (gated_camera_tokens[0] if gated_camera_tokens else camera_tokens[0])]
-        anchored_context = self.consistency_buffer.update_and_get_context(visual_tokens)
-        final_audio_waveform = self.audio_net.forward(anchored_context, voice_embedding=None)
-
         movie_file_path = f"render_vault/autonomous_cinema.{target_format.lower()}"
         audio_file_path = "render_vault/autonomous_soundtrack.wav"
-        MultiFormatBinaryTransmuxer.write_wav_file(final_audio_waveform, audio_file_path, sample_rate=16000)
+        layout_file_path = "render_vault/autonomous_layout.svg"
+
+        if self.camera_tokenizer is not None and self.av_gating_matrix is None:
+            mock_camera_movements = [
+                [-0.5, 0.0, 0.2, 0.1, 0.0, 0.0],
+                [-0.5, 0.0, 0.2, 0.1, 0.0, 0.0],
+                [-0.5, 0.0, 0.2, 0.1, 0.0, 0.0],
+                [-0.5, 0.0, 0.2, 0.1, 0.0, 0.0],
+            ]
+            camera_tokens = self.camera_tokenizer.forward([mock_camera_movements])
+            embed_dim = len(camera_tokens[0][0]) if camera_tokens and camera_tokens[0] and camera_tokens[0][0] else 6
+            if AudioToVideoGatingMatrix is not None:
+                self.av_gating_matrix = AudioToVideoGatingMatrix(embed_dim=embed_dim, n_heads=max(1, embed_dim // 2))
+            else:
+                self.av_gating_matrix = None
+            audio_context = [list(map(float, token)) for token in camera_tokens[0]]
+            if self.av_gating_matrix is not None:
+                gated_camera_tokens = self.av_gating_matrix.forward(camera_tokens, [audio_context])
+                visual_tokens = [[token] for token in (gated_camera_tokens[0] if gated_camera_tokens else camera_tokens[0])]
+            else:
+                visual_tokens = [[token] for token in camera_tokens[0]]
+        else:
+            visual_tokens = [[0.0] * 6]
+
+        if self.consistency_buffer is not None:
+            anchored_context = self.consistency_buffer.update_and_get_context(visual_tokens)
+        else:
+            anchored_context = visual_tokens
+
+        if self.audio_net is not None:
+            final_audio_waveform = self.audio_net.forward(anchored_context, voice_embedding=None)
+        else:
+            final_audio_waveform = [[0.0] * 16000]
+
+        if MultiFormatBinaryTransmuxer is not None:
+            MultiFormatBinaryTransmuxer.write_wav_file(final_audio_waveform, audio_file_path, sample_rate=16000)
         with open(movie_file_path, "wb") as handle:
             handle.write(b"placeholder-video-bytes")
-        self.consistency_buffer.clear_session()
+
+        if self.vector_layout_decoder is not None:
+            try:
+                if torch is not None:
+                    token_tensor = torch.tensor(anchored_context, dtype=torch.float32)
+                    if token_tensor.dim() == 2:
+                        token_tensor = token_tensor.unsqueeze(0)
+                    tag_logits, coordinate_maps = self.vector_layout_decoder(token_tensor)
+                else:
+                    tag_logits, coordinate_maps = self.vector_layout_decoder(anchored_context)
+                svg_payload = self.vector_layout_decoder.compile_tensors_to_valid_svg_string(tag_logits, coordinate_maps)
+                with open(layout_file_path, "w", encoding="utf-8") as handle:
+                    handle.write(svg_payload)
+            except Exception:
+                pass
+
+        if self.consistency_buffer is not None:
+            self.consistency_buffer.clear_session()
         return movie_file_path, audio_file_path

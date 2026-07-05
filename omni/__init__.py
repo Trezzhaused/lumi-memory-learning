@@ -70,6 +70,11 @@ except Exception:  # pragma: no cover - optional dependency
     FastMemoryStreamRemuxer = None
 
 try:  # pragma: no cover - optional dependency
+    from omni.vector_layout_decoder import OmniVectorLayoutDecoderHead
+except Exception:  # pragma: no cover - optional dependency
+    OmniVectorLayoutDecoderHead = None
+
+try:  # pragma: no cover - optional dependency
     from omni.studio_logger import DistributedStudioLogger, send_node_log
 except Exception:  # pragma: no cover - optional dependency
     DistributedStudioLogger = None
@@ -108,6 +113,7 @@ __all__ = [
     "MultiFormatBinaryTransmuxer",
     "OmniAudioSynthesisNetwork",
     "OmniStreamingService",
+    "OmniVectorLayoutDecoderHead",
     "send_node_log",
     "SpatioTemporalConsistencyCache",
     "StudioSupervisorEngine",
