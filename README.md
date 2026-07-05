@@ -251,8 +251,18 @@ Lumi now includes a production-oriented deployment path that keeps the runtime c
 - Strict launch checklist: `docs/launch/PRODUCTION_LAUNCH_CHECKLIST.md`
 - Deployment runbook: `docs/launch/PRODUCTION_DEPLOYMENT_RUNBOOK.md`
 
-### Production preflight (must-have)
+### Container startup and compose profiles
 
+Lumi now uses a lightweight launcher entrypoint so container startup is consistent across local and production runs.
+
+- The launcher validates runtime configuration, prints a startup summary, and exposes the existing `/healthz` and `/readyz` health surface.
+- When `LUMI_ENABLE_BACKGROUND_INGESTION=true` and `LUMI_INGESTION_WORKER_CMD` is set, the launcher will also start a background ingestion worker before the main app process.
+- Use Docker Compose profiles for local vs. production orchestration:
+ - `docker compose --profile dev -f docker/docker-compose.dev.yml up --build`
+ - `docker compose --profile prod -f docker/docker-compose.prod.yml up --build`
+
+### Production preflight (must-have)
+ 
 Before a public launch, confirm the following are true:
 
 - `LUMI_BRIDGE_SECRET` is set to a long random value.

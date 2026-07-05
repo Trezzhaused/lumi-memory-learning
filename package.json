@@ -9,7 +9,7 @@
   "private": false,
   "scripts": {
     "build": "pnpm exec tsc",
-    "start": "node dist/app.js",
+    "start": "node scripts/launcher.cjs",
     "dev": "tsnd --respawn app.ts",
     "typecheck": "tsc --noEmit --pretty",
     "test:guardrails": "pnpm run build && node --test tests/golden-eval.test.js",
