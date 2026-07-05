@@ -37,6 +37,15 @@ import {formatProviderError} from "./lumi-runtime";
 import {buildAutonomyPlan, buildComparativeResearchContext} from "./lumi-autonomy";
 import {buildEmbeddedKnowledgeContext} from "./lumi-knowledge-pack";
 
+export function startMissionWorker(): void {
+    ensureMissionStoreLoaded();
+    if (missionWorkerTimer) return;
+    missionWorkerTimer = setInterval(() => {
+        void processMissionQueue();
+    }, getMissionWorkerIntervalMs());
+    void processMissionQueue();
+}
+
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
@@ -1291,15 +1300,6 @@ async function processMissionQueue(): Promise<void> {
     }
 }
 
-function startMissionWorker(): void {
-    ensureMissionStoreLoaded();
-    if (missionWorkerTimer) return;
-    missionWorkerTimer = setInterval(() => {
-        void processMissionQueue();
-    }, getMissionWorkerIntervalMs());
-    void processMissionQueue();
-}
-
 export async function executeMissionAsync(mission: MissionStatus): Promise<void> {
     ensureMissionStoreLoaded();
     if (mission.status === "completed" || mission.status === "failed" || mission.status === "blocked" || mission.status === "awaiting-approval") return;
@@ -1478,17 +1478,6 @@ export function listMissions(): MissionStatus[] {
         artifacts: mission.artifacts.map(artifact => ({...artifact})),
         plan: mission.plan.map(step => ({...step})),
     }));
-}
-
-const isTestRuntime = process.env.NODE_ENV === "test"
-    || process.env.NODE_ENV === "testing"
-    || Boolean(process.env.JEST_WORKER_ID)
-    || process.env.VITEST === "true"
-    || [...process.execArgv, ...process.argv].some(arg => arg === "--test" || arg.startsWith("--test") || arg.includes("node:test"));
-const shouldStartMissionWorker = !isTestRuntime && process.env.LUMI_DISABLE_MISSION_WORKER !== "true";
-
-if (shouldStartMissionWorker) {
-    startMissionWorker();
 }
 
 // ---------------------------------------------------------------------------

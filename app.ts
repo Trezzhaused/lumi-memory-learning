@@ -17,7 +17,7 @@ import {getArtifact, readArtifactBuffer, getArtifactStorageStatus, listArtifacts
 import {
     lumiChat, getChatHistory, getModelCascade, enhancePrompt,
     bootMission, getPipelineStatus, getMissionTimeline, listMissions, getLumiStatus, getFineTuneStatus, assembleFineTuneDataset,
-    getOllamaStatus, conversationManager, approveMission, resumeMission,
+    getOllamaStatus, conversationManager, approveMission, resumeMission, startMissionWorker,
 } from "./lumi";
 import {converseSpeech, formatBraille, speakText, transcribeAudio} from "./lumi-speech";
 import {buildPromptTrainer} from "./lumi-prompt-trainer";
@@ -51,6 +51,10 @@ if (runtimeValidation.shouldExit) {
 
 console.log(`[Lumi] Startup summary:\n${formatRuntimeSummary(startupSummary)}`);
 app.locals.runtimeSummary = startupSummary;
+
+if (process.env.LUMI_DISABLE_MISSION_WORKER !== "true") {
+    startMissionWorker();
+}
 
 app.use(express.static(path.join(process.cwd(), "public")));
 
