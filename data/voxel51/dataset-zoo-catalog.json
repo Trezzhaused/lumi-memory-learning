@@ -1,0 +1,593 @@
+[
+  {
+    "name": "activitynet-100",
+    "slug": "activitynet-100",
+    "heading": "ActivityNet 100 [\u00b6](\\#activitynet-100 \"Permalink to this headline\")",
+    "description": "ActivityNet is a large-scale video dataset for human activity understanding supporting the tasks of global video classification, trimmed activity classification, and temporal activity detection.",
+    "source": "http://activity-net.org/index.html",
+    "size": "223 GB",
+    "tags": [
+      "video",
+      "classification",
+      "action-recognition",
+      "temporal-detection"
+    ],
+    "splits": "`train, validation, test`",
+    "images": [
+      "activitynet-100-validation.webp"
+    ]
+  },
+  {
+    "name": "activitynet-200",
+    "slug": "activitynet-200",
+    "heading": "ActivityNet 200 [\u00b6](\\#activitynet-200 \"Permalink to this headline\")",
+    "description": "ActivityNet is a large-scale video dataset for human activity understanding supporting the tasks of global video classification, trimmed activity classification, and temporal activity detection.",
+    "source": "http://activity-net.org/index.html",
+    "size": "500 GB",
+    "tags": [
+      "video",
+      "classification",
+      "action-recognition",
+      "temporal-detection"
+    ],
+    "splits": "`train, validation, test`",
+    "images": [
+      "activitynet-200-validation.webp"
+    ]
+  },
+  {
+    "name": "bdd100k",
+    "slug": "bdd100k",
+    "heading": "BDD100K [\u00b6](\\#bdd100k \"Permalink to this headline\")",
+    "description": "The Berkeley Deep Drive (BDD) dataset is one of the largest and most diverse video datasets for autonomous vehicles.",
+    "source": "https://bdd-data.berkeley.edu",
+    "size": "7.10 GB",
+    "tags": [
+      "image",
+      "multilabel",
+      "automotive",
+      "manual"
+    ],
+    "splits": "`train, validation, test`",
+    "images": [
+      "bdd100k-validation.webp"
+    ]
+  },
+  {
+    "name": "caltech101",
+    "slug": "caltech101",
+    "heading": "Caltech-101 [\u00b6](\\#caltech-101 \"Permalink to this headline\")",
+    "description": "The Caltech-101 dataset of images.",
+    "source": "https://data.caltech.edu/records/mzrjq-6wc02",
+    "size": "138.60 MB",
+    "tags": [
+      "image",
+      "classification"
+    ],
+    "splits": "`N/A`",
+    "images": [
+      "caltech101.webp"
+    ]
+  },
+  {
+    "name": "caltech256",
+    "slug": "caltech256",
+    "heading": "Caltech-256 [\u00b6](\\#caltech-256 \"Permalink to this headline\")",
+    "description": "The Caltech-256 dataset of images.",
+    "source": "https://data.caltech.edu/records/nyy15-4j048",
+    "size": "1.16 GB",
+    "tags": [
+      "image",
+      "classification"
+    ],
+    "splits": "`N/A`",
+    "images": [
+      "caltech256.webp"
+    ]
+  },
+  {
+    "name": "cifar10",
+    "slug": "cifar10",
+    "heading": "CIFAR-10 [\u00b6](\\#cifar-10 \"Permalink to this headline\")",
+    "description": "The CIFAR-10 dataset of images.",
+    "source": "https://www.cs.toronto.edu/~kriz/cifar.html",
+    "size": "132.40 MB",
+    "tags": [
+      "image",
+      "classification"
+    ],
+    "splits": "`train, test`",
+    "images": [
+      "cifar10-test.webp"
+    ]
+  },
+  {
+    "name": "cifar100",
+    "slug": "cifar100",
+    "heading": "CIFAR-100 [\u00b6](\\#cifar-100 \"Permalink to this headline\")",
+    "description": "The CIFAR-100 dataset of images.",
+    "source": "https://www.cs.toronto.edu/~kriz/cifar.html",
+    "size": "132.03 MB",
+    "tags": [
+      "image",
+      "classification"
+    ],
+    "splits": "`train, test`",
+    "images": [
+      "cifar100-test.webp"
+    ]
+  },
+  {
+    "name": "cityscapes",
+    "slug": "cityscapes",
+    "heading": "Cityscapes [\u00b6](\\#cityscapes \"Permalink to this headline\")",
+    "description": "Cityscapes is a large-scale dataset that contains a diverse set of stereo video sequences recorded in street scenes from 50 different cities, with high quality pixel-level annotations of 5,000 frames in addition to a larger set of 20,000 weakly annotated frames.",
+    "source": "https://www.cityscapes-dataset.com",
+    "size": "11.80 GB",
+    "tags": [
+      "image",
+      "multilabel",
+      "automotive",
+      "manual"
+    ],
+    "splits": "`train, validation, test`",
+    "images": [
+      "cityscapes-validation.webp"
+    ]
+  },
+  {
+    "name": "coco-2014",
+    "slug": "coco-2014",
+    "heading": "COCO-2014 [\u00b6](\\#coco-2014 \"Permalink to this headline\")",
+    "description": "COCO is a large-scale object detection, segmentation, and captioning dataset.",
+    "source": "http://cocodataset.org/#home",
+    "size": "37.57 GB",
+    "tags": [
+      "image",
+      "detection",
+      "segmentation"
+    ],
+    "splits": "`train, validation, test`",
+    "images": [
+      "coco-2014-validation.webp"
+    ]
+  },
+  {
+    "name": "coco-2017",
+    "slug": "coco-2017",
+    "heading": "COCO-2017 [\u00b6](\\#coco-2017 \"Permalink to this headline\")",
+    "description": "COCO is a large-scale object detection, segmentation, and captioning dataset.",
+    "source": "http://cocodataset.org/#home",
+    "size": "25.20 GB",
+    "tags": [
+      "image",
+      "detection",
+      "segmentation"
+    ],
+    "splits": "`train, validation, test`",
+    "images": [
+      "coco-2017-validation.webp"
+    ]
+  },
+  {
+    "name": "fashion-mnist",
+    "slug": "fashion-mnist",
+    "heading": "Fashion MNIST [\u00b6](\\#fashion-mnist \"Permalink to this headline\")",
+    "description": "The Fashion-MNIST database of Zalando\u2019s fashion article images.",
+    "source": "https://github.com/zalandoresearch/fashion-mnist",
+    "size": "36.42 MB",
+    "tags": [
+      "image",
+      "classification"
+    ],
+    "splits": "`train, test`",
+    "images": [
+      "fashion-mnist-test.webp"
+    ]
+  },
+  {
+    "name": "fiw",
+    "slug": "fiw",
+    "heading": "Families in the Wild [\u00b6](\\#families-in-the-wild \"Permalink to this headline\")",
+    "description": "Families in the Wild is a public benchmark for recognizing families via facial images. The dataset contains over 26,642 images of 5,037 faces collected from 978 families. A unique Family ID (FID) is assigned per family, ranging from F0001-F1018 (i.e., some families were merged or removed since its first release in 2016). The dataset is a continued work in progress. Any contributions are both welcome and appreciated!",
+    "source": "https://web.northeastern.edu/smilelab/fiw/",
+    "size": "173.00 MB",
+    "tags": [
+      "image",
+      "kinship",
+      "verification",
+      "classification",
+      "search-and-retrieval",
+      "facial-recognition"
+    ],
+    "splits": "`test, val, train`",
+    "images": [
+      "fiw.webp"
+    ]
+  },
+  {
+    "name": "hmdb51",
+    "slug": "hmdb51",
+    "heading": "HMBD51 [\u00b6](\\#hmbd51 \"Permalink to this headline\")",
+    "description": "HMDB51 is an action recognition dataset containing a total of 6,766 clips distributed across 51 action classes.",
+    "source": "https://serre-lab.clps.brown.edu/resource/hmdb-a-large-human-motion-database",
+    "size": "2.16 GB",
+    "tags": [
+      "video",
+      "action-recognition"
+    ],
+    "splits": "`train, test, other`",
+    "images": [
+      "hmdb51-test.webp"
+    ]
+  },
+  {
+    "name": "imagenet-2012",
+    "slug": "imagenet-2012",
+    "heading": "ImageNet 2012 [\u00b6](\\#imagenet-2012 \"Permalink to this headline\")",
+    "description": "The ImageNet 2012 dataset.",
+    "source": "http://image-net.org",
+    "size": "144.02 GB",
+    "tags": [
+      "image",
+      "classification",
+      "manual"
+    ],
+    "splits": "`train, validation`",
+    "images": [
+      "imagenet-2012-validation.webp"
+    ]
+  },
+  {
+    "name": "imagenet-sample",
+    "slug": "imagenet-sample",
+    "heading": "ImageNet Sample [\u00b6](\\#imagenet-sample \"Permalink to this headline\")",
+    "description": "A small sample of images from the ImageNet 2012 dataset.",
+    "source": "http://image-net.org",
+    "size": "98.26 MB",
+    "tags": [
+      "image",
+      "classification"
+    ],
+    "splits": "`N/A`",
+    "images": [
+      "imagenet-sample.webp"
+    ]
+  },
+  {
+    "name": "kinetics-400",
+    "slug": "kinetics-400",
+    "heading": "Kinetics 400 [\u00b6](\\#kinetics-400 \"Permalink to this headline\")",
+    "description": "Kinetics is a collection of large-scale, high-quality datasets of URL links of up to 650,000 video clips that cover 400/600/700 human action classes, depending on the dataset version. The videos include human-object interactions such as playing instruments, as well as human-human interactions such as shaking hands and hugging. Each action class has at least 400/600/700 video clips. Each clip is human annotated with a single action class and lasts around 10 seconds.",
+    "source": "https://deepmind.com/research/open-source/kinetics",
+    "size": "456 GB",
+    "tags": [
+      "video",
+      "classification",
+      "action-recognition"
+    ],
+    "splits": "`train, test, validation`",
+    "images": [
+      "kinetics.webp"
+    ]
+  },
+  {
+    "name": "kinetics-600",
+    "slug": "kinetics-600",
+    "heading": "Kinetics 600 [\u00b6](\\#kinetics-600 \"Permalink to this headline\")",
+    "description": "Kinetics is a collection of large-scale, high-quality datasets of URL links of up to 650,000 video clips that cover 400/600/700 human action classes, depending on the dataset version. The videos include human-object interactions such as playing instruments, as well as human-human interactions such as shaking hands and hugging. Each action class has at least 400/600/700 video clips. Each clip is human annotated with a single action class and lasts around 10 seconds.",
+    "source": "https://deepmind.com/research/open-source/kinetics",
+    "size": "779 GB",
+    "tags": [
+      "video",
+      "classification",
+      "action-recognition"
+    ],
+    "splits": "`train, test, validation`",
+    "images": [
+      "kinetics.webp"
+    ]
+  },
+  {
+    "name": "kinetics-700",
+    "slug": "kinetics-700",
+    "heading": "Kinetics 700 [\u00b6](\\#kinetics-700 \"Permalink to this headline\")",
+    "description": "Kinetics is a collection of large-scale, high-quality datasets of URL links of up to 650,000 video clips that cover 400/600/700 human action classes, depending on the dataset version. The videos include human-object interactions such as playing instruments, as well as human-human interactions such as shaking hands and hugging. Each action class has at least 400/600/700 video clips. Each clip is human annotated with a single action class and lasts around 10 seconds.",
+    "source": "https://deepmind.com/research/open-source/kinetics",
+    "size": "710 GB",
+    "tags": [
+      "video",
+      "classification",
+      "action-recognition"
+    ],
+    "splits": "`train, test, validation`",
+    "images": [
+      "kinetics.webp"
+    ]
+  },
+  {
+    "name": "kinetics-700-2020",
+    "slug": "kinetics-700-2020",
+    "heading": "Kinetics 700-2020 [\u00b6](\\#kinetics-700-2020 \"Permalink to this headline\")",
+    "description": "Kinetics is a collection of large-scale, high-quality datasets of URL links of up to 650,000 video clips that cover 400/600/700 human action classes, depending on the dataset version. The videos include human-object interactions such as playing instruments, as well as human-human interactions such as shaking hands and hugging. Each action class has at least 400/600/700 video clips. Each clip is human annotated with a single action class and lasts around 10 seconds.",
+    "source": "https://deepmind.com/research/open-source/kinetics",
+    "size": "710 GB",
+    "tags": [
+      "video",
+      "classification",
+      "action-recognition"
+    ],
+    "splits": "`train, test, validation`",
+    "images": [
+      "kinetics.webp"
+    ]
+  },
+  {
+    "name": "kitti",
+    "slug": "kitti",
+    "heading": "KITTI [\u00b6](\\#kitti \"Permalink to this headline\")",
+    "description": "KITTI contains a suite of vision tasks built using an autonomous driving platform.",
+    "source": "http://www.cvlibs.net/datasets/kitti",
+    "size": "12.57 GB",
+    "tags": [
+      "image",
+      "detection"
+    ],
+    "splits": "`train, test`",
+    "images": [
+      "kitti-train.webp"
+    ]
+  },
+  {
+    "name": "kitti-multiview",
+    "slug": "kitti-multiview",
+    "heading": "KITTI Multiview [\u00b6](\\#kitti-multiview \"Permalink to this headline\")",
+    "description": "KITTI contains a suite of vision tasks built using an autonomous driving platform.",
+    "source": "http://www.cvlibs.net/datasets/kitti",
+    "size": "53.34 GB",
+    "tags": [
+      "image",
+      "point-cloud",
+      "detection"
+    ],
+    "splits": "`train, test`",
+    "images": [
+      "kitti-multiview-train.webp"
+    ]
+  },
+  {
+    "name": "lfw",
+    "slug": "lfw",
+    "heading": "Labeled Faces in the Wild [\u00b6](\\#labeled-faces-in-the-wild \"Permalink to this headline\")",
+    "description": "Labeled Faces in the Wild is a public benchmark for face verification, also known as pair matching.",
+    "source": "http://vis-www.cs.umass.edu/lfw",
+    "size": "173.00 MB",
+    "tags": [
+      "image",
+      "classification",
+      "facial-recognition"
+    ],
+    "splits": "`test, train`",
+    "images": [
+      "lfw-test.webp"
+    ]
+  },
+  {
+    "name": "mnist",
+    "slug": "mnist",
+    "heading": "MNIST [\u00b6](\\#mnist \"Permalink to this headline\")",
+    "description": "The MNIST database of handwritten digits.",
+    "source": "http://yann.lecun.com/exdb/mnist",
+    "size": "21.00 MB",
+    "tags": [
+      "image",
+      "classification"
+    ],
+    "splits": "`train, test`",
+    "images": [
+      "mnist-test.webp"
+    ]
+  },
+  {
+    "name": "open-images-v6",
+    "slug": "open-images-v6",
+    "heading": "Open Images V6 [\u00b6](\\#open-images-v6 \"Permalink to this headline\")",
+    "description": "Open Images V6 is a dataset of ~9 million images, roughly 2 million of which are annotated and available via this zoo dataset.",
+    "source": "https://storage.googleapis.com/openimages/web/index.html",
+    "size": "561 GB",
+    "tags": [
+      "image",
+      "detection",
+      "segmentation",
+      "classification"
+    ],
+    "splits": "`train, test, validation`",
+    "images": [
+      "open-images-v6.webp"
+    ]
+  },
+  {
+    "name": "open-images-v7",
+    "slug": "open-images-v7",
+    "heading": "Open Images V7 [\u00b6](\\#open-images-v7 \"Permalink to this headline\")",
+    "description": "Open Images V7 is a dataset of ~9 million images, roughly 2 million of which are annotated and available via this zoo dataset.",
+    "source": "https://storage.googleapis.com/openimages/web/index.html",
+    "size": "561 GB",
+    "tags": [
+      "image",
+      "detection",
+      "segmentation",
+      "classification",
+      "keypoint"
+    ],
+    "splits": "`train, test, validation`",
+    "images": [
+      "open-images-v7.webp"
+    ]
+  },
+  {
+    "name": "places",
+    "slug": "places",
+    "heading": "Places [\u00b6](\\#places \"Permalink to this headline\")",
+    "description": "Places is a scene recognition dataset of 10 million images comprising ~400 unique scene categories.",
+    "source": "http://places2.csail.mit.edu/download-private.html",
+    "size": "29 GB",
+    "tags": [
+      "image",
+      "classification"
+    ],
+    "splits": "`train, validation, test`",
+    "images": [
+      "places-validation.webp"
+    ]
+  },
+  {
+    "name": "quickstart",
+    "slug": "quickstart",
+    "heading": "Quickstart [\u00b6](\\#quickstart \"Permalink to this headline\")",
+    "description": "A small dataset with ground truth bounding boxes and predictions.",
+    "source": "",
+    "size": "23.40 MB",
+    "tags": [
+      "image",
+      "quickstart"
+    ],
+    "splits": "`N/A`",
+    "images": [
+      "quickstart.webp"
+    ]
+  },
+  {
+    "name": "quickstart-geo",
+    "slug": "quickstart-geo",
+    "heading": "Quickstart Geo [\u00b6](\\#quickstart-geo \"Permalink to this headline\")",
+    "description": "A small dataset with geolocation data.",
+    "source": "",
+    "size": "33.50 MB",
+    "tags": [
+      "image",
+      "location",
+      "quickstart"
+    ],
+    "splits": "`N/A`",
+    "images": [
+      "quickstart-geo.webp"
+    ]
+  },
+  {
+    "name": "quickstart-video",
+    "slug": "quickstart-video",
+    "heading": "Quickstart Video [\u00b6](\\#quickstart-video \"Permalink to this headline\")",
+    "description": "A small video dataset with dense annotations.",
+    "source": "",
+    "size": "35.20 MB",
+    "tags": [
+      "video",
+      "quickstart"
+    ],
+    "splits": "`N/A`",
+    "images": [
+      "quickstart-video.webp"
+    ]
+  },
+  {
+    "name": "quickstart-groups",
+    "slug": "quickstart-groups",
+    "heading": "Quickstart Groups [\u00b6](\\#quickstart-groups \"Permalink to this headline\")",
+    "description": "A small dataset with grouped image and point cloud data.",
+    "source": "",
+    "size": "516.3 MB",
+    "tags": [
+      "image",
+      "point-cloud",
+      "quickstart"
+    ],
+    "splits": "`N/A`",
+    "images": [
+      "quickstart-groups.webp"
+    ]
+  },
+  {
+    "name": "quickstart-3d",
+    "slug": "quickstart-3d",
+    "heading": "Quickstart 3D [\u00b6](\\#quickstart-3d \"Permalink to this headline\")",
+    "description": "A small 3D dataset with meshes, point clouds, and oriented bounding boxes.",
+    "source": "",
+    "size": "215.7 MB",
+    "tags": [
+      "3d",
+      "point-cloud",
+      "mesh",
+      "quickstart"
+    ],
+    "splits": "`N/A`",
+    "images": [
+      "quickstart-3d.webp"
+    ]
+  },
+  {
+    "name": "sama-coco",
+    "slug": "sama-coco",
+    "heading": "Sama-COCO [\u00b6](\\#sama-coco \"Permalink to this headline\")",
+    "description": "Sama-COCO is a relabeling of COCO-2017 and is a large-scale object detection and segmentation dataset. Masks in Sama-COCO are tighter and many crowd instances have been decomposed into their components.",
+    "source": "https://www.sama.com/sama-coco-dataset/",
+    "size": "25.67 GB",
+    "tags": [
+      "image",
+      "detection",
+      "segmentation"
+    ],
+    "splits": "`train, validation, test`",
+    "images": [
+      "sama-coco-validation.webp"
+    ]
+  },
+  {
+    "name": "ucf101",
+    "slug": "ucf101",
+    "heading": "UCF101 [\u00b6](\\#ucf101 \"Permalink to this headline\")",
+    "description": "UCF101 is an action recognition data set of realistic action videos, collected from YouTube, having 101 action categories. This data set is an extension of UCF50 data set which has 50 action categories.",
+    "source": "https://www.crcv.ucf.edu/research/data-sets/ucf101",
+    "size": "6.48 GB",
+    "tags": [
+      "video",
+      "action-recognition"
+    ],
+    "splits": "`train, test`",
+    "images": [
+      "ucf101-test.webp"
+    ]
+  },
+  {
+    "name": "voc-2007",
+    "slug": "voc-2007",
+    "heading": "VOC-2007 [\u00b6](\\#voc-2007 \"Permalink to this headline\")",
+    "description": "The dataset for the PASCAL Visual Object Classes Challenge 2007 (VOC2007) for the detection competition.",
+    "source": "http://host.robots.ox.ac.uk/pascal/VOC/voc2007",
+    "size": "868.85 MB",
+    "tags": [
+      "image",
+      "detection"
+    ],
+    "splits": "`train, validation, test`",
+    "images": [
+      "voc-2007-validation.webp"
+    ]
+  },
+  {
+    "name": "voc-2012",
+    "slug": "voc-2012",
+    "heading": "VOC-2012 [\u00b6](\\#voc-2012 \"Permalink to this headline\")",
+    "description": "The dataset for the PASCAL Visual Object Classes Challenge 2012 (VOC2012) for the detection competition.",
+    "source": "http://host.robots.ox.ac.uk/pascal/VOC/voc2012",
+    "size": "3.59 GB",
+    "tags": [
+      "image",
+      "detection"
+    ],
+    "splits": "`train, validation, test`",
+    "images": [
+      "voc-2012-validation.webp"
+    ]
+  }
+]
