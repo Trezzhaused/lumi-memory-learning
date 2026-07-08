@@ -9,6 +9,7 @@ const outputDir = path.join(repoRoot, "data", "voxel51-dataset-zoo");
 const imageDir = path.join(outputDir, "images");
 
 const docUrl = "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/data/dataset_zoo/datasets.md";
+const detailFields = ["Dataset name", "Dataset source", "Dataset size", "Tags", "Supported splits"];
 const docsResponse = await fetch(docUrl);
 if (!docsResponse.ok) {
     throw new Error(`Failed to fetch Voxel51 docs: ${docsResponse.status} ${docsResponse.statusText}`);
@@ -16,7 +17,6 @@ if (!docsResponse.ok) {
 const markdown = await docsResponse.text();
 
 await mkdir(imageDir, {recursive: true});
-await mkdir(outputDir, {recursive: true});
 
 const datasetSections = parseDatasetSections(markdown);
 const datasets = [];
@@ -28,6 +28,7 @@ for (const section of datasetSections) {
     for (const imageUrl of imageUrls) {
         const imageResponse = await fetch(imageUrl);
         if (!imageResponse.ok) {
+            console.warn(`[voxel51-zoo] failed to download image: ${imageUrl}`);
             continue;
         }
         const buffer = Buffer.from(await imageResponse.arrayBuffer());
@@ -111,22 +112,22 @@ function parseDatasetSections(markdown) {
             continue;
         }
 
-        const detailMatch = line.match(/^-\s+(Dataset name|Dataset source|Dataset size|Tags|Supported splits):\s*(.+)$/);
+        const detailMatch = line.match(new RegExp(`^-\\s+(${detailFields.join("|")}):\\s*(.+)$`));
         if (detailMatch) {
             const [, label, value] = detailMatch;
             const normalizedValue = normalizeMarkup(value);
-            if (label === "Dataset name") {
+            if (label === detailFields[0]) {
                 current.datasetName = normalizedValue;
-            } else if (label === "Dataset source") {
+            } else if (label === detailFields[1]) {
                 current.source = normalizedValue;
-            } else if (label === "Dataset size") {
+            } else if (label === detailFields[2]) {
                 current.size = normalizedValue;
-            } else if (label === "Tags") {
+            } else if (label === detailFields[3]) {
                 current.tags = normalizedValue
                     .split(",")
                     .map(item => item.trim())
                     .filter(Boolean);
-            } else if (label === "Supported splits") {
+            } else if (label === detailFields[4]) {
                 current.supportedSplits = normalizedValue
                     .split(",")
                     .map(item => item.trim())
