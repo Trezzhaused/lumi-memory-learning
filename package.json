@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit --pretty",
     "test:guardrails": "pnpm run build && node --test tests/golden-eval.test.js",
     "test:resources": "pnpm run build && node --test tests/external-sources.test.js tests/training-resources.test.js",
-    "smoke:test": "bash ./scripts/smoke-test.sh"
+    "smoke:test": "bash ./scripts/smoke-test.sh",
+    "fetch:voxel51": "python3 scripts/fetch_voxel51_dataset_zoo.py && pnpm run build && node scripts/seed_voxel51_memory.cjs"
   },
   "keywords": [],
   "dependencies": {

@@ -178,6 +178,16 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         notes: "Valuable for vision-language training once the project expands beyond text-only capabilities.",
     },
     {
+        id: "voxel51-dataset-zoo",
+        name: "Voxel51 Dataset Zoo",
+        url: "https://docs.voxel51.com/dataset_zoo/index.html",
+        category: "dataset",
+        rationale: "A curated catalog of built-in image, video, and multimodal datasets that FiftyOne can load directly for training and evaluation workflows.",
+        useCase: "Use as a practical reference for which vision datasets are available, their tags, sample images, and their suitability for training, comparison, and retrieval workflows.",
+        priority: "high",
+        notes: "This is a strong knowledge-base addition because it gives Lumi a structured overview of the most common public vision datasets and their available modalities.",
+    },
+    {
         id: "coco",
         name: "COCO dataset",
         url: "https://cocodataset.org/#home",
@@ -430,7 +440,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
 
     const recommendedIngestionPlan = [
         `Start with broad text corpora (${selectedResources.filter(resource => ["redpajama", "openwebtext", "wikitext", "commoncrawl"].includes(resource.id)).map(resource => resource.name).join(", ")}) to improve natural language coverage and style diversity.`,
-        `Add multimodal datasets (${selectedResources.filter(resource => ["openimages", "coco", "laion"].includes(resource.id)).map(resource => resource.name).join(", ")}) for image, caption, and retrieval-style understanding.`,
+        `Add multimodal datasets (${selectedResources.filter(resource => ["openimages", "coco", "laion", "voxel51-dataset-zoo"].includes(resource.id)).map(resource => resource.name).join(", ")}) for image, caption, retrieval-style understanding, and dataset-zoo awareness.`,
         `Incorporate simulation and control resources (${selectedResources.filter(resource => ["mujoco", "deepblue-datasets"].includes(resource.id)).map(resource => resource.name).join(", ")}) to teach embodied reasoning and physics-informed behavior.`,
         `Study self-evolving agent frameworks (${selectedResources.filter(resource => ["autogpt", "babyagi", "genericagent", "hermes-agent", "the-swarm", "hyperagents"].includes(resource.id)).map(resource => resource.name).join(", ")}) to strengthen long-horizon autonomy, memory-backed skill growth, and self-referential improvement loops.`,
         `Review orchestration and collaboration patterns (${selectedResources.filter(resource => ["superagi", "metagpt", "autoresearch"].includes(resource.id)).map(resource => resource.name).join(", ")}) to improve multi-role execution, experiment-driven iteration, and monitoring for autonomous missions.`,
