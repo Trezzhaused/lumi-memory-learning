@@ -28,7 +28,8 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 app.use(express.static(path.join(process.cwd(), "public")));
-
+app.use("/data", express.static(path.join(process.cwd(), "data")));
+    
 app.use((req: Request, res: Response, next: NextFunction) => {
     const requestOrigin = getRequestOrigin(req.headers);
     const originAllowed = requestOrigin

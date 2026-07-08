@@ -1,0 +1,71 @@
+{
+  "generatedAt": "2026-07-08T16:39:29.583Z",
+  "sourceUrls": [
+    "https://storage.googleapis.com/openimages/web/download_v7.html",
+    "https://deepblue.lib.umich.edu/data/concern/data_sets/gq67jr854"
+  ],
+  "datasets": [
+    {
+      "id": "openimages",
+      "name": "Open Images",
+      "category": "dataset",
+      "sourceUrl": "https://storage.googleapis.com/openimages/web/download_v7.html",
+      "summary": "Google's large-scale image dataset for object detection, classification, segmentation, and multimodal grounding experiments.",
+      "description": "Open Images V7 is a large vision dataset with image-level labels, bounding boxes, relationships, and segmentation annotations suitable for training and benchmarking vision-language systems.",
+      "downloadTargets": [
+        {
+          "name": "Open Images V7 download page",
+          "url": "https://storage.googleapis.com/openimages/web/download_v7.html",
+          "kind": "landing-page"
+        },
+        {
+          "name": "Open Images dataset repository",
+          "url": "https://github.com/cvdfoundation/open-images-dataset",
+          "kind": "repository"
+        },
+        {
+          "name": "Open Images training archive sample (train_0.tar.gz)",
+          "url": "https://storage.googleapis.com/open-images-dataset/tar/train_0.tar.gz",
+          "kind": "archive"
+        },
+        {
+          "name": "Open Images validation archive",
+          "url": "https://storage.googleapis.com/open-images-dataset/tar/validation.tar.gz",
+          "kind": "archive"
+        }
+      ],
+      "notes": [
+        "The official download page is the canonical source for the latest archive layout.",
+        "Archives are large, so the repository keeps a catalog and manifest rather than storing full image sets by default."
+      ],
+      "fetchedAt": null,
+      "fetchStatus": "fallback"
+    },
+    {
+      "id": "deepblue",
+      "name": "Deep Blue data archive",
+      "category": "dataset",
+      "sourceUrl": "https://deepblue.lib.umich.edu/data/concern/data_sets/gq67jr854",
+      "summary": "University of Michigan's research data repository for curated datasets, documentation, and download links.",
+      "description": "Deep Blue Data is a preservation and discovery repository for research datasets spanning science, engineering, and social science. It is well suited for domain-specific training data and benchmark curation.",
+      "downloadTargets": [
+        {
+          "name": "Deep Blue Data landing page",
+          "url": "https://deepblue.lib.umich.edu/data/concern/data_sets/gq67jr854",
+          "kind": "landing-page"
+        },
+        {
+          "name": "Deep Blue Data archive home",
+          "url": "https://deepblue.lib.umich.edu/data/",
+          "kind": "landing-page"
+        }
+      ],
+      "notes": [
+        "The direct dataset landing page is preserved as the canonical link for each item.",
+        "Review dataset-specific licenses and metadata before ingesting any archive into a training pipeline."
+      ],
+      "fetchedAt": null,
+      "fetchStatus": "fallback"
+    }
+  ]
+}

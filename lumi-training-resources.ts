@@ -54,7 +54,7 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         rationale: "A research dataset repository that can hold specialized domain data, including robotics and scientific collections.",
         useCase: "Use as a source of niche training data for domain-specific knowledge and benchmark creation.",
         priority: "medium",
-        notes: "Review licensing and metadata before ingestion; good candidate for curated, high-value subsets rather than bulk ingestion.",
+        notes: "Review licensing and metadata before ingestion; good candidate for curated, high-value subsets rather than bulk ingestion. A local manifest and viewer live in data/training-datasets/ for tracking the linked archive resources.",
     },
     {
         id: "mujoco",
@@ -104,7 +104,7 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         rationale: "A large-scale image dataset with object labels and bounding boxes useful for vision tasks.",
         useCase: "Support image understanding, object detection, and multimodal grounding experiments.",
         priority: "high",
-        notes: "Valuable for vision-language training once the project expands beyond text-only capabilities.",
+        notes: "Valuable for vision-language training once the project expands beyond text-only capabilities. A local manifest and viewer live in data/training-datasets/ for catalog browsing and future ingestion workflows.",
     },
     {
         id: "coco",

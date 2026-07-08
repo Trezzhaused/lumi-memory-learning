@@ -12,7 +12,8 @@
     "start": "node dist/app.js",
     "dev": "tsnd --respawn app.ts",
     "typecheck": "tsc --noEmit --pretty",
-    "fetch:voxel51-zoo": "node scripts/fetch-voxel51-dataset-zoo.mjs"
+    "fetch:voxel51-zoo": "node scripts/fetch-voxel51-dataset-zoo.mjs",
+    "fetch:training-datasets": "node scripts/fetch-training-datasets.mjs"
   },
   "keywords": [],
   "dependencies": {
