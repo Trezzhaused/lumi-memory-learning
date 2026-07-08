@@ -202,9 +202,15 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
         .filter(resource => resource.priority === "high")
         .map(resource => resource.name);
 
+    const multimodalDatasetIds = new Set(["openimages", "coco", "laion", "voxel51-dataset-zoo"]);
+    const multimodalDatasetNames = selectedResources
+        .filter(resource => multimodalDatasetIds.has(resource.id))
+        .map(resource => resource.name)
+        .join(", ");
+
     const recommendedIngestionPlan = [
         `Start with broad text corpora (${selectedResources.filter(resource => ["redpajama", "openwebtext", "wikitext", "commoncrawl"].includes(resource.id)).map(resource => resource.name).join(", ")}) to improve natural language coverage and style diversity.`,
-        `Add multimodal datasets (${selectedResources.filter(resource => ["openimages", "coco", "laion", "voxel51-dataset-zoo"].includes(resource.id)).map(resource => resource.name).join(", ")}) for image, caption, and retrieval-style understanding.`,
+        `Add multimodal datasets (${multimodalDatasetNames}) for image, caption, and retrieval-style understanding.`,
         `Incorporate simulation and control resources (${selectedResources.filter(resource => ["mujoco", "deepblue-datasets"].includes(resource.id)).map(resource => resource.name).join(", ")}) to teach embodied reasoning and physics-informed behavior.`,
         `Use the reasoning and model resources (${selectedResources.filter(resource => ["gpt-oss", "arc-reasoning", "intellek-learning"].includes(resource.id)).map(resource => resource.name).join(", ")}) to strengthen agentic behavior, local deployment knowledge, and benchmark-driven evaluation.`,
     ];

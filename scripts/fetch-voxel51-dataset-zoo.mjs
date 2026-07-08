@@ -8,8 +8,16 @@ const repoRoot = path.resolve(__dirname, "..");
 const outputDir = path.join(repoRoot, "data", "voxel51-dataset-zoo");
 const imageDir = path.join(outputDir, "images");
 
+// Primary source for the built-in Voxel51 Dataset Zoo documentation.
 const docUrl = "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/data/dataset_zoo/datasets.md";
 const detailFields = ["Dataset name", "Dataset source", "Dataset size", "Tags", "Supported splits"];
+const detailFieldHandlers = {
+    "Dataset name": (section, value) => { section.datasetName = value; },
+    "Dataset source": (section, value) => { section.source = value; },
+    "Dataset size": (section, value) => { section.size = value; },
+    "Tags": (section, value) => { section.tags = value.split(",").map(item => item.trim()).filter(Boolean); },
+    "Supported splits": (section, value) => { section.supportedSplits = value.split(",").map(item => item.trim()).filter(Boolean); },
+};
 const docsResponse = await fetch(docUrl);
 if (!docsResponse.ok) {
     throw new Error(`Failed to fetch Voxel51 docs: ${docsResponse.status} ${docsResponse.statusText}`);
@@ -28,13 +36,15 @@ for (const section of datasetSections) {
     for (const imageUrl of imageUrls) {
         const imageResponse = await fetch(imageUrl);
         if (!imageResponse.ok) {
-            console.warn(`[voxel51-zoo] failed to download image: ${imageUrl}`);
+            console.warn(`[voxel51-zoo] failed to download image (${imageResponse.status} ${imageResponse.statusText}): ${imageUrl}`);
             continue;
         }
         const buffer = Buffer.from(await imageResponse.arrayBuffer());
         const filename = path.basename(new URL(imageUrl).pathname);
-        const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-        const imagePath = path.join(imageDir, safeFilename);
+        // Keep the image filename deterministic while avoiding empty or malformed names.
+        const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/^\.+/, "_");
+        const finalFilename = safeFilename || "image";
+        const imagePath = path.join(imageDir, finalFilename);
         await writeFile(imagePath, buffer);
         savedImages.push({
             sourceUrl: imageUrl,
@@ -103,10 +113,9 @@ function parseDatasetSections(markdown) {
             continue;
         }
 
-        if (!current.summary && isLikelyParagraph(line)) {
+        if (isLikelyParagraph(line)) {
             const paragraph = line.trim();
             if (paragraph) {
-                current.summary = paragraph;
                 current.paragraphs.push(paragraph);
             }
             continue;
@@ -116,22 +125,9 @@ function parseDatasetSections(markdown) {
         if (detailMatch) {
             const [, label, value] = detailMatch;
             const normalizedValue = normalizeMarkup(value);
-            if (label === detailFields[0]) {
-                current.datasetName = normalizedValue;
-            } else if (label === detailFields[1]) {
-                current.source = normalizedValue;
-            } else if (label === detailFields[2]) {
-                current.size = normalizedValue;
-            } else if (label === detailFields[3]) {
-                current.tags = normalizedValue
-                    .split(",")
-                    .map(item => item.trim())
-                    .filter(Boolean);
-            } else if (label === detailFields[4]) {
-                current.supportedSplits = normalizedValue
-                    .split(",")
-                    .map(item => item.trim())
-                    .filter(Boolean);
+            const handler = detailFieldHandlers[label];
+            if (handler) {
+                handler(current, normalizedValue);
             }
             continue;
         }
@@ -157,7 +153,7 @@ function parseDatasetSections(markdown) {
 }
 
 function finalizeSection(section) {
-    const summary = section.summary || section.paragraphs[0] || "";
+    const summary = section.paragraphs.join(" ").trim() || section.summary || "";
     const normalizedNotes = section.notes
         .map(item => normalizeMarkup(item))
         .filter(Boolean);
@@ -165,8 +161,12 @@ function finalizeSection(section) {
         ...section,
         summary,
         notes: normalizedNotes,
-        sourceUrl: `https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#${slugify(section.name)}`,
+        sourceUrl: `https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#${buildDocAnchor(section.name)}`,
     };
+}
+
+function buildDocAnchor(value) {
+    return slugify(value);
 }
 
 function isLikelyParagraph(line) {
