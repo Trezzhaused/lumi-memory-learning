@@ -312,7 +312,7 @@ const questions = [
       C: "x = 8",
       D: "x = 9",
     },
-    correct_option: "B",
+    correct_option: "A",
     hints: ["Subtract 5 from both sides first."],
     detailed_explanation: "2x + 5 = 17 => 2x = 12 => x = 6.",
     skill_tags: ["algebra", "equations"],

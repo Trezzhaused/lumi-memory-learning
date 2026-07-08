@@ -28,7 +28,10 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 app.use(express.static(path.join(process.cwd(), "public")));
-app.use("/data", express.static(path.join(process.cwd(), "data")));
+app.use("/data/training-datasets", express.static(path.join(process.cwd(), "data", "training-datasets")));
+app.use("/data/voxel51-dataset-zoo", express.static(path.join(process.cwd(), "data", "voxel51-dataset-zoo")));
+app.use("/data/educational-datasets", express.static(path.join(process.cwd(), "data", "educational-datasets")));
+app.use("/data/self-paced-learning", express.static(path.join(process.cwd(), "data", "self-paced-learning")));
     
 app.use((req: Request, res: Response, next: NextFunction) => {
     const requestOrigin = getRequestOrigin(req.headers);
