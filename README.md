@@ -153,7 +153,9 @@ Body: { question, studentResponses }
 ```
 
 These routes reuse the repository's existing self-paced question bank and add KL-based routing plus content-balancing and item-audit logic on top of it.
-   
+
+For the next-stage assessment platform roadmap, see `K-College-Upgrade.md` for deferred enhancements such as Sympson-Hetter exposure control, scheduled audits, seed-item calibration, telemetry, and MIRT support.
+    
 ### Autonomous missions
 ```
 POST /api/lumi/mission/boot
