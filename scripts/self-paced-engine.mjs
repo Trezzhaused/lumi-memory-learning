@@ -42,6 +42,7 @@ class SelfPacedEngine {
     this.alignment = alignment;
     this.currentTier = initialTier ?? this.inferTierFromAge(userAge);
     this.scoreHistory = [];
+    this.servedQuestionIds = new Set();
     this.irt = new IRTEngine();
   }
 
@@ -58,7 +59,9 @@ class SelfPacedEngine {
     return this.questions.filter((question) => {
       const questionTier = question.tier_alignment?.tier_level ?? question.tier_level;
       const minimumAge = question.tier_alignment?.recommended_age_range?.[0] ?? question.self_paced_metadata?.estimated_age_min ?? 0;
-      return questionTier === this.currentTier || (this.userAge >= minimumAge && questionTier <= this.currentTier);
+      const isTierEligible = questionTier === this.currentTier || (this.userAge >= minimumAge && questionTier <= this.currentTier);
+      const isNotServed = !this.servedQuestionIds.has(question.question_id);
+      return isTierEligible && isNotServed;
     });
   }
 
@@ -125,11 +128,13 @@ console.log(`[router] prompt: ${question.question_text}`);
 console.log(`[router] options: ${JSON.stringify(question.options)}`);
 
 const firstResult = engine.evaluateAnswer(question, "B");
+engine.servedQuestionIds.add(question.question_id);
 console.log(`[result] first answer ${firstResult.isCorrect ? "correct" : "incorrect"} -> theta=${firstResult.theta.toFixed(2)} tier=${firstResult.currentTier}`);
 
 const followUpQuestion = engine.selectNextQuestion();
 if (followUpQuestion) {
   console.log(`[router] next suggestion ${followUpQuestion.question_id} (${followUpQuestion.subject}: ${followUpQuestion.topic})`);
   const secondResult = engine.evaluateAnswer(followUpQuestion, "B");
+  engine.servedQuestionIds.add(followUpQuestion.question_id);
   console.log(`[result] second answer ${secondResult.isCorrect ? "correct" : "incorrect"} -> theta=${secondResult.theta.toFixed(2)} tier=${secondResult.currentTier}`);
 }
