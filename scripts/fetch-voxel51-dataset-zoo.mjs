@@ -57,9 +57,6 @@ for (const section of datasetSections) {
     });
 }
 
-await mkdir(imageDir, {recursive: true});
-await mkdir(outputDir, {recursive: true});
-
 await writeFile(
     path.join(outputDir, "datasets.json"),
     JSON.stringify({
@@ -71,7 +68,7 @@ await writeFile(
 
 await writeFile(
     path.join(outputDir, "README.md"),
-    buildReadme(datasets)
+    buildReadme(datasets, docUrl)
 );
 
 function parseDatasetSections(markdown) {
@@ -199,7 +196,7 @@ function slugify(value) {
         .replace(/(^-|-$)/g, "");
 }
 
-function buildReadme(datasets) {
+function buildReadme(datasets, docUrl) {
     const headers = [
         "# Voxel51 Dataset Zoo catalog",
         "",
