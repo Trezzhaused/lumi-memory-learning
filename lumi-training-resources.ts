@@ -37,6 +37,16 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         notes: "Best for broadening the knowledge base and translating high-level AI topics into short training briefs.",
     },
     {
+        id: "voxel51-dataset-zoo",
+        name: "Voxel51 FiftyOne Dataset Zoo",
+        url: "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html",
+        category: "dataset",
+        rationale: "A structured catalog of built-in image, video, and 3D datasets that gives Lumi a practical and multimodal grounding for dataset selection and vision training.",
+        useCase: "Use as a training catalog for computer-vision dataset awareness, multimodal grounding, benchmark planning, and dataset-oriented prompt synthesis.",
+        priority: "high",
+        notes: "A locally archived catalog of the dataset zoo metadata and preview images lives in data/voxel51-dataset-zoo/ for future memory and prompt-training workflows.",
+    },
+    {
         id: "deepblue-datasets",
         name: "University of Michigan Deep Blue dataset archive",
         url: "https://deepblue.lib.umich.edu/data/concern/data_sets/gq67jr854",
@@ -194,7 +204,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
 
     const recommendedIngestionPlan = [
         `Start with broad text corpora (${selectedResources.filter(resource => ["redpajama", "openwebtext", "wikitext", "commoncrawl"].includes(resource.id)).map(resource => resource.name).join(", ")}) to improve natural language coverage and style diversity.`,
-        `Add multimodal datasets (${selectedResources.filter(resource => ["openimages", "coco", "laion"].includes(resource.id)).map(resource => resource.name).join(", ")}) for image, caption, and retrieval-style understanding.`,
+        `Add multimodal datasets (${selectedResources.filter(resource => ["openimages", "coco", "laion", "voxel51-dataset-zoo"].includes(resource.id)).map(resource => resource.name).join(", ")}) for image, caption, and retrieval-style understanding.`,
         `Incorporate simulation and control resources (${selectedResources.filter(resource => ["mujoco", "deepblue-datasets"].includes(resource.id)).map(resource => resource.name).join(", ")}) to teach embodied reasoning and physics-informed behavior.`,
         `Use the reasoning and model resources (${selectedResources.filter(resource => ["gpt-oss", "arc-reasoning", "intellek-learning"].includes(resource.id)).map(resource => resource.name).join(", ")}) to strengthen agentic behavior, local deployment knowledge, and benchmark-driven evaluation.`,
     ];
@@ -225,7 +235,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
 
     return {
         generatedAt: new Date().toISOString(),
-        overview: "This resource set covers learning materials, open-weight models, web-scale corpora, multimodal datasets, robotics simulators, and reasoning benchmarks, giving Lumi a strong foundation for broader capabilities.",
+        overview: "This resource set covers learning materials, open-weight models, web-scale corpora, multimodal datasets, robotics simulators, the Voxel51 Dataset Zoo, and reasoning benchmarks, giving Lumi a strong foundation for broader capabilities.",
         capabilityTargets,
         priorityResources,
         recommendedIngestionPlan,

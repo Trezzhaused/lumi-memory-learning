@@ -11,7 +11,8 @@
     "build": "pnpm exec tsc",
     "start": "node dist/app.js",
     "dev": "tsnd --respawn app.ts",
-    "typecheck": "tsc --noEmit --pretty"
+    "typecheck": "tsc --noEmit --pretty",
+    "fetch:voxel51-zoo": "node scripts/fetch-voxel51-dataset-zoo.mjs"
   },
   "keywords": [],
   "dependencies": {

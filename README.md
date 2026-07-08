@@ -122,6 +122,10 @@ Body: { resources?, goals? }
 
 This endpoint analyzes the curated training-resource catalog for Lumi and stores a knowledge-bank summary in memory for later recall.
 
+### Voxel51 Dataset Zoo catalog
+
+Run `pnpm run fetch:voxel51-zoo` to refresh the archived Dataset Zoo metadata and preview images in `data/voxel51-dataset-zoo/`. The fetched catalog also feeds Lumi's training-resource analysis as a high-priority multimodal dataset source.
+
 ### Autonomous missions
 ```
 POST /api/lumi/mission/boot
