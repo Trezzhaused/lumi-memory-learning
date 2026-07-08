@@ -1,0 +1,1246 @@
+{
+  "generatedAt": "2026-07-08T16:24:36.234Z",
+  "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/data/dataset_zoo/datasets.md",
+  "datasets": [
+    {
+      "id": "activitynet-100",
+      "name": "ActivityNet 100",
+      "summary": "ActivityNet is a large-scale video dataset for human activity understanding",
+      "datasetName": "activitynet-100",
+      "source": "http://activity-net.org/index.html",
+      "size": "223 GB",
+      "tags": [
+        "video",
+        "classification",
+        "action-recognition",
+        "temporal-detection"
+      ],
+      "supportedSplits": [
+        "train",
+        "validation",
+        "test"
+      ],
+      "notes": [
+        "ActivityNet 100 and 200 differ in the number of activity classes and",
+        "Partial downloads will download videos (if still available) from YouTube",
+        "Full splits can be loaded by first downloading the official source files",
+        "The test set does not have annotations",
+        "ZooDataset class:",
+        "Train split: 4,819 videos (7,151 instances)",
+        "Test split: 2,480 videos (labels withheld)",
+        "Validation split: 2,383 videos (3,582 instances)",
+        "**split** ( _None_) and **splits** ( _None_): a string or list of strings,",
+        "**source\\_dir** ( _None_): the directory containing the manually downloaded",
+        "**classes** ( _None_): a string or list of strings specifying required",
+        "**max\\_duration** ( _None_): only videos with a duration in seconds that is",
+        "**copy\\_files** ( _True_): whether to move (False) or create copies (True) of",
+        "**num\\_workers** ( _None_): the number of processes to use when downloading",
+        "**shuffle** ( _False_): whether to randomly shuffle the order in which",
+        "**seed** ( _None_): a random seed to use when shuffling",
+        "**max\\_samples** ( _None_): a maximum number of samples to load per split. If"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/activitynet-100-validation.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/activitynet-100-validation.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/activitynet-100-validation.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#activitynet-100"
+    },
+    {
+      "id": "activitynet-200",
+      "name": "ActivityNet 200",
+      "summary": "ActivityNet is a large-scale video dataset for human activity understanding",
+      "datasetName": "activitynet-200",
+      "source": "http://activity-net.org/index.html",
+      "size": "500 GB",
+      "tags": [
+        "video",
+        "classification",
+        "action-recognition",
+        "temporal-detection"
+      ],
+      "supportedSplits": [
+        "train",
+        "validation",
+        "test"
+      ],
+      "notes": [
+        "ActivityNet 200 is a superset of ActivityNet 100",
+        "ActivityNet 100 and 200 differ in the number of activity classes and videos",
+        "Partial downloads will download videos (if still available) from YouTube",
+        "Full splits can be loaded by first downloading the official source files",
+        "The test set does not have annotations",
+        "ZooDataset class:",
+        "Train split: 10,024 videos (15,410 instances)",
+        "Test split: 5,044 videos (labels withheld)",
+        "Validation split: 4,926 videos (7,654 instances)",
+        "**split** ( _None_) and **splits** ( _None_): a string or list of strings,",
+        "**source\\_dir** ( _None_): the directory containing the manually downloaded",
+        "**classes** ( _None_): a string or list of strings specifying required",
+        "**max\\_duration** ( _None_): only videos with a duration in seconds that is",
+        "**copy\\_files** ( _True_): whether to move (False) or create copies (True) of",
+        "**num\\_workers** ( _None_): the number of processes to use when downloading",
+        "**shuffle** ( _False_): whether to randomly shuffle the order in which",
+        "**seed** ( _None_): a random seed to use when shuffling",
+        "**max\\_samples** ( _None_): a maximum number of samples to load per split. If"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/activitynet-200-validation.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/activitynet-200-validation.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/activitynet-200-validation.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#activitynet-200"
+    },
+    {
+      "id": "bdd100k",
+      "name": "BDD100K",
+      "summary": "The Berkeley Deep Drive (BDD) dataset is one of the largest and most diverse",
+      "datasetName": "bdd100k",
+      "source": "https://bdd-data.berkeley.edu",
+      "size": "7.10 GB",
+      "tags": [
+        "image",
+        "multilabel",
+        "automotive",
+        "manual"
+      ],
+      "supportedSplits": [
+        "train",
+        "validation",
+        "test"
+      ],
+      "notes": [
+        "ZooDataset class:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/bdd100k-validation.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/bdd100k-validation.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/bdd100k-validation.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#bdd100k"
+    },
+    {
+      "id": "caltech-101",
+      "name": "Caltech-101",
+      "summary": "The Caltech-101 dataset of images.",
+      "datasetName": "caltech101",
+      "source": "https://data.caltech.edu/records/mzrjq-6wc02",
+      "size": "138.60 MB",
+      "tags": [
+        "image",
+        "classification"
+      ],
+      "supportedSplits": [
+        "N/A"
+      ],
+      "notes": [
+        "ZooDataset class:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/caltech101.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/caltech101.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/caltech101.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#caltech-101"
+    },
+    {
+      "id": "caltech-256",
+      "name": "Caltech-256",
+      "summary": "The Caltech-256 dataset of images.",
+      "datasetName": "caltech256",
+      "source": "https://data.caltech.edu/records/nyy15-4j048",
+      "size": "1.16 GB",
+      "tags": [
+        "image",
+        "classification"
+      ],
+      "supportedSplits": [
+        "N/A"
+      ],
+      "notes": [
+        "ZooDataset class:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/caltech256.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/caltech256.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/caltech256.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#caltech-256"
+    },
+    {
+      "id": "cifar-10",
+      "name": "CIFAR-10",
+      "summary": "The CIFAR-10 dataset of images.",
+      "datasetName": "cifar10",
+      "source": "https://www.cs.toronto.edu/~kriz/cifar.html",
+      "size": "132.40 MB",
+      "tags": [
+        "image",
+        "classification"
+      ],
+      "supportedSplits": [
+        "train",
+        "test"
+      ],
+      "notes": [
+        "ZooDataset classes:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/cifar10-test.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/cifar10-test.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/cifar10-test.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#cifar-10"
+    },
+    {
+      "id": "cifar-100",
+      "name": "CIFAR-100",
+      "summary": "The CIFAR-100 dataset of images.",
+      "datasetName": "cifar100",
+      "source": "https://www.cs.toronto.edu/~kriz/cifar.html",
+      "size": "132.03 MB",
+      "tags": [
+        "image",
+        "classification"
+      ],
+      "supportedSplits": [
+        "train",
+        "test"
+      ],
+      "notes": [
+        "ZooDataset classes:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/cifar100-test.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/cifar100-test.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/cifar100-test.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#cifar-100"
+    },
+    {
+      "id": "cityscapes",
+      "name": "Cityscapes",
+      "summary": "Cityscapes is a large-scale dataset that contains a diverse set of",
+      "datasetName": "cityscapes",
+      "source": "https://www.cityscapes-dataset.com",
+      "size": "11.80 GB",
+      "tags": [
+        "image",
+        "multilabel",
+        "automotive",
+        "manual"
+      ],
+      "supportedSplits": [
+        "train",
+        "validation",
+        "test"
+      ],
+      "notes": [
+        "Assessing the performance of vision algorithms for major tasks of",
+        "Supporting research that aims to exploit large volumes of (weakly)",
+        "ZooDataset class:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/cityscapes-validation.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/cityscapes-validation.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/cityscapes-validation.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#cityscapes"
+    },
+    {
+      "id": "coco-2014",
+      "name": "COCO-2014",
+      "summary": "COCO is a large-scale object detection, segmentation, and captioning",
+      "datasetName": "coco-2014",
+      "source": "http://cocodataset.org/#home",
+      "size": "37.57 GB",
+      "tags": [
+        "image",
+        "detection",
+        "segmentation"
+      ],
+      "supportedSplits": [
+        "train",
+        "validation",
+        "test"
+      ],
+      "notes": [
+        "COCO defines 91 classes but the data only uses 80 classes",
+        "Some images from the train and validation sets don’t have annotations",
+        "The test set does not have annotations",
+        "COCO 2014 and 2017 use the same images, but the splits are different",
+        "ZooDataset class:",
+        "Train split: 82,783 images",
+        "Test split: 40,775 images",
+        "Validation split: 40,504 images",
+        "**split** ( _None_) and **splits** ( _None_): a string or list of strings,",
+        "**label\\_types** ( _None_): a label type or list of label types to load.",
+        "**classes** ( _None_): a string or list of strings specifying required",
+        "**image\\_ids** ( _None_): a list of specific image IDs to load. The IDs can",
+        "**include\\_id** ( _False_): whether to include the COCO ID of each sample in",
+        "**include\\_license** ( _False_): whether to include the COCO license of each",
+        "**only\\_matching** ( _False_): whether to only load labels that match the",
+        "**num\\_workers** ( _None_): the number of processes to use when downloading",
+        "**shuffle** ( _False_): whether to randomly shuffle the order in which",
+        "**seed** ( _None_): a random seed to use when shuffling",
+        "**max\\_samples** ( _None_): a maximum number of samples to load per split. If"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/coco-2014-validation.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/coco-2014-validation.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/coco-2014-validation.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#coco-2014"
+    },
+    {
+      "id": "coco-2017",
+      "name": "COCO-2017",
+      "summary": "COCO is a large-scale object detection, segmentation, and captioning",
+      "datasetName": "coco-2017",
+      "source": "http://cocodataset.org/#home",
+      "size": "25.20 GB",
+      "tags": [
+        "image",
+        "detection",
+        "segmentation"
+      ],
+      "supportedSplits": [
+        "train",
+        "validation",
+        "test"
+      ],
+      "notes": [
+        "COCO defines 91 classes but the data only uses 80 classes",
+        "Some images from the train and validation sets don’t have annotations",
+        "The test set does not have annotations",
+        "COCO 2014 and 2017 use the same images, but the splits are different",
+        "ZooDataset class:",
+        "Train split: 118,287 images",
+        "Test split: 40,670 images",
+        "Validation split: 5,000 images",
+        "**split** ( _None_) and **splits** ( _None_): a string or list of strings,",
+        "**label\\_types** ( _None_): a label type or list of label types to load.",
+        "**classes** ( _None_): a string or list of strings specifying required",
+        "**image\\_ids** ( _None_): a list of specific image IDs to load. The IDs can",
+        "**include\\_id** ( _False_): whether to include the COCO ID of each sample in",
+        "**include\\_license** ( _False_): whether to include the COCO license of each",
+        "**only\\_matching** ( _False_): whether to only load labels that match the",
+        "**num\\_workers** ( _None_): the number of processes to use when downloading",
+        "**shuffle** ( _False_): whether to randomly shuffle the order in which",
+        "**seed** ( _None_): a random seed to use when shuffling",
+        "**max\\_samples** ( _None_): a maximum number of samples to load per split. If"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/coco-2017-validation.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/coco-2017-validation.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/coco-2017-validation.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#coco-2017"
+    },
+    {
+      "id": "fashion-mnist",
+      "name": "Fashion MNIST",
+      "summary": "The Fashion-MNIST database of Zalando’s fashion article images.",
+      "datasetName": "fashion-mnist",
+      "source": "https://github.com/zalandoresearch/fashion-mnist",
+      "size": "36.42 MB",
+      "tags": [
+        "image",
+        "classification"
+      ],
+      "supportedSplits": [
+        "train",
+        "test"
+      ],
+      "notes": [
+        "ZooDataset classes:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/fashion-mnist-test.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/fashion-mnist-test.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/fashion-mnist-test.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#fashion-mnist"
+    },
+    {
+      "id": "families-in-the-wild",
+      "name": "Families in the Wild",
+      "summary": "Families in the Wild is a public benchmark for recognizing families via facial",
+      "datasetName": "fiw",
+      "source": "https://web.northeastern.edu/smilelab/fiw/",
+      "size": "173.00 MB",
+      "tags": [
+        "image",
+        "kinship",
+        "verification",
+        "classification",
+        "search-and-retrieval",
+        "facial-recognition"
+      ],
+      "supportedSplits": [
+        "test",
+        "val",
+        "train"
+      ],
+      "notes": [
+        "ZooDataset class:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/fiw.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/fiw.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/fiw.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#families-in-the-wild"
+    },
+    {
+      "id": "hmbd51",
+      "name": "HMBD51",
+      "summary": "HMDB51 is an action recognition dataset containing a total of 6,766",
+      "datasetName": "hmdb51",
+      "source": "https://serre-lab.clps.brown.edu/resource/hmdb-a-large-human-motion-database",
+      "size": "2.16 GB",
+      "tags": [
+        "video",
+        "action-recognition"
+      ],
+      "supportedSplits": [
+        "train",
+        "test",
+        "other"
+      ],
+      "notes": [
+        "ZooDataset class:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/hmdb51-test.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/hmdb51-test.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/hmdb51-test.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#hmbd51"
+    },
+    {
+      "id": "imagenet-2012",
+      "name": "ImageNet 2012",
+      "summary": "The ImageNet 2012 dataset.",
+      "datasetName": "imagenet-2012",
+      "source": "http://image-net.org",
+      "size": "144.02 GB",
+      "tags": [
+        "image",
+        "classification",
+        "manual"
+      ],
+      "supportedSplits": [
+        "train",
+        "validation"
+      ],
+      "notes": [
+        "ZooDataset classes:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/imagenet-2012-validation.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/imagenet-2012-validation.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/imagenet-2012-validation.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#imagenet-2012"
+    },
+    {
+      "id": "imagenet-sample",
+      "name": "ImageNet Sample",
+      "summary": "A small sample of images from the ImageNet 2012 dataset.",
+      "datasetName": "imagenet-sample",
+      "source": "http://image-net.org",
+      "size": "98.26 MB",
+      "tags": [
+        "image",
+        "classification"
+      ],
+      "supportedSplits": [
+        "N/A"
+      ],
+      "notes": [
+        "ZooDataset class:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/imagenet-sample.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/imagenet-sample.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/imagenet-sample.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#imagenet-sample"
+    },
+    {
+      "id": "kinetics-400",
+      "name": "Kinetics 400",
+      "summary": "Kinetics is a collection of large-scale, high-quality datasets of URL links of",
+      "datasetName": "kinetics-400",
+      "source": "https://deepmind.com/research/open-source/kinetics",
+      "size": "456 GB",
+      "tags": [
+        "video",
+        "classification",
+        "action-recognition"
+      ],
+      "supportedSplits": [
+        "train",
+        "test",
+        "validation"
+      ],
+      "notes": [
+        "ZooDataset class:",
+        "Train split: 219,782 videos",
+        "Test split: 35,357 videos",
+        "Validation split: 18,035 videos",
+        "Train split: 246,534 videos",
+        "Test split: 39,805 videos",
+        "Validation split: 19,906 videos",
+        "Train split: 370 GB",
+        "Test split: 56 GB",
+        "Validation split: 30 GB",
+        "**split** ( _None_) and **splits** ( _None_): a string or list of strings,",
+        "**classes** ( _None_): a string or list of strings specifying required",
+        "**num\\_workers** ( _None_): the number of processes to use when downloading",
+        "**shuffle** ( _False_): whether to randomly shuffle the order in which",
+        "**seed** ( _None_): a random seed to use when shuffling",
+        "**max\\_samples** ( _None_): a maximum number of samples to load per split. If"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/kinetics.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/kinetics.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/kinetics.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#kinetics-400"
+    },
+    {
+      "id": "kinetics-600",
+      "name": "Kinetics 600",
+      "summary": "Kinetics is a collection of large-scale, high-quality datasets of URL links of",
+      "datasetName": "kinetics-600",
+      "source": "https://deepmind.com/research/open-source/kinetics",
+      "size": "779 GB",
+      "tags": [
+        "video",
+        "classification",
+        "action-recognition"
+      ],
+      "supportedSplits": [
+        "train",
+        "test",
+        "validation"
+      ],
+      "notes": [
+        "ZooDataset class:",
+        "Train split: 370,582 videos",
+        "Test split: 56,618 videos",
+        "Validation split: 28,313 videos",
+        "Train split: 427,549 videos",
+        "Test split: 72,924 videos",
+        "Validation split: 29,793 videos",
+        "Train split: 648 GB",
+        "Test split: 88 GB",
+        "Validation split: 43 GB",
+        "**split** ( _None_) and **splits** ( _None_): a string or list of strings,",
+        "**classes** ( _None_): a string or list of strings specifying required",
+        "**num\\_workers** ( _None_): the number of processes to use when downloading",
+        "**shuffle** ( _False_): whether to randomly shuffle the order in which",
+        "**seed** ( _None_): a random seed to use when shuffling",
+        "**max\\_samples** ( _None_): a maximum number of samples to load per split. If"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/kinetics.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/kinetics.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/kinetics.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#kinetics-600"
+    },
+    {
+      "id": "kinetics-700",
+      "name": "Kinetics 700",
+      "summary": "Kinetics is a collection of large-scale, high-quality datasets of URL links of",
+      "datasetName": "kinetics-700",
+      "source": "https://deepmind.com/research/open-source/kinetics",
+      "size": "710 GB",
+      "tags": [
+        "video",
+        "classification",
+        "action-recognition"
+      ],
+      "supportedSplits": [
+        "train",
+        "test",
+        "validation"
+      ],
+      "notes": [
+        "ZooDataset class:",
+        "Train split: 529,046 videos",
+        "Test split: 67,446 videos",
+        "Validation split: 33,925 videos",
+        "Train split: 603 GB",
+        "Test split: 59 GB",
+        "Validation split: 48 GB",
+        "**split** ( _None_) and **splits** ( _None_): a string or list of strings,",
+        "**classes** ( _None_): a string or list of strings specifying required",
+        "**num\\_workers** ( _None_): the number of processes to use when downloading",
+        "**shuffle** ( _False_): whether to randomly shuffle the order in which",
+        "**seed** ( _None_): a random seed to use when shuffling",
+        "**max\\_samples** ( _None_): a maximum number of samples to load per split. If"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/kinetics.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/kinetics.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/kinetics.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#kinetics-700"
+    },
+    {
+      "id": "kinetics-700-2020",
+      "name": "Kinetics 700-2020",
+      "summary": "Kinetics is a collection of large-scale, high-quality datasets of URL links of",
+      "datasetName": "kinetics-700-2020",
+      "source": "https://deepmind.com/research/open-source/kinetics",
+      "size": "710 GB",
+      "tags": [
+        "video",
+        "classification",
+        "action-recognition"
+      ],
+      "supportedSplits": [
+        "train",
+        "test",
+        "validation"
+      ],
+      "notes": [
+        "ZooDataset class:",
+        "Train split: 542,352 videos",
+        "Test split: 67,433 videos",
+        "Validation split: 34,125 videos",
+        "Train split: 534,073 videos",
+        "Test split: 64,260 videos",
+        "Validation split: 33,914 videos",
+        "Train split: 603 GB",
+        "Test split: 59 GB",
+        "Validation split: 48 GB",
+        "**split** ( _None_) and **splits** ( _None_): a string or list of strings,",
+        "**classes** ( _None_): a string or list of strings specifying required",
+        "**num\\_workers** ( _None_): the number of processes to use when downloading",
+        "**shuffle** ( _False_): whether to randomly shuffle the order in which",
+        "**seed** ( _None_): a random seed to use when shuffling",
+        "**max\\_samples** ( _None_): a maximum number of samples to load per split. If"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/kinetics.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/kinetics.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/kinetics.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#kinetics-700-2020"
+    },
+    {
+      "id": "kitti",
+      "name": "KITTI",
+      "summary": "KITTI contains a suite of vision tasks built using an autonomous",
+      "datasetName": "kitti",
+      "source": "http://www.cvlibs.net/datasets/kitti",
+      "size": "12.57 GB",
+      "tags": [
+        "image",
+        "detection"
+      ],
+      "supportedSplits": [
+        "train",
+        "test"
+      ],
+      "notes": [
+        "ZooDataset class:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/kitti-train.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/kitti-train.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/kitti-train.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#kitti"
+    },
+    {
+      "id": "kitti-multiview",
+      "name": "KITTI Multiview",
+      "summary": "KITTI contains a suite of vision tasks built using an autonomous",
+      "datasetName": "kitti-multiview",
+      "source": "http://www.cvlibs.net/datasets/kitti",
+      "size": "53.34 GB",
+      "tags": [
+        "image",
+        "point-cloud",
+        "detection"
+      ],
+      "supportedSplits": [
+        "train",
+        "test"
+      ],
+      "notes": [
+        "Left camera images annotated with 2D object detections",
+        "Right camera images annotated with 2D object detections",
+        "Velodyne LIDAR point clouds annotated with 3D object detections",
+        "ZooDataset class:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/kitti-multiview-train.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/kitti-multiview-train.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/kitti-multiview-train.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#kitti-multiview"
+    },
+    {
+      "id": "labeled-faces-in-the-wild",
+      "name": "Labeled Faces in the Wild",
+      "summary": "Labeled Faces in the Wild is a public benchmark for face verification,",
+      "datasetName": "lfw",
+      "source": "http://vis-www.cs.umass.edu/lfw",
+      "size": "173.00 MB",
+      "tags": [
+        "image",
+        "classification",
+        "facial-recognition"
+      ],
+      "supportedSplits": [
+        "test",
+        "train"
+      ],
+      "notes": [
+        "ZooDataset class:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/lfw-test.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/lfw-test.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/lfw-test.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#labeled-faces-in-the-wild"
+    },
+    {
+      "id": "mnist",
+      "name": "MNIST",
+      "summary": "The MNIST database of handwritten digits.",
+      "datasetName": "mnist",
+      "source": "http://yann.lecun.com/exdb/mnist",
+      "size": "21.00 MB",
+      "tags": [
+        "image",
+        "classification"
+      ],
+      "supportedSplits": [
+        "train",
+        "test"
+      ],
+      "notes": [
+        "ZooDataset classes:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/mnist-test.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/mnist-test.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/mnist-test.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#mnist"
+    },
+    {
+      "id": "open-images-v6",
+      "name": "Open Images V6",
+      "summary": "Open Images V6 is a dataset of ~9 million images, roughly 2 million of which",
+      "datasetName": "open-images-v6",
+      "source": "https://storage.googleapis.com/openimages/web/index.html",
+      "size": "561 GB",
+      "tags": [
+        "image",
+        "detection",
+        "segmentation",
+        "classification"
+      ],
+      "supportedSplits": [
+        "train",
+        "test",
+        "validation"
+      ],
+      "notes": [
+        "ZooDataset class:",
+        "Not all images contain all types of labels",
+        "All images have been rescaled so that their largest side is at most",
+        "Train split: 1,743,042 images (513 GB)",
+        "Test split: 125,436 images (36 GB)",
+        "Validation split: 41,620 images (12 GB)",
+        "**split** ( _None_) and **splits** ( _None_): a string or list of strings,",
+        "**label\\_types** ( _None_): a label type or list of label types to load.",
+        "**classes** ( _None_): a string or list of strings specifying required",
+        "**attrs** ( _None_): a string or list of strings specifying required",
+        "**image\\_ids** ( _None_): a list of specific image IDs to load. The IDs can",
+        "**include\\_id** ( _True_): whether to include the Open Images ID of each",
+        "**only\\_matching** ( _False_): whether to only load labels that match the",
+        "**num\\_workers** ( _None_): the number of processes to use when downloading",
+        "**shuffle** ( _False_): whether to randomly shuffle the order in which",
+        "**seed** ( _None_): a random seed to use when shuffling",
+        "**max\\_samples** ( _None_): a maximum number of samples to load per split. If"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/open-images-v6.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/open-images-v6.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/open-images-v6.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#open-images-v6"
+    },
+    {
+      "id": "open-images-v7",
+      "name": "Open Images V7",
+      "summary": "Open Images V7 is a dataset of ~9 million images, roughly 2 million of which",
+      "datasetName": "open-images-v7",
+      "source": "https://storage.googleapis.com/openimages/web/index.html",
+      "size": "561 GB",
+      "tags": [
+        "image",
+        "detection",
+        "segmentation",
+        "classification",
+        "keypoint"
+      ],
+      "supportedSplits": [
+        "train",
+        "test",
+        "validation"
+      ],
+      "notes": [
+        "ZooDataset class:",
+        "Not all images contain all types of labels",
+        "All images have been rescaled so that their largest side is at most",
+        "Train split: 1,743,042 images (513 GB)",
+        "Test split: 125,436 images (36 GB)",
+        "Validation split: 41,620 images (12 GB)",
+        "**split** ( _None_) and **splits** ( _None_): a string or list of strings,",
+        "**label\\_types** ( _None_): a label type or list of label types to load.",
+        "**classes** ( _None_): a string or list of strings specifying required",
+        "**attrs** ( _None_): a string or list of strings specifying required",
+        "**image\\_ids** ( _None_): a list of specific image IDs to load. The IDs can",
+        "**include\\_id** ( _True_): whether to include the Open Images ID of each",
+        "**only\\_matching** ( _False_): whether to only load labels that match the",
+        "**num\\_workers** ( _None_): the number of processes to use when downloading",
+        "**shuffle** ( _False_): whether to randomly shuffle the order in which",
+        "**seed** ( _None_): a random seed to use when shuffling",
+        "**max\\_samples** ( _None_): a maximum number of samples to load per split. If"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/open-images-v7.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/open-images-v7.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/open-images-v7.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#open-images-v7"
+    },
+    {
+      "id": "places",
+      "name": "Places",
+      "summary": "Places is a scene recognition dataset of 10 million images comprising ~400",
+      "datasetName": "places",
+      "source": "http://places2.csail.mit.edu/download-private.html",
+      "size": "29 GB",
+      "tags": [
+        "image",
+        "classification"
+      ],
+      "supportedSplits": [
+        "train",
+        "validation",
+        "test"
+      ],
+      "notes": [
+        "ZooDataset classes:",
+        "Train split: 1,803,460 images, with between 3,068 and 5,000 per category",
+        "Test split: 328,500 images, with 900 images per category",
+        "Validation split: 36,500 images, with 100 images per category"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/places-validation.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/places-validation.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/places-validation.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#places"
+    },
+    {
+      "id": "quickstart",
+      "name": "Quickstart",
+      "summary": "A small dataset with ground truth bounding boxes and predictions.",
+      "datasetName": "quickstart",
+      "source": "",
+      "size": "23.40 MB",
+      "tags": [
+        "image",
+        "quickstart"
+      ],
+      "supportedSplits": [
+        "N/A"
+      ],
+      "notes": [
+        "ZooDataset class:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/quickstart.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/quickstart.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/quickstart.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#quickstart"
+    },
+    {
+      "id": "quickstart-geo",
+      "name": "Quickstart Geo",
+      "summary": "A small dataset with geolocation data.",
+      "datasetName": "quickstart-geo",
+      "source": "",
+      "size": "33.50 MB",
+      "tags": [
+        "image",
+        "location",
+        "quickstart"
+      ],
+      "supportedSplits": [
+        "N/A"
+      ],
+      "notes": [
+        "ZooDataset class:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/quickstart-geo.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/quickstart-geo.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/quickstart-geo.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#quickstart-geo"
+    },
+    {
+      "id": "quickstart-video",
+      "name": "Quickstart Video",
+      "summary": "A small video dataset with dense annotations.",
+      "datasetName": "quickstart-video",
+      "source": "",
+      "size": "35.20 MB",
+      "tags": [
+        "video",
+        "quickstart"
+      ],
+      "supportedSplits": [
+        "N/A"
+      ],
+      "notes": [
+        "ZooDataset class:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/quickstart-video.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/quickstart-video.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/quickstart-video.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#quickstart-video"
+    },
+    {
+      "id": "quickstart-groups",
+      "name": "Quickstart Groups",
+      "summary": "A small dataset with grouped image and point cloud data.",
+      "datasetName": "quickstart-groups",
+      "source": "",
+      "size": "516.3 MB",
+      "tags": [
+        "image",
+        "point-cloud",
+        "quickstart"
+      ],
+      "supportedSplits": [
+        "N/A"
+      ],
+      "notes": [
+        "ZooDataset class:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/quickstart-groups.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/quickstart-groups.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/quickstart-groups.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#quickstart-groups"
+    },
+    {
+      "id": "quickstart-3d",
+      "name": "Quickstart 3D",
+      "summary": "A small 3D dataset with meshes, point clouds, and oriented bounding boxes.",
+      "datasetName": "quickstart-3d",
+      "source": "",
+      "size": "215.7 MB",
+      "tags": [
+        "3d",
+        "point-cloud",
+        "mesh",
+        "quickstart"
+      ],
+      "supportedSplits": [
+        "N/A"
+      ],
+      "notes": [
+        "ZooDataset class:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/quickstart-3d.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/quickstart-3d.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/quickstart-3d.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#quickstart-3d"
+    },
+    {
+      "id": "sama-coco",
+      "name": "Sama-COCO",
+      "summary": "Sama-COCO is a relabeling of COCO-2017 and is a large-scale object detection",
+      "datasetName": "sama-coco",
+      "source": "https://www.sama.com/sama-coco-dataset/",
+      "size": "25.67 GB",
+      "tags": [
+        "image",
+        "detection",
+        "segmentation"
+      ],
+      "supportedSplits": [
+        "train",
+        "validation",
+        "test"
+      ],
+      "notes": [
+        "Sama-COCO defines 91 classes but the data only uses 80 classes (like COCO-2017)",
+        "Some images from the train and validation sets don’t have annotations",
+        "The test set does not have annotations",
+        "Sama-COCO has identical splits to COCO-2017",
+        "ZooDataset class:",
+        "Train split: 118,287 images",
+        "Test split: 40,670 images",
+        "Validation split: 5,000 images",
+        "**split** ( _None_) and **splits** ( _None_): a string or list of strings,",
+        "**label\\_types** ( _None_): a label type or list of label types to load.",
+        "**classes** ( _None_): a string or list of strings specifying required",
+        "**image\\_ids** ( _None_): a list of specific image IDs to load. The IDs can",
+        "**include\\_id** ( _False_): whether to include the COCO ID of each sample in",
+        "**include\\_license** ( _False_): whether to include the COCO license of each",
+        "**only\\_matching** ( _False_): whether to only load labels that match the",
+        "**num\\_workers** ( _None_): the number of processes to use when downloading",
+        "**shuffle** ( _False_): whether to randomly shuffle the order in which",
+        "**seed** ( _None_): a random seed to use when shuffling",
+        "**max\\_samples** ( _None_): a maximum number of samples to load per split. If"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/sama-coco-validation.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/sama-coco-validation.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/sama-coco-validation.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#sama-coco"
+    },
+    {
+      "id": "ucf101",
+      "name": "UCF101",
+      "summary": "UCF101 is an action recognition data set of realistic action videos,",
+      "datasetName": "ucf101",
+      "source": "https://www.crcv.ucf.edu/research/data-sets/ucf101",
+      "size": "6.48 GB",
+      "tags": [
+        "video",
+        "action-recognition"
+      ],
+      "supportedSplits": [
+        "train",
+        "test"
+      ],
+      "notes": [
+        "ZooDataset class:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/ucf101-test.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/ucf101-test.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/ucf101-test.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#ucf101"
+    },
+    {
+      "id": "voc-2007",
+      "name": "VOC-2007",
+      "summary": "The dataset for the PASCAL Visual Object Classes Challenge 2007",
+      "datasetName": "voc-2007",
+      "source": "http://host.robots.ox.ac.uk/pascal/VOC/voc2007",
+      "size": "868.85 MB",
+      "tags": [
+        "image",
+        "detection"
+      ],
+      "supportedSplits": [
+        "train",
+        "validation",
+        "test"
+      ],
+      "notes": [
+        "ZooDataset classes:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/voc-2007-validation.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/voc-2007-validation.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/voc-2007-validation.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#voc-2007"
+    },
+    {
+      "id": "voc-2012",
+      "name": "VOC-2012",
+      "summary": "The dataset for the PASCAL Visual Object Classes Challenge 2012",
+      "datasetName": "voc-2012",
+      "source": "http://host.robots.ox.ac.uk/pascal/VOC/voc2012",
+      "size": "3.59 GB",
+      "tags": [
+        "image",
+        "detection"
+      ],
+      "supportedSplits": [
+        "train",
+        "validation",
+        "test"
+      ],
+      "notes": [
+        "ZooDataset classes:"
+      ],
+      "imageUrls": [
+        "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/voc-2012-validation.webp"
+      ],
+      "images": [
+        {
+          "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/voc-2012-validation.webp",
+          "localPath": "data/voxel51-dataset-zoo/images/voc-2012-validation.webp"
+        }
+      ],
+      "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#voc-2012"
+    }
+  ]
+}
