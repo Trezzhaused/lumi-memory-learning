@@ -19,6 +19,7 @@ import {
 import {converseSpeech, formatBraille, speakText, transcribeAudio} from "./lumi-speech";
 import {buildPromptTrainer} from "./lumi-prompt-trainer";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
+import {auditQuestionPerformance, getSelfPacedQuestionBank, selectNextQuestionKL} from "./lumi-self-paced";
 
 // ============================================================================
 // App setup
@@ -173,6 +174,64 @@ lumiRouter.post("/enhance-prompt", async (req: Request, res: Response, next: Nex
         if (!prompt) { res.status(400).json({error: "prompt is required"}); return; }
         const result = await enhancePrompt(prompt, domain);
         res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/self-paced/select-next
+lumiRouter.post("/self-paced/select-next", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const body = req.body ?? {};
+        const history = Array.isArray(body.history) ? body.history : [];
+        const requestedCandidates = Array.isArray(body.candidates) ? body.candidates : [];
+        const tierLevel = body.tierLevel ?? body.tier_level;
+        const subject = body.subject;
+        const topic = body.topic;
+        const excludeIds = Array.isArray(body.excludeIds) ? body.excludeIds : [];
+        const limit = typeof body.limit === "number" ? body.limit : undefined;
+        const targetProportions = body.targetProportions ?? {};
+
+        const bank = getSelfPacedQuestionBank();
+        const sourceQuestions = requestedCandidates.length > 0 ? requestedCandidates : bank.questions;
+        const filteredQuestions = sourceQuestions.filter((question: any) => {
+            const questionTier = question.tier_level ?? question.tier_alignment?.tier_level ?? 3;
+            const matchesTier = tierLevel == null || Number(questionTier) === Number(tierLevel);
+            const matchesSubject = !subject || String(question.subject).toLowerCase() === String(subject).toLowerCase();
+            const matchesTopic = !topic || String(question.topic).toLowerCase() === String(topic).toLowerCase();
+            const questionId = typeof question.id === "string" ? question.id : typeof question.question_id === "string" ? question.question_id : undefined;
+            const isExcluded = Boolean(questionId && excludeIds.includes(questionId));
+            return matchesTier && matchesSubject && matchesTopic && !isExcluded;
+        });
+
+        const candidates = typeof limit === "number" ? filteredQuestions.slice(0, limit) : filteredQuestions;
+        const selection = selectNextQuestionKL(candidates, history, {targetProportions});
+        if (!selection.item) {
+            res.status(404).json({error: "No questions available for the requested filters"});
+            return;
+        }
+
+        res.json({
+            selectedQuestion: selection.item,
+            routing: {
+                eapTheta: selection.eapTheta,
+                klInformation: selection.klInformation,
+                priorityScore: selection.priorityScore,
+                exposureCounts: selection.exposureCounts,
+            },
+        });
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/self-paced/audit-question
+lumiRouter.post("/self-paced/audit-question", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const body = req.body ?? {};
+        const questionMetadata = body.questionMetadata ?? body.question;
+        const studentResponses = Array.isArray(body.studentResponses) ? body.studentResponses : [];
+        if (!questionMetadata) {
+            res.status(400).json({error: "question is required"});
+            return;
+        }
+        res.json(auditQuestionPerformance(questionMetadata, studentResponses));
     } catch (err) { next(err); }
 });
 

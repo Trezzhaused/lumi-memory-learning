@@ -137,7 +137,23 @@ Run `pnpm run build:education-schema` to generate an AI-ready JSONL dataset for 
 ### Self-paced learning engine
 
 Run `pnpm run build:self-paced-bank` to generate a JSONL question bank and tier-alignment matrix in `data/self-paced-learning/`. Run `pnpm run self-paced:demo` to simulate routing and adaptive tier updates for a sample learner.
-  
+
+### Adaptive self-paced API
+
+The existing app now exposes adaptive-learning endpoints for the self-paced bank:
+
+```
+POST /api/lumi/self-paced/select-next
+Body: { history?, candidates?, tierLevel?, subject?, topic?, excludeIds?, limit?, targetProportions? }
+→ { selectedQuestion, routing: { eapTheta, klInformation, priorityScore, exposureCounts } }
+
+POST /api/lumi/self-paced/audit-question
+Body: { question, studentResponses }
+→ { question_id, total_sample_size, point_biserial_correlation, outfit_mean_square, flags, action_required }
+```
+
+These routes reuse the repository's existing self-paced question bank and add KL-based routing plus content-balancing and item-audit logic on top of it.
+   
 ### Autonomous missions
 ```
 POST /api/lumi/mission/boot
