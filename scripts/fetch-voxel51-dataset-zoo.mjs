@@ -1,4 +1,4 @@
-import {mkdir, writeFile} from "node:fs/promises";
+import {access, mkdir, writeFile} from "node:fs/promises";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
 
@@ -9,7 +9,7 @@ const outputDir = path.join(repoRoot, "data", "voxel51-dataset-zoo");
 const imageDir = path.join(outputDir, "images");
 
 // Primary source for the built-in Voxel51 Dataset Zoo documentation.
-const docUrl = "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/data/dataset_zoo/datasets.md";
+const docUrl = process.env.VOXEL51_DATASET_ZOO_URL || "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/data/dataset_zoo/datasets.md";
 const detailFields = ["Dataset name", "Dataset source", "Dataset size", "Tags", "Supported splits"];
 const detailFieldHandlers = {
     "Dataset name": (section, value) => { section.datasetName = value; },
@@ -43,8 +43,8 @@ for (const section of datasetSections) {
         const filename = path.basename(new URL(imageUrl).pathname);
         // Keep the image filename deterministic while avoiding empty or malformed names.
         const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/^\.+/, "_");
-        const finalFilename = safeFilename || "image";
-        const imagePath = path.join(imageDir, finalFilename);
+        const baseFilename = safeFilename || "image";
+        const imagePath = await getUniqueImagePath(imageDir, baseFilename);
         await writeFile(imagePath, buffer);
         savedImages.push({
             sourceUrl: imageUrl,
@@ -82,9 +82,28 @@ await writeFile(
     buildReadme(datasets, docUrl)
 );
 
+async function getUniqueImagePath(imageDir, baseFilename) {
+    const extension = path.extname(baseFilename);
+    const stem = path.basename(baseFilename, extension);
+    let candidate = path.join(imageDir, baseFilename);
+    let counter = 1;
+
+    while (true) {
+        try {
+            await access(candidate);
+            const nextName = `${stem}-${counter}${extension}`;
+            candidate = path.join(imageDir, nextName);
+            counter += 1;
+        } catch {
+            return candidate;
+        }
+    }
+}
+
 function parseDatasetSections(markdown) {
     const lines = markdown.split(/\r?\n/);
     const sections = [];
+    const detailPattern = new RegExp(`^-\\s+(${detailFields.join("|")}):\\s*(.+)$`);
     let current = null;
 
     for (const line of lines) {
@@ -121,7 +140,7 @@ function parseDatasetSections(markdown) {
             continue;
         }
 
-        const detailMatch = line.match(new RegExp(`^-\\s+(${detailFields.join("|")}):\\s*(.+)$`));
+        const detailMatch = line.match(detailPattern);
         if (detailMatch) {
             const [, label, value] = detailMatch;
             const normalizedValue = normalizeMarkup(value);

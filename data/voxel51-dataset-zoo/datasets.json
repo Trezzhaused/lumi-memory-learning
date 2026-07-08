@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-08T16:31:54.810Z",
+  "generatedAt": "2026-07-08T16:33:33.980Z",
   "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/data/dataset_zoo/datasets.md",
   "datasets": [
     {
@@ -45,7 +45,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/activitynet-100-validation.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/activitynet-100-validation.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/activitynet-100-validation-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#activitynet-100"
@@ -94,7 +94,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/activitynet-200-validation.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/activitynet-200-validation.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/activitynet-200-validation-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#activitynet-200"
@@ -126,7 +126,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/bdd100k-validation.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/bdd100k-validation.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/bdd100k-validation-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#bdd100k"
@@ -154,7 +154,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/caltech101.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/caltech101.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/caltech101-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#caltech-101"
@@ -182,7 +182,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/caltech256.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/caltech256.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/caltech256-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#caltech-256"
@@ -211,7 +211,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/cifar10-test.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/cifar10-test.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/cifar10-test-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#cifar-10"
@@ -240,7 +240,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/cifar100-test.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/cifar100-test.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/cifar100-test-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#cifar-100"
@@ -274,7 +274,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/cityscapes-validation.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/cityscapes-validation.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/cityscapes-validation-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#cityscapes"
@@ -323,7 +323,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/coco-2014-validation.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/coco-2014-validation.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/coco-2014-validation-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#coco-2014"
@@ -372,7 +372,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/coco-2017-validation.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/coco-2017-validation.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/coco-2017-validation-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#coco-2017"
@@ -401,7 +401,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/fashion-mnist-test.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/fashion-mnist-test.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/fashion-mnist-test-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#fashion-mnist"
@@ -435,7 +435,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/fiw.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/fiw.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/fiw-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#families-in-the-wild"
@@ -465,7 +465,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/hmdb51-test.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/hmdb51-test.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/hmdb51-test-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#hmbd51"
@@ -495,7 +495,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/imagenet-2012-validation.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/imagenet-2012-validation.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/imagenet-2012-validation-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#imagenet-2012"
@@ -523,7 +523,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/imagenet-sample.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/imagenet-sample.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/imagenet-sample-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#imagenet-sample"
@@ -569,7 +569,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/kinetics.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/kinetics.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/kinetics-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#kinetics-400"
@@ -615,7 +615,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/kinetics.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/kinetics.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/kinetics-2.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#kinetics-600"
@@ -658,7 +658,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/kinetics.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/kinetics.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/kinetics-3.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#kinetics-700"
@@ -704,7 +704,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/kinetics.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/kinetics.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/kinetics-4.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#kinetics-700-2020"
@@ -733,7 +733,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/kitti-train.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/kitti-train.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/kitti-train-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#kitti"
@@ -766,7 +766,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/kitti-multiview-train.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/kitti-multiview-train.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/kitti-multiview-train-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#kitti-multiview"
@@ -796,7 +796,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/lfw-test.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/lfw-test.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/lfw-test-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#labeled-faces-in-the-wild"
@@ -825,7 +825,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/mnist-test.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/mnist-test.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/mnist-test-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#mnist"
@@ -873,7 +873,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/open-images-v6.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/open-images-v6.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/open-images-v6-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#open-images-v6"
@@ -922,7 +922,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/open-images-v7.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/open-images-v7.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/open-images-v7-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#open-images-v7"
@@ -955,7 +955,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/places-validation.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/places-validation.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/places-validation-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#places"
@@ -983,7 +983,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/quickstart.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/quickstart.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/quickstart-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#quickstart"
@@ -1012,7 +1012,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/quickstart-geo.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/quickstart-geo.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/quickstart-geo-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#quickstart-geo"
@@ -1040,7 +1040,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/quickstart-video.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/quickstart-video.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/quickstart-video-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#quickstart-video"
@@ -1069,7 +1069,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/quickstart-groups.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/quickstart-groups.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/quickstart-groups-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#quickstart-groups"
@@ -1099,7 +1099,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/quickstart-3d.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/quickstart-3d.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/quickstart-3d-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#quickstart-3d"
@@ -1148,7 +1148,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/sama-coco-validation.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/sama-coco-validation.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/sama-coco-validation-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#sama-coco"
@@ -1177,7 +1177,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/ucf101-test.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/ucf101-test.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/ucf101-test-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#ucf101"
@@ -1207,7 +1207,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/voc-2007-validation.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/voc-2007-validation.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/voc-2007-validation-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#voc-2007"
@@ -1237,7 +1237,7 @@
       "images": [
         {
           "sourceUrl": "https://raw.githubusercontent.com/voxel51/voxel51-docs/main/docs/_images/voc-2012-validation.webp",
-          "localPath": "data/voxel51-dataset-zoo/images/voc-2012-validation.webp"
+          "localPath": "data/voxel51-dataset-zoo/images/voc-2012-validation-1.webp"
         }
       ],
       "sourceUrl": "https://docs.voxel51.com/user_guide/dataset_zoo/datasets.html#voc-2012"
