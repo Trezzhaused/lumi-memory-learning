@@ -1,0 +1,44 @@
+[
+  {
+    "tier_level": 1,
+    "grade_equivalent": "Kindergarten - Grade 2",
+    "estimated_age_min": 5,
+    "estimated_age_max": 7,
+    "focus": "Visual matching, single-step arithmetic, basic phonics"
+  },
+  {
+    "tier_level": 2,
+    "grade_equivalent": "Grade 3 - Grade 5",
+    "estimated_age_min": 8,
+    "estimated_age_max": 10,
+    "focus": "Multi-step word problems, reading comprehension, basic science facts"
+  },
+  {
+    "tier_level": 3,
+    "grade_equivalent": "Grade 6 - Grade 8",
+    "estimated_age_min": 11,
+    "estimated_age_max": 13,
+    "focus": "Rational numbers, introductory algebra, multi-variable logic, textual analysis"
+  },
+  {
+    "tier_level": 4,
+    "grade_equivalent": "Grade 9 - Grade 10",
+    "estimated_age_min": 14,
+    "estimated_age_max": 16,
+    "focus": "Secondary algebra, data interpretation, chemistry and physics concepts"
+  },
+  {
+    "tier_level": 5,
+    "grade_equivalent": "Grade 11 - Grade 12",
+    "estimated_age_min": 17,
+    "estimated_age_max": 18,
+    "focus": "Calculus preparation, critical rhetorical analysis, advanced synthesis"
+  },
+  {
+    "tier_level": 6,
+    "grade_equivalent": "College Undergraduate",
+    "estimated_age_min": 18,
+    "estimated_age_max": 99,
+    "focus": "Domain-specific expertise, deep theoretical proof, research evaluation"
+  }
+]

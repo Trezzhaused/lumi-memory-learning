@@ -133,6 +133,10 @@ Run `pnpm run fetch:training-datasets` to refresh the Open Images and Deep Blue 
 ### Educational schema builder
 
 Run `pnpm run build:education-schema` to generate an AI-ready JSONL dataset for a K-12 or OpenStax-style curriculum node. The script writes a compact JSONL file to `data/educational-datasets/education-schema.jsonl` plus a manifest in `data/educational-datasets/manifest.json`.
+
+### Self-paced learning engine
+
+Run `pnpm run build:self-paced-bank` to generate a JSONL question bank and tier-alignment matrix in `data/self-paced-learning/`. Run `pnpm run self-paced:demo` to simulate routing and adaptive tier updates for a sample learner.
   
 ### Autonomous missions
 ```
