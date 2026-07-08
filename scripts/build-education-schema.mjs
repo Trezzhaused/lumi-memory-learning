@@ -28,7 +28,7 @@ const dataset = transformToSchema(rawData, {
 });
 
 await mkdir(outputDir, {recursive: true});
-await writeFile(outputPath, dataset.map(item => JSON.stringify(item, null, 2)).join("\n") + "\n");
+await writeFile(outputPath, dataset.map(item => JSON.stringify(item)).join("\n") + "\n");
 await writeFile(manifestPath, JSON.stringify({
     generatedAt: new Date().toISOString(),
     sourceBookSlug: bookSlug,

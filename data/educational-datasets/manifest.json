@@ -1,0 +1,11 @@
+{
+  "generatedAt": "2026-07-08T16:47:21.392Z",
+  "sourceBookSlug": "college-physics-2e",
+  "outputFile": "data/educational-datasets/education-schema.jsonl",
+  "itemCount": 1,
+  "gradeLevel": "Grade 8",
+  "subject": "Physical Science",
+  "domainId": "SCI.G8.PS.01",
+  "domainTitle": "Matter and Its Interactions",
+  "standardAlignment": "NGSS.MS-PS1-1"
+}
