@@ -5,6 +5,10 @@
 
 ## What Lumi Does
 
+### K-12 curriculum design and MIT resources
+
+Lumi can now incorporate MIT Learn's competency-based education materials, MIT OpenCourseWare educator content, and MIT Open Learning K-12 teacher resources into its training and planning prompts. These inputs help with curriculum design, competency mapping, unit planning, pedagogy, and teacher-facing resource curation.
+
 | Capability | Detail |
 |---|---|
 | **Chat** | Multi-model conversations via OpenRouter (free-tier cascade) |

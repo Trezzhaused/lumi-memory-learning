@@ -37,6 +37,36 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         notes: "Best for broadening the knowledge base and translating high-level AI topics into short training briefs.",
     },
     {
+        id: "mit-competency-based-education",
+        name: "MIT Learn competency-based education",
+        url: "https://learn.mit.edu/search?resource=4420&resource_title=competency-based-education-the-why-what-and-how",
+        category: "learning",
+        rationale: "MIT Learn's competency-based education materials offer a strong reference for designing learner-centered pathways, assessment structures, and implementation guidance.",
+        useCase: "Use to help Lumi reason about competency maps, standards-aligned curriculum design, and evidence-based instructional planning for K-12 settings.",
+        priority: "high",
+        notes: "Particularly useful for curriculum designers who want to connect learning goals, performance evidence, and student agency.",
+    },
+    {
+        id: "mit-ocw-educators",
+        name: "MIT OpenCourseWare for educators",
+        url: "https://learn.mit.edu/c/unit/ocw",
+        category: "learning",
+        rationale: "MIT OpenCourseWare gives Lumi access to free, openly licensed course content that can be adapted into lesson plans, project-based learning units, and teacher-facing materials.",
+        useCase: "Use when designing enrichment modules, classroom-ready activities, or cross-disciplinary K-12 learning experiences.",
+        priority: "high",
+        notes: "Best applied as a source of structured content and pedagogical patterns rather than as a complete curriculum package.",
+    },
+    {
+        id: "mit-open-learning-k12",
+        name: "MIT Open Learning K-12 teacher resources",
+        url: "https://openlearning.mit.edu/news/free-mit-courses-and-resources-help-k-12-teachers-make-school-year-success",
+        category: "learning",
+        rationale: "MIT Open Learning highlights free courses and resources that support K-12 teachers with practical instructional strategies and professional development content.",
+        useCase: "Support Lumi in generating teacher-friendly curriculum briefs, pacing suggestions, and classroom resource recommendations for K-12 environments.",
+        priority: "medium",
+        notes: "Useful for framing how educators can adapt MIT content for everyday classroom use and school-year planning.",
+    },
+    {
         id: "deepblue-datasets",
         name: "University of Michigan Deep Blue dataset archive",
         url: "https://deepblue.lib.umich.edu/data/concern/data_sets/gq67jr854",
@@ -186,6 +216,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
         "Vision-language grounding and multimodal retrieval",
         "Embodied reasoning via robotics and simulation",
         "Reasoning, planning, and benchmark-driven evaluation",
+        "K-12 curriculum design, competency-based assessment, and educator-facing lesson planning",
     ];
 
     const priorityResources = selectedResources
@@ -196,12 +227,14 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
         `Start with broad text corpora (${selectedResources.filter(resource => ["redpajama", "openwebtext", "wikitext", "commoncrawl"].includes(resource.id)).map(resource => resource.name).join(", ")}) to improve natural language coverage and style diversity.`,
         `Add multimodal datasets (${selectedResources.filter(resource => ["openimages", "coco", "laion"].includes(resource.id)).map(resource => resource.name).join(", ")}) for image, caption, and retrieval-style understanding.`,
         `Incorporate simulation and control resources (${selectedResources.filter(resource => ["mujoco", "deepblue-datasets"].includes(resource.id)).map(resource => resource.name).join(", ")}) to teach embodied reasoning and physics-informed behavior.`,
+        `Use the MIT educator resources (${selectedResources.filter(resource => ["mit-competency-based-education", "mit-ocw-educators", "mit-open-learning-k12"].includes(resource.id)).map(resource => resource.name).join(", ")}) to build K-12 curriculum planning, competency-based assessment, and teacher-facing lesson design support.`,
         `Use the reasoning and model resources (${selectedResources.filter(resource => ["gpt-oss", "arc-reasoning", "intellek-learning"].includes(resource.id)).map(resource => resource.name).join(", ")}) to strengthen agentic behavior, local deployment knowledge, and benchmark-driven evaluation.`,
     ];
 
     const knowledgeBankSummary = [
         `Lumi should treat these resources as a layered training program for ${goals.join(", ")}.`,
         "The highest-value immediate path is to combine large-scale text corpora with multimodal datasets, then add simulation and reasoning benchmarks for capability growth.",
+        "MIT Learn, MIT OpenCourseWare, and MIT Open Learning materials are especially useful for K-12 curriculum planning, competency-based education, and teacher-facing resource curation.",
         "For production use, ingest only curated subsets first and keep provenance, licensing, and deduplication metadata attached to each dataset entry.",
     ].join(" ");
 
@@ -225,7 +258,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
 
     return {
         generatedAt: new Date().toISOString(),
-        overview: "This resource set covers learning materials, open-weight models, web-scale corpora, multimodal datasets, robotics simulators, and reasoning benchmarks, giving Lumi a strong foundation for broader capabilities.",
+        overview: "This resource set covers learning materials, open-weight models, web-scale corpora, multimodal datasets, robotics simulators, reasoning benchmarks, and MIT educator resources for K-12 curriculum design, giving Lumi a strong foundation for broader capabilities.",
         capabilityTargets,
         priorityResources,
         recommendedIngestionPlan,
