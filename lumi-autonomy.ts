@@ -312,8 +312,6 @@ async function runCommandTool(tool: ToolInvocation): Promise<ToolExecutionResult
             SHELL: process.env.SHELL || "",
             LANG: process.env.LANG || "C.UTF-8",
             TMPDIR: process.env.TMPDIR || "",
-            DATA_DIR: process.env.DATA_DIR || "",
-            OLLAMA_HOST: process.env.OLLAMA_HOST || "",
         },
     });
 
@@ -606,7 +604,7 @@ export async function queueAutonomyTask(request: QueuedAutonomyTaskRequest): Pro
         status: "queued",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        steps: (request.steps && request.steps.length > 0 ? request.steps : buildDefaultSteps(request.objective)).map(step => ({...step})),
+        steps: (request.steps && request.steps.length > 0 ? request.steps : buildDefaultSteps(request.objective)).map(step => structuredClone(step)),
         checkpoints: [],
         attempts: 0,
         metadata: request.metadata,
