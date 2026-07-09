@@ -62,6 +62,8 @@ export interface MemoryEntry {
     reviewedBy?: string;
     score?: number;
     effectiveConfidence?: MemoryConfidence;
+    quarantineReason?: string;
+    seedItem?: boolean;
 }
 
 /** Studio-compatible snapshot */
@@ -88,12 +90,22 @@ export interface MemoryWriteOptions {
     sensitivity?: MemorySensitivity;
     qualityScore?: number;
     reviewedBy?: string;
+    isSeedItem?: boolean;
 }
 
 export interface MemorySearchOptions {
     includeQuarantined?: boolean;
     minConfidence?: MemoryConfidence;
     tags?: string[];
+    maxSensitivity?: MemorySensitivity;
+    includeSensitive?: boolean;
+}
+
+export interface MemoryRecallOptions {
+    tags?: string[];
+    maxSensitivity?: MemorySensitivity;
+    includeSensitive?: boolean;
+    includeQuarantined?: boolean;
 }
 
 export interface MemoryAuditEvent {
@@ -114,6 +126,7 @@ export interface RetrievalTelemetryEvent {
     resultCount: number;
     entryIds: string[];
     createdAt: string;
+    seedItemHits: number;
 }
 
 export interface MemoryObservabilitySnapshot {
@@ -125,12 +138,15 @@ export interface MemoryObservabilitySnapshot {
         pendingReview: number;
         storageBackend: string;
         updatedAt: string;
+        seedItems: number;
+        sensitiveEntries: number;
     };
     telemetry: {
         totalRetrievals: number;
         usefulRetrievals: number;
         uncertainRetrievals: number;
         lowConfidenceRetrievals: number;
+        seedItemHits: number;
     };
     audit: MemoryAuditEvent[];
 }
@@ -146,6 +162,18 @@ const R2_ACCOUNT_ID = process.env.CLOUDFLARE_R2_ACCOUNT_ID || "";
 const R2_ACCESS_KEY_ID = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || "";
 const R2_SECRET_ACCESS_KEY = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || "";
 const R2_BUCKET = process.env.CLOUDFLARE_R2_BUCKET || "";
+// Keep empty-query matches visible enough to still sort by quality when no search terms are provided.
+const EMPTY_QUERY_SCORE = 0.2;
+// Only keep candidates whose relevance score is above this threshold.
+const MATCH_THRESHOLD = 0.2;
+// Baseline relevance for a match before weighting exact/overlapping terms and entry quality.
+const BASE_MATCH_SCORE = 0.35;
+// Weight for partial keyword overlap versus exact phrase matches.
+const OVERLAP_WEIGHT = 0.5;
+const EXACT_MATCH_WEIGHT = 0.15;
+// Let higher-quality and seed-calibrated items rank above weaker matches.
+const QUALITY_WEIGHT = 0.2;
+const SEED_ITEM_BOOST = 0.08;
 
 let gistId: string | null = null;
 
@@ -211,6 +239,10 @@ function normalizeWhitespace(value: string): string {
     return value.replace(/\s+/g, " ").trim();
 }
 
+function buildEntryTags(baseTags: string[], seedItem: boolean): string[] {
+    return Array.from(new Set([...baseTags, ...(seedItem ? ["seed-item"] : [])]));
+}
+
 function chunkText(value: string, chunkSize = 400): string[] {
     const normalized = normalizeWhitespace(value);
     if (!normalized) return [];
@@ -239,15 +271,18 @@ function chunkText(value: string, chunkSize = 400): string[] {
 
 function computeMatchScore(query: string, entry: MemoryEntry): number {
     const q = normalizeWhitespace(query).toLowerCase();
-    if (!q) return 0.2;
+    // Return a small neutral score for empty queries so the caller can still rank by quality
+    // after the normal relevance calculation instead of dropping all results.
+    if (!q) return EMPTY_QUERY_SCORE;
     const content = entry.content.toLowerCase();
     const terms = q.split(/\s+/).filter(Boolean);
     const matchedTerms = terms.filter(term => content.includes(term)).length;
     const overlap = terms.length > 0 ? matchedTerms / terms.length : 0;
     const exact = content.includes(q) ? 1 : 0;
-    const base = 0.35 + overlap * 0.5 + exact * 0.15;
-    const qualityBoost = (entry.qualityScore || 0.6) * 0.2;
-    return Math.min(1, base + qualityBoost);
+    const base = BASE_MATCH_SCORE + overlap * OVERLAP_WEIGHT + exact * EXACT_MATCH_WEIGHT;
+    const qualityBoost = (entry.qualityScore || 0.6) * QUALITY_WEIGHT;
+    const seedBoost = entry.seedItem ? SEED_ITEM_BOOST : 0;
+    return Math.min(1, base + qualityBoost + seedBoost);
 }
 
 function deriveEffectiveConfidence(entry: MemoryEntry): MemoryConfidence {
@@ -256,6 +291,29 @@ function deriveEffectiveConfidence(entry: MemoryEntry): MemoryConfidence {
     if ((entry.qualityScore || 0.6) >= 0.8) return "high";
     if ((entry.qualityScore || 0.6) >= 0.45) return "medium";
     return "low";
+}
+
+function meetsMinimumConfidence(entry: MemoryEntry, minConfidence?: MemoryConfidence): boolean {
+    if (!minConfidence) return true;
+    const confidenceOrder: MemoryConfidence[] = ["low", "medium", "high"];
+    const entryConfidence = deriveEffectiveConfidence(entry);
+    return confidenceOrder.indexOf(entryConfidence) >= confidenceOrder.indexOf(minConfidence);
+}
+
+function getSensitivityRank(value?: MemorySensitivity): number {
+    switch (value) {
+        case "medium": return 1;
+        case "high": return 2;
+        default: return 0;
+    }
+}
+
+function shouldExposeEntry(entry: MemoryEntry, options: MemorySearchOptions | MemoryRecallOptions = {}): boolean {
+    if (entry.reviewStatus === "quarantined" && !options.includeQuarantined) return false;
+    const maxSensitivity = options.maxSensitivity ?? (options.includeSensitive ? "high" : "medium");
+    const entrySensitivity = entry.sensitivity || "low";
+    if (getSensitivityRank(entrySensitivity) > getSensitivityRank(maxSensitivity)) return false;
+    return true;
 }
 
 function recordAuditEvent(type: string, summary: string, detail?: string, sessionId?: string, severity: MemoryAuditEvent["severity"] = "info"): void {
@@ -273,7 +331,7 @@ function recordAuditEvent(type: string, summary: string, detail?: string, sessio
     }
 }
 
-function recordRetrievalOutcome(query: string, outcome: RetrievalTelemetryEvent["outcome"], confidence: MemoryConfidence | undefined, resultCount: number, entryIds: string[]): void {
+function recordRetrievalOutcome(query: string, outcome: RetrievalTelemetryEvent["outcome"], confidence: MemoryConfidence | undefined, resultCount: number, entryIds: string[], seedItemHits = 0): void {
     retrievalTelemetry.push({
         id: generateId(),
         query: query.slice(0, 180),
@@ -282,6 +340,7 @@ function recordRetrievalOutcome(query: string, outcome: RetrievalTelemetryEvent[
         resultCount,
         entryIds,
         createdAt: new Date().toISOString(),
+        seedItemHits,
     });
     if (retrievalTelemetry.length > 200) {
         retrievalTelemetry.splice(0, retrievalTelemetry.length - 200);
@@ -417,6 +476,8 @@ export async function remember(
 ): Promise<MemoryEntry> {
     const snapshot = await getStore();
     const now = new Date().toISOString();
+    const requestedTags = Array.from(new Set([...(options.tags || tags)]));
+    const seedItem = options.isSeedItem ?? requestedTags.includes("seed-item");
     const entry: MemoryEntry = {
         id: generateId(),
         type: options.type || type,
@@ -424,21 +485,22 @@ export async function remember(
         sessionId,
         key: `${sessionId}:${role}:${now}`,
         content,
-        tags: Array.from(new Set([...(options.tags || tags)])),
+        tags: buildEntryTags(requestedTags, seedItem),
         createdAt: now,
         updatedAt: now,
         expiresAt: (options.ttlMs ?? ttlMs) ? new Date(Date.now() + (options.ttlMs ?? ttlMs ?? 0)).toISOString() : undefined,
         provenance: buildDefaultProvenance(options),
         reviewStatus: options.reviewStatus || "approved",
-        confidence: options.confidence || "medium",
+        confidence: options.confidence || (seedItem ? "high" : "medium"),
         sensitivity: options.sensitivity || "low",
-        qualityScore: options.qualityScore ?? 0.7,
+        qualityScore: Math.min(1, options.qualityScore ?? (seedItem ? 0.92 : 0.7)),
         reviewedBy: options.reviewedBy,
+        seedItem,
     };
     entry.effectiveConfidence = deriveEffectiveConfidence(entry);
     snapshot.entries.push(entry);
     await persistStore(snapshot);
-    recordAuditEvent("memory.write", "Stored a new memory entry", content.slice(0, 180), sessionId);
+    recordAuditEvent("memory.write", seedItem ? "Stored a seed-calibrated memory entry" : "Stored a new memory entry", content.slice(0, 180), sessionId);
     return entry;
 }
 
@@ -448,10 +510,12 @@ export async function remember(
 export async function recall(
     sessionId: string,
     limit = 20,
-    tags?: string[]
+    tags?: string[],
+    options: MemoryRecallOptions = {}
 ): Promise<MemoryEntry[]> {
     const snapshot = await getStore();
-    let entries = snapshot.entries.filter(e => e.sessionId === sessionId && !isExpired(e) && e.reviewStatus !== "quarantined");
+    let entries = snapshot.entries.filter(e => e.sessionId === sessionId && !isExpired(e));
+    entries = entries.filter(e => shouldExposeEntry(e, options));
     if (tags && tags.length > 0) {
         entries = entries.filter(e => tags.some(t => e.tags.includes(t)));
     }
@@ -464,14 +528,17 @@ export async function recall(
 export async function search(query: string, limit = 10, options: MemorySearchOptions = {}): Promise<MemoryEntry[]> {
     const snapshot = await getStore();
     const q = normalizeWhitespace(query);
-    const results = snapshot.entries
-        .filter(e => !isExpired(e) && (options.includeQuarantined || e.reviewStatus !== "quarantined") && (options.minConfidence ? (deriveEffectiveConfidence(e) === options.minConfidence || ["high", "medium", "low"].indexOf(deriveEffectiveConfidence(e)) <= ["high", "medium", "low"].indexOf(options.minConfidence)) : true))
+    const candidateEntries = snapshot.entries.filter(e => !isExpired(e) && shouldExposeEntry(e, options));
+    const results = candidateEntries
+        .filter(e => meetsMinimumConfidence(e, options.minConfidence))
         .map(entry => ({...entry, score: computeMatchScore(q, entry), effectiveConfidence: deriveEffectiveConfidence(entry)}))
-        .filter(entry => (entry.score || 0) > 0.2)
+        .filter(entry => (entry.score || 0) > MATCH_THRESHOLD)
         .filter(entry => !options.tags || options.tags.length === 0 || options.tags.some(tag => entry.tags.includes(tag)))
         .sort((a, b) => (b.score || 0) - (a.score || 0))
         .slice(0, limit);
 
+    const seedItemHits = results.filter(entry => entry.seedItem).length;
+    recordRetrievalOutcome(q, results.length > 0 ? "useful" : "uncertain", results[0]?.effectiveConfidence, results.length, results.map(entry => entry.id), seedItemHits);
     recordAuditEvent("memory.search", `Searched memory for "${q.slice(0, 80)}"`, `${results.length} result(s)`, undefined, results.some(r => r.effectiveConfidence === "low") ? "warning" : "info");
     return results;
 }
@@ -481,7 +548,7 @@ export async function search(query: string, limit = 10, options: MemorySearchOpt
  */
 export async function findByType(type: MemoryType): Promise<MemoryEntry[]> {
     const snapshot = await getStore();
-    return snapshot.entries.filter(e => e.type === type && !isExpired(e) && e.reviewStatus !== "quarantined");
+    return snapshot.entries.filter(e => e.type === type && !isExpired(e) && shouldExposeEntry(e, {maxSensitivity: "medium"}));
 }
 
 /**
@@ -489,7 +556,7 @@ export async function findByType(type: MemoryType): Promise<MemoryEntry[]> {
  */
 export async function findByTag(tag: string): Promise<MemoryEntry[]> {
     const snapshot = await getStore();
-    return snapshot.entries.filter(e => !isExpired(e) && e.reviewStatus !== "quarantined" && e.tags.includes(tag));
+    return snapshot.entries.filter(e => !isExpired(e) && shouldExposeEntry(e, {maxSensitivity: "medium"}) && e.tags.includes(tag));
 }
 
 /**
@@ -500,12 +567,13 @@ export async function quarantineMemoryEntry(id: string, reason?: string): Promis
     const entry = snapshot.entries.find(e => e.id === id);
     if (!entry) return null;
     entry.reviewStatus = "quarantined";
+    entry.quarantineReason = reason || "No reason provided";
     entry.confidence = "low";
     entry.effectiveConfidence = "low";
     entry.lastReviewedAt = new Date().toISOString();
     entry.reviewedBy = entry.reviewedBy || "system";
     await persistStore(snapshot);
-    recordAuditEvent("memory.quarantine", `Quarantined memory entry ${id}`, reason || "No reason provided", entry.sessionId, "warning");
+    recordAuditEvent("memory.quarantine", `Quarantined memory entry ${id}`, entry.quarantineReason, entry.sessionId, "warning");
     return entry;
 }
 
@@ -519,6 +587,9 @@ export async function reviewMemoryEntry(id: string, status: MemoryReviewStatus, 
     entry.reviewStatus = status;
     entry.reviewedBy = reviewer || entry.reviewedBy || "system";
     entry.lastReviewedAt = new Date().toISOString();
+    if (status !== "quarantined") {
+        entry.quarantineReason = undefined;
+    }
     if (confidence) entry.confidence = confidence;
     if (qualityScore !== undefined) entry.qualityScore = qualityScore;
     entry.effectiveConfidence = deriveEffectiveConfidence(entry);
@@ -539,15 +610,19 @@ export async function ingestKnowledgeEntries(
     const entries: MemoryEntry[] = [];
     const sessionId = options.sessionId || "knowledge-bank";
     const chunks = chunkText(content, options.chunkSize || 400);
+    const requestedTags = Array.from(new Set([...(options.tags || [])]));
+    const isSeedItem = options.isSeedItem ?? requestedTags.includes("seed-item");
+    let knowledgeEntryCount = snapshot.entries.filter(e => e.sessionId === "knowledge-bank").length;
     for (const chunk of chunks) {
+        knowledgeEntryCount += 1;
         const entry: MemoryEntry = {
             id: generateId(),
             type: "knowledge",
             role: "system",
             sessionId,
-            key: `${sessionId}:knowledge:${entryCount(snapshot.entries)}`,
+            key: `${sessionId}:knowledge:${knowledgeEntryCount}`,
             content: chunk,
-            tags: Array.from(new Set(["knowledge-bank", ...(options.tags || []), ...(source ? [`source:${source}`] : [])])),
+            tags: buildEntryTags(["knowledge-bank", ...requestedTags, ...(source ? [`source:${source}`] : [])], isSeedItem),
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             provenance: {
@@ -557,23 +632,20 @@ export async function ingestKnowledgeEntries(
                 license: options.provenance?.license,
                 owner: options.provenance?.owner,
             },
-            reviewStatus: options.reviewStatus || "pending",
-            confidence: options.confidence || "medium",
+            reviewStatus: options.reviewStatus || (isSeedItem ? "approved" : "pending"),
+            confidence: options.confidence || (isSeedItem ? "high" : "medium"),
             sensitivity: options.sensitivity || "low",
-            qualityScore: options.qualityScore ?? 0.65,
+            qualityScore: Math.min(1, options.qualityScore ?? (isSeedItem ? 0.92 : 0.65)),
             reviewedBy: options.reviewedBy,
+            seedItem: isSeedItem,
         };
         entry.effectiveConfidence = deriveEffectiveConfidence(entry);
         snapshot.entries.push(entry);
         entries.push(entry);
     }
     await persistStore(snapshot);
-    recordAuditEvent("memory.ingest", `Ingested knowledge source ${source}`, `${entries.length} chunk(s)`, sessionId);
+    recordAuditEvent("memory.ingest", isSeedItem ? `Seed-calibrated knowledge ingest for ${source}` : `Ingested knowledge source ${source}`, `${entries.length} chunk(s)`, sessionId);
     return entries;
-}
-
-function entryCount(entries: MemoryEntry[]): number {
-    return entries.filter(e => e.sessionId === "knowledge-bank").length;
 }
 
 /**
@@ -604,6 +676,7 @@ export async function cleanupMemoryEntries(maxAgeDays = 30, minQuality = 0.2): P
         }
         if (lowQuality) {
             entry.reviewStatus = "quarantined";
+            entry.quarantineReason = "low-quality";
             entry.confidence = "low";
             entry.effectiveConfidence = "low";
             quarantined += 1;
@@ -620,6 +693,8 @@ export async function cleanupMemoryEntries(maxAgeDays = 30, minQuality = 0.2): P
  * Record retrieval feedback to support calibration.
  */
 export async function recordRetrievalFeedback(query: string, entryIds: string[], outcome: RetrievalTelemetryEvent["outcome"], confidence?: MemoryConfidence): Promise<RetrievalTelemetryEvent> {
+    const snapshot = await getStore();
+    const seedItemHits = snapshot.entries.filter(entry => entryIds.includes(entry.id) && entry.seedItem).length;
     const event: RetrievalTelemetryEvent = {
         id: generateId(),
         query: query.slice(0, 180),
@@ -628,6 +703,7 @@ export async function recordRetrievalFeedback(query: string, entryIds: string[],
         resultCount: entryIds.length,
         entryIds,
         createdAt: new Date().toISOString(),
+        seedItemHits,
     };
     retrievalTelemetry.push(event);
     if (retrievalTelemetry.length > 200) retrievalTelemetry.splice(0, retrievalTelemetry.length - 200);
@@ -641,7 +717,7 @@ export async function recordRetrievalFeedback(query: string, entryIds: string[],
 export async function snapshot(): Promise<MemorySnapshot> {
     const store = await getStore();
     return {
-        entries: store.entries.filter(e => !isExpired(e) && e.reviewStatus !== "quarantined"),
+        entries: store.entries.filter(e => !isExpired(e) && shouldExposeEntry(e, {maxSensitivity: "medium"})),
         createdAt: store.createdAt,
         updatedAt: store.updatedAt,
     };
@@ -658,6 +734,8 @@ export async function memoryStats(): Promise<{
     pendingReview: number;
     storageBackend: string;
     updatedAt: string;
+    seedItems: number;
+    sensitiveEntries: number;
 }> {
     const snap = await getStore();
     const active = snap.entries.filter(e => !isExpired(e));
@@ -672,6 +750,8 @@ export async function memoryStats(): Promise<{
         pendingReview: active.filter(e => e.reviewStatus === "pending").length,
         storageBackend: memOctokit ? `github-gist${gistId ? `:${gistId}` : ""}` : "in-memory",
         updatedAt: snap.updatedAt,
+        seedItems: active.filter(e => e.seedItem).length,
+        sensitiveEntries: active.filter(e => e.sensitivity === "high").length,
     };
 }
 
@@ -679,12 +759,13 @@ export function getAuditTrail(limit = 50): MemoryAuditEvent[] {
     return auditTrail.slice(-limit).reverse();
 }
 
-export function getTelemetrySnapshot(): {totalRetrievals: number; usefulRetrievals: number; uncertainRetrievals: number; lowConfidenceRetrievals: number} {
+export function getTelemetrySnapshot(): {totalRetrievals: number; usefulRetrievals: number; uncertainRetrievals: number; lowConfidenceRetrievals: number; seedItemHits: number} {
     const totalRetrievals = retrievalTelemetry.length;
     const usefulRetrievals = retrievalTelemetry.filter(event => event.outcome === "useful").length;
     const uncertainRetrievals = retrievalTelemetry.filter(event => event.outcome === "uncertain").length;
     const lowConfidenceRetrievals = retrievalTelemetry.filter(event => event.confidence === "low").length;
-    return {totalRetrievals, usefulRetrievals, uncertainRetrievals, lowConfidenceRetrievals};
+    const seedItemHits = retrievalTelemetry.reduce((sum, event) => sum + (event.seedItemHits || 0), 0);
+    return {totalRetrievals, usefulRetrievals, uncertainRetrievals, lowConfidenceRetrievals, seedItemHits};
 }
 
 export async function getObservabilitySnapshot(): Promise<MemoryObservabilitySnapshot> {
@@ -698,6 +779,8 @@ export async function getObservabilitySnapshot(): Promise<MemoryObservabilitySna
             pendingReview: stats.pendingReview,
             storageBackend: stats.storageBackend,
             updatedAt: stats.updatedAt,
+            seedItems: stats.seedItems,
+            sensitiveEntries: stats.sensitiveEntries,
         },
         telemetry: getTelemetrySnapshot(),
         audit: getAuditTrail(20),

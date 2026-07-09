@@ -164,9 +164,9 @@ These endpoints let Lumi plan and execute multi-step work, publish progress into
 
 ### Memory
 ```
-GET    /api/lumi/memory/:sessionId
-POST   /api/lumi/memory/search       { query, limit?, includeQuarantined?, minConfidence? }
-POST   /api/lumi/memory/ingest       { source, content, sessionId?, tags?, chunkSize?, reviewStatus?, confidence?, qualityScore?, sensitivity?, license?, owner? }
+GET    /api/lumi/memory/:sessionId?maxSensitivity=medium&includeSensitive=false
+POST   /api/lumi/memory/search       { query, limit?, includeQuarantined?, minConfidence?, maxSensitivity?, includeSensitive? }
+POST   /api/lumi/memory/ingest       { source, content, sessionId?, tags?, chunkSize?, reviewStatus?, confidence?, qualityScore?, sensitivity?, license?, owner?, isSeedItem? }
 POST   /api/lumi/memory/quarantine/:id { reason? }
 POST   /api/lumi/memory/review/:id   { status, reviewer?, confidence?, qualityScore? }
 POST   /api/lumi/memory/cleanup      { maxAgeDays?, minQuality? }

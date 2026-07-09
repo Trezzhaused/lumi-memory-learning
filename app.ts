@@ -217,7 +217,9 @@ lumiRouter.get("/storage", (_req: Request, res: Response) => {
 // GET /api/lumi/memory/:sessionId
 lumiRouter.get("/memory/:sessionId", async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const entries = await recall(req.params.sessionId, 50);
+        const maxSensitivity = (req.query.maxSensitivity as string | undefined) as "low" | "medium" | "high" | undefined;
+        const includeSensitive = req.query.includeSensitive === "true";
+        const entries = await recall(req.params.sessionId, 50, undefined, {maxSensitivity, includeSensitive});
         res.json({entries});
     } catch (err) { next(err); }
 });
@@ -233,9 +235,9 @@ lumiRouter.delete("/memory/:sessionId", async (req: Request, res: Response, next
 // POST /api/lumi/memory/search
 lumiRouter.post("/memory/search", async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const {query, limit, includeQuarantined, minConfidence} = req.body;
+        const {query, limit, includeQuarantined, minConfidence, maxSensitivity, includeSensitive} = req.body;
         if (!query) { res.status(400).json({error: "query is required"}); return; }
-        const results = await memSearch(query, limit || 10, {includeQuarantined, minConfidence});
+        const results = await memSearch(query, limit || 10, {includeQuarantined, minConfidence, maxSensitivity, includeSensitive});
         res.json({results});
     } catch (err) { next(err); }
 });
@@ -243,7 +245,7 @@ lumiRouter.post("/memory/search", async (req: Request, res: Response, next: Next
 // POST /api/lumi/memory/ingest
 lumiRouter.post("/memory/ingest", async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const {source, content, sessionId, tags, chunkSize, reviewStatus, confidence, qualityScore, sensitivity, license, owner} = req.body;
+        const {source, content, sessionId, tags, chunkSize, reviewStatus, confidence, qualityScore, sensitivity, license, owner, isSeedItem} = req.body;
         if (!source || !content) { res.status(400).json({error: "source and content are required"}); return; }
         const entries = await ingestKnowledgeEntries(source, content, {
             sessionId,
@@ -253,6 +255,7 @@ lumiRouter.post("/memory/ingest", async (req: Request, res: Response, next: Next
             confidence,
             qualityScore,
             sensitivity,
+            isSeedItem,
             provenance: {license, owner},
         });
         res.json({entries});
