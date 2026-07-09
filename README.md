@@ -188,10 +188,13 @@ GET /api/lumi/storage
 ### System
 ```
 GET /api/lumi/status        → LumiStatus
+GET /api/lumi/bridge/contract → Shared local/online bridge contract for Lumi + Studio
 GET /api/lumi/audit         → AuditLog entries
 GET /api/ollama/status      → Ollama health & local models
 GET /api/lumi/conversations → All ConversationSessions
 ```
+
+Lumi now exposes a shared bridge contract at `/api/lumi/bridge/contract` so the Lumi repo and TrezzWorld Production Studio can share the same local/online runtime assumptions. The same contract is captured in `lumi-bridge.ts` and `.env.example` for reuse across repos.
 
 ---
 
@@ -206,7 +209,19 @@ pnpm install
 
 ### 2. Configure environment variables
 
-Copy and fill in `.env`:
+Copy `.env.example` to `.env` and fill in the values you want to use:
+
+```bash
+cp .env.example .env
+```
+
+The runtime defaults to `LUMI_RUNTIME_MODE=auto`, which prefers local Ollama when available and falls back to OpenRouter online chat when it is not.
+
+You can also set `LUMI_RUNTIME_MODE=local` or `LUMI_RUNTIME_MODE=online` to force a provider mode.
+
+The environment file is intentionally aligned with the shared bridge contract so both Lumi and the Production Studio repo can use the same environment shape.
+
+Fill in `.env`:
 
 ```bash
 # Required for chat
