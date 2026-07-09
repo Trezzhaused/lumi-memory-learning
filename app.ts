@@ -220,12 +220,16 @@ lumiRouter.post("/ecosystem/bootstrap", async (req: Request, res: Response, next
                 if (typeof repo === "string") {
                     return {repoPath: repo};
                 }
-                if (repo && typeof repo === "object" && "repoPath" in repo && typeof (repo as {repoPath?: unknown}).repoPath === "string") {
+                if (repo && typeof repo === "object" && "repoPath" in repo) {
+                    const repoObject = repo as {repoPath?: unknown; includePaths?: unknown; sessionId?: unknown; tags?: unknown};
+                    if (typeof repoObject.repoPath !== "string") {
+                        return null;
+                    }
                     return {
-                        repoPath: (repo as {repoPath: string}).repoPath,
-                        includePaths: Array.isArray((repo as {includePaths?: unknown}).includePaths) ? (repo as {includePaths: string[]}).includePaths : undefined,
-                        sessionId: typeof (repo as {sessionId?: unknown}).sessionId === "string" ? (repo as {sessionId: string}).sessionId : undefined,
-                        tags: Array.isArray((repo as {tags?: unknown}).tags) ? (repo as {tags: string[]}).tags : undefined,
+                        repoPath: repoObject.repoPath,
+                        includePaths: Array.isArray(repoObject.includePaths) ? repoObject.includePaths.filter((entry): entry is string => typeof entry === "string") : undefined,
+                        sessionId: typeof repoObject.sessionId === "string" ? repoObject.sessionId : undefined,
+                        tags: Array.isArray(repoObject.tags) ? repoObject.tags.filter((entry): entry is string => typeof entry === "string") : undefined,
                     };
                 }
                 return null;
