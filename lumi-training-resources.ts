@@ -52,7 +52,7 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         rationale: "MIT Learn's competency-based education materials offer a strong reference for designing learner-centered pathways, assessment structures, and implementation guidance.",
         useCase: "Use to help Lumi reason about competency maps, standards-aligned curriculum design, and evidence-based instructional planning for K-12 settings.",
         priority: "high",
-        notes: "Particularly useful for curriculum designers who want to connect learning goals, performance evidence, and student agency. This link may need periodic verification if MIT changes its search landing pages.",
+        notes: "Particularly useful for curriculum designers who want to connect learning goals, performance evidence, and student agency.",
     },
     {
         id: "mit-ocw-educators",
@@ -102,7 +102,7 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         rationale: "K12-KGraph is a curriculum-aligned knowledge graph and benchmark built from official K-12 textbooks, with question and training data for curriculum cognition tasks.",
         useCase: "Use as a benchmark source for educational QA, curriculum-aware question generation, and evaluation of K-12 reasoning and structure understanding.",
         priority: "high",
-        notes: "A powerful resource for building benchmark-style educational datasets. Check the repository LICENSE file and any dataset card for terms before deployment, and adapt the content for any target language, cultural context, and regional curriculum standards.",
+        notes: "A powerful resource for building benchmark-style educational datasets. Review the repository LICENSE file and any dataset card before deployment.",
     },
     {
         id: "deepblue-datasets",
@@ -272,6 +272,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
 
     const knowledgeBankSummary = [
         `Lumi should treat these resources as a layered training program for ${goals.join(", ")}.`,
+        "For K-12 resources, confirm licensing, provenance, and adaptation constraints before using them in a published workflow or retraining pass.",
         "The highest-value immediate path is to combine large-scale text corpora with multimodal datasets, then add simulation and reasoning benchmarks for capability growth.",
         "MIT-based educator materials are especially useful for K-12 curriculum planning, competency-based education, and teacher-facing resource curation.",
         "Open educational resources, curriculum sequencing frameworks, and curriculum-aligned benchmark datasets provide strong support for curriculum design and curriculum-aware question generation.",
