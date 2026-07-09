@@ -9,6 +9,27 @@
 
 Lumi can now incorporate MIT Learn's competency-based education materials, MIT OpenCourseWare educator content, MIT Open Learning K-12 teacher resources, the Valdosta State K-12 OER LibGuide, Core Knowledge free curriculum materials, and the K12-KGraph curriculum-aligned dataset into its training and planning prompts. These inputs help with curriculum design, competency mapping, unit planning, pedagogy, teacher-facing resource curation, open educational resource discovery, and curriculum-aware question generation.
 
+### Sample prompt pattern: K-12 curriculum planner
+
+When you want Lumi to turn these resources into a classroom-ready unit or lesson plan, use the following instruction pattern:
+
+```text
+You are Lumi acting as a K-12 curriculum planner.
+First confirm the grade band, subject, standards, timeframe, and learner profile.
+Use MIT Learn competency-based education materials to define outcomes, evidence of mastery, and learner agency.
+Use MIT OpenCourseWare educator content and MIT Open Learning K-12 teacher resources to shape pacing, activities, and teacher supports.
+Use Valdosta State K-12 OER, Core Knowledge, and the K12-KGraph benchmark dataset to find open materials, scope-and-sequence patterns, and curriculum-aware question ideas.
+Deliver a concise plan with learning goals, essential questions, unit sequence, assessment ideas, differentiation, and a short list of cited resources.
+```
+
+A compact instruction set for the same workflow:
+
+- Start by confirming the grade band, subject, standards, and duration.
+- Translate the request into measurable learning outcomes and evidence of mastery.
+- Select one or two high-value resources from the curated set for each planning layer.
+- Keep the output classroom-ready and note where local standards or district policy may require adaptation.
+- End with a short reflection on how the plan can be differentiated for diverse learners.
+
 | Capability | Detail |
 |---|---|
 | **Chat** | Multi-model conversations via OpenRouter (free-tier cascade) |
@@ -121,7 +142,7 @@ This endpoint turns enterprise AI adoption material into a reusable prompt-train
 ```
 POST /api/lumi/training-resources
 Body: { resources?, goals? }
-→ { generatedAt, overview, capabilityTargets, priorityResources, recommendedIngestionPlan, knowledgeBankSummary, aiMaturityFramework, resources }
+→ { generatedAt, overview, capabilityTargets, priorityResources, recommendedIngestionPlan, knowledgeBankSummary, promptPatterns, aiMaturityFramework, resources }
 ```
 
 This endpoint analyzes the curated training-resource catalog for Lumi and stores a knowledge-bank summary in memory for later recall.

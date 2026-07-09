@@ -9,6 +9,13 @@ export interface TrainingResource {
     notes: string;
 }
 
+export interface ResourcePromptPattern {
+    name: string;
+    useCase: string;
+    promptTemplate: string;
+    instructionSet: string[];
+}
+
 export interface TrainingResourceAnalysis {
     generatedAt: string;
     overview: string;
@@ -16,6 +23,7 @@ export interface TrainingResourceAnalysis {
     priorityResources: string[];
     recommendedIngestionPlan: string[];
     knowledgeBankSummary: string;
+    promptPatterns: ResourcePromptPattern[];
     aiMaturityFramework: Array<{label: string; summary: string; useCase: string}>;
     resources: TrainingResource[];
 }
@@ -270,6 +278,28 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
         "For production use, ingest only curated subsets first and keep provenance, licensing, and deduplication metadata attached to each dataset entry.",
     ].join(" ");
 
+    const promptPatterns: ResourcePromptPattern[] = [
+        {
+            name: "K-12 curriculum planner",
+            useCase: "Use this pattern when Lumi needs to turn the curated K-12 resources into a standards-aware curriculum, unit, or lesson plan.",
+            promptTemplate: [
+                "You are Lumi acting as a K-12 curriculum planner.",
+                "First confirm the grade band, subject, standards, timeframe, and learner profile.",
+                "Use MIT Learn competency-based education materials to define outcomes, evidence of mastery, and learner agency.",
+                "Use MIT OpenCourseWare educator content and MIT Open Learning K-12 teacher resources to shape pacing, activities, and teacher supports.",
+                "Use Valdosta State K-12 OER, Core Knowledge, and the K12-KGraph benchmark dataset to find open materials, scope-and-sequence patterns, and curriculum-aware question ideas.",
+                "Deliver a concise plan with learning goals, essential questions, unit sequence, assessment ideas, differentiation, and a short list of cited resources.",
+            ].join("\n"),
+            instructionSet: [
+                "Start by confirming the grade band, subject, standards, and duration.",
+                "Translate the request into measurable learning outcomes and evidence of mastery.",
+                "Select one or two high-value resources from the curated set for each planning layer.",
+                "Keep the output classroom-ready and note where local standards or district policy may require adaptation.",
+                "End with a short reflection on how the plan can be differentiated for diverse learners.",
+            ],
+        },
+    ];
+
     const aiMaturityFramework = [
         {
             label: "Artificial Narrow Intelligence (ANI)",
@@ -295,6 +325,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
         priorityResources,
         recommendedIngestionPlan,
         knowledgeBankSummary,
+        promptPatterns,
         aiMaturityFramework,
         resources: selectedResources,
     };
