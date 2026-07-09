@@ -38,13 +38,13 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
     },
     {
         id: "mit-competency-based-education",
-        name: "MIT Learn competency-based education",
-        url: "https://learn.mit.edu/search?resource=4420&resource_title=competency-based-education-the-why-what-and-how",
+        name: "MIT Learn competency-based education materials",
+        url: "https://learn.mit.edu/search?resource=2764&resource_title=competency-based-education",
         category: "learning",
         rationale: "MIT Learn's competency-based education materials offer a strong reference for designing learner-centered pathways, assessment structures, and implementation guidance.",
         useCase: "Use to help Lumi reason about competency maps, standards-aligned curriculum design, and evidence-based instructional planning for K-12 settings.",
         priority: "high",
-        notes: "Particularly useful for curriculum designers who want to connect learning goals, performance evidence, and student agency.",
+        notes: "Particularly useful for curriculum designers who want to connect learning goals, performance evidence, and student agency. This link may need periodic verification if MIT changes its search landing pages.",
     },
     {
         id: "mit-ocw-educators",
@@ -68,7 +68,7 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
     },
     {
         id: "valdosta-k12-oer",
-        name: "Valdosta State K-12 OER LibGuide",
+        name: "Valdosta State K-12 Open Educational Resources",
         url: "https://libguides.valdosta.edu/K-12_oers",
         category: "learning",
         rationale: "A curated gateway to open textbooks, lesson modules, and teacher support materials that can be reused or adapted for K-12 classrooms.",
@@ -94,7 +94,7 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         rationale: "K12-KGraph is a curriculum-aligned knowledge graph and benchmark built from official K-12 textbooks, with question and training data for curriculum cognition tasks.",
         useCase: "Use as a benchmark source for educational QA, curriculum-aware question generation, and evaluation of K-12 reasoning and structure understanding.",
         priority: "high",
-        notes: "A powerful resource for building benchmark-style educational datasets, though localization and licensing context should be reviewed before deployment.",
+        notes: "A powerful resource for building benchmark-style educational datasets. Note that the dataset is based on Chinese K-12 textbooks, so licensing terms and cultural and geographic alignment should be reviewed before use in other educational contexts.",
     },
     {
         id: "deepblue-datasets",
