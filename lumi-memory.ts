@@ -16,6 +16,8 @@
 
 import {GetObjectCommand, PutObjectCommand, S3Client} from "@aws-sdk/client-s3";
 import {Octokit} from "@octokit/core";
+import {promises as fs} from "node:fs";
+import path from "node:path";
 
 // ---------------------------------------------------------------------------
 // Types (superset of Studio lumi/Memory.ts)
@@ -174,6 +176,10 @@ const EXACT_MATCH_WEIGHT = 0.15;
 // Let higher-quality and seed-calibrated items rank above weaker matches.
 const QUALITY_WEIGHT = 0.2;
 const SEED_ITEM_BOOST = 0.08;
+const MAX_KNOWLEDGE_FILE_BYTES = 200 * 1024;
+const TEXT_FILE_EXTENSIONS = new Set([".md", ".txt", ".json", ".jsonl", ".yaml", ".yml", ".ts", ".tsx", ".js", ".jsx", ".html", ".css", ".py", ".csv", ".xml", ".ini", ".toml", ".env.example"]);
+const DEFAULT_IGNORED_DIRS = new Set(["node_modules", ".git", ".data", "dist", "coverage", "build"]);
+const DEFAULT_IGNORED_FILES = new Set(["package-lock.json", "pnpm-lock.yaml", "yarn.lock", "Cargo.lock"]);
 
 let gistId: string | null = null;
 
@@ -184,6 +190,73 @@ const memOctokit = githubToken ? new Octokit({auth: githubToken}) : null;
 const localStore: MemorySnapshot = {entries: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()};
 const auditTrail: MemoryAuditEvent[] = [];
 const retrievalTelemetry: RetrievalTelemetryEvent[] = [];
+
+export interface RepositoryKnowledgeIngestionResult {
+    rootDir: string;
+    includedPaths: string[];
+    scannedFiles: string[];
+    ingestedFiles: string[];
+    skippedFiles: string[];
+    totalChunks: number;
+    totalEntries: number;
+    sessionId: string;
+}
+
+function isTextFileCandidate(filePath: string): boolean {
+    const normalizedPath = filePath.toLowerCase();
+    if (normalizedPath.startsWith(".env")) return false;
+    const basename = path.basename(normalizedPath);
+    if (DEFAULT_IGNORED_FILES.has(basename)) return false;
+    const extension = path.extname(normalizedPath);
+    if (!extension) return true;
+    return TEXT_FILE_EXTENSIONS.has(extension);
+}
+
+async function collectKnowledgeFiles(rootDir: string, includePaths: string[] = []): Promise<string[]> {
+    const normalizedRoot = path.resolve(rootDir || process.cwd());
+    const requestedPaths = includePaths && includePaths.length > 0
+        ? includePaths
+        : (process.env.LUMI_KNOWLEDGE_PATHS || ".")
+            .split(",")
+            .map(entry => entry.trim())
+            .filter(Boolean);
+
+    const discovered = new Set<string>();
+    for (const entry of requestedPaths) {
+        const candidate = path.resolve(normalizedRoot, entry);
+        try {
+            const stats = await fs.stat(candidate);
+            if (stats.isDirectory()) {
+                const stack = [candidate];
+                while (stack.length > 0) {
+                    const currentDir = stack.pop()!;
+                    const items = await fs.readdir(currentDir, {withFileTypes: true});
+                    for (const item of items) {
+                        const fullPath = path.join(currentDir, item.name);
+                        const relativePath = path.relative(normalizedRoot, fullPath);
+                        const segments = relativePath.split(path.sep);
+                        if (segments.some(segment => DEFAULT_IGNORED_DIRS.has(segment))) continue;
+                        if (item.isDirectory()) {
+                            stack.push(fullPath);
+                        } else if (item.isFile() && isTextFileCandidate(fullPath)) {
+                            discovered.add(fullPath);
+                        }
+                    }
+                }
+            } else if (stats.isFile() && isTextFileCandidate(candidate)) {
+                discovered.add(candidate);
+            }
+        } catch {
+            // Skip inaccessible/absent paths.
+        }
+    }
+    return Array.from(discovered).sort();
+}
+
+function buildKnowledgeContent(filePath: string, rootDir: string, content: string): string {
+    const relativePath = path.relative(rootDir, filePath).split(path.sep).join("/");
+    return `Source file: ${relativePath}\n\n${content}`;
+}
 
 function getR2Config(): {client?: S3Client; bucket?: string} {
     if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET) {
@@ -612,7 +685,7 @@ export async function ingestKnowledgeEntries(
     const chunks = chunkText(content, options.chunkSize || 400);
     const requestedTags = Array.from(new Set([...(options.tags || [])]));
     const isSeedItem = options.isSeedItem ?? requestedTags.includes("seed-item");
-    let knowledgeEntryCount = snapshot.entries.filter(e => e.sessionId === "knowledge-bank").length;
+    let knowledgeEntryCount = snapshot.entries.filter(e => e.sessionId === sessionId).length;
     for (const chunk of chunks) {
         knowledgeEntryCount += 1;
         const entry: MemoryEntry = {
@@ -651,6 +724,75 @@ export async function ingestKnowledgeEntries(
 /**
  * Clear all entries for a session.
  */
+export async function ingestRepositoryKnowledge(
+    options: {
+        rootDir?: string;
+        includePaths?: string[];
+        sessionId?: string;
+        tags?: string[];
+        reviewStatus?: MemoryReviewStatus;
+        confidence?: MemoryConfidence;
+        sensitivity?: MemorySensitivity;
+        qualityScore?: number;
+        isSeedItem?: boolean;
+    } = {}
+): Promise<RepositoryKnowledgeIngestionResult> {
+    const normalizedRoot = path.resolve(options.rootDir || process.cwd());
+    const includePaths = options.includePaths && options.includePaths.length > 0
+        ? options.includePaths
+        : (process.env.LUMI_KNOWLEDGE_PATHS || ".")
+            .split(",")
+            .map(entry => entry.trim())
+            .filter(Boolean);
+    const scannedFiles = await collectKnowledgeFiles(normalizedRoot, includePaths);
+    const ingestedFiles: string[] = [];
+    const skippedFiles: string[] = [];
+    let totalChunks = 0;
+    let totalEntries = 0;
+
+    for (const filePath of scannedFiles) {
+        try {
+            const stats = await fs.stat(filePath);
+            if (stats.size > MAX_KNOWLEDGE_FILE_BYTES) {
+                skippedFiles.push(path.relative(normalizedRoot, filePath).split(path.sep).join("/"));
+                continue;
+            }
+            const content = await fs.readFile(filePath, "utf8");
+            if (!content.trim()) {
+                skippedFiles.push(path.relative(normalizedRoot, filePath).split(path.sep).join("/"));
+                continue;
+            }
+            const relativePath = path.relative(normalizedRoot, filePath).split(path.sep).join("/");
+            const entries = await ingestKnowledgeEntries(relativePath, buildKnowledgeContent(filePath, normalizedRoot, content), {
+                sessionId: options.sessionId || "knowledge-bank",
+                tags: [...(options.tags || []), "repo-knowledge"],
+                reviewStatus: options.reviewStatus,
+                confidence: options.confidence,
+                sensitivity: options.sensitivity,
+                qualityScore: options.qualityScore,
+                isSeedItem: options.isSeedItem,
+                provenance: {sourceType: "ingestion", owner: "system", license: "repo-local"},
+            });
+            ingestedFiles.push(relativePath);
+            totalChunks += entries.length;
+            totalEntries += entries.length;
+        } catch {
+            skippedFiles.push(path.relative(normalizedRoot, filePath).split(path.sep).join("/"));
+        }
+    }
+
+    return {
+        rootDir: normalizedRoot,
+        includedPaths: includePaths,
+        scannedFiles,
+        ingestedFiles,
+        skippedFiles,
+        totalChunks,
+        totalEntries,
+        sessionId: options.sessionId || "knowledge-bank",
+    };
+}
+
 export async function forget(sessionId: string): Promise<void> {
     const snapshot = await getStore();
     snapshot.entries = snapshot.entries.filter(e => e.sessionId !== sessionId);

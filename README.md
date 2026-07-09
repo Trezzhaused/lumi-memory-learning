@@ -167,6 +167,7 @@ These endpoints let Lumi plan and execute multi-step work, publish progress into
 GET    /api/lumi/memory/:sessionId?maxSensitivity=medium&includeSensitive=false
 POST   /api/lumi/memory/search       { query, limit?, includeQuarantined?, minConfidence?, maxSensitivity?, includeSensitive? }
 POST   /api/lumi/memory/ingest       { source, content, sessionId?, tags?, chunkSize?, reviewStatus?, confidence?, qualityScore?, sensitivity?, license?, owner?, isSeedItem? }
+POST   /api/lumi/knowledge/ingest    { rootDir?, paths?, sessionId?, tags?, reviewStatus?, confidence?, qualityScore?, sensitivity?, isSeedItem? }
 POST   /api/lumi/memory/quarantine/:id { reason? }
 POST   /api/lumi/memory/review/:id   { status, reviewer?, confidence?, qualityScore? }
 POST   /api/lumi/memory/cleanup      { maxAgeDays?, minQuality? }
@@ -177,7 +178,7 @@ GET    /api/lumi/audit
 GET    /api/lumi/observability
 ```
 
-These endpoints add provenance-aware memory entries, quarantine/review handling, lightweight retrieval feedback, ingestion support, and observability for the adaptive-learning workflow.
+These endpoints add provenance-aware memory entries, quarantine/review handling, lightweight retrieval feedback, ingestion support, and observability for the adaptive-learning workflow. The new knowledge-ingestion endpoint will scan repository files (or any supplied directories such as `../Master-File` and `../Production-Studio`) and turn them into Lumi knowledge entries.
 
 ### Storage
 ```

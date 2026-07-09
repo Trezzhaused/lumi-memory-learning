@@ -7,7 +7,7 @@ import {
     acamMiddleware, acamContentGuard, defaultAcamConfig, auditLog,
     getRequestOrigin, isOriginAllowed,
 } from "./lumi-acam";
-import {remember, recall, forget, memoryStats, search as memSearch, getMemoryStorageStatus, quarantineMemoryEntry, reviewMemoryEntry, cleanupMemoryEntries, ingestKnowledgeEntries, recordRetrievalFeedback, getAuditTrail, getTelemetrySnapshot, getObservabilitySnapshot} from "./lumi-memory";
+import {remember, recall, forget, memoryStats, search as memSearch, getMemoryStorageStatus, quarantineMemoryEntry, reviewMemoryEntry, cleanupMemoryEntries, ingestKnowledgeEntries, recordRetrievalFeedback, getAuditTrail, getTelemetrySnapshot, getObservabilitySnapshot, ingestRepositoryKnowledge} from "./lumi-memory";
 import {generate} from "./lumi-generators";
 import {buildProject} from "./lumi-studio";
 import {getArtifact, readArtifactBuffer, getArtifactStorageStatus, listArtifacts} from "./lumi-storage";
@@ -203,6 +203,24 @@ lumiRouter.get("/bridge/contract", (_req: Request, res: Response) => {
 lumiRouter.get("/memory/stats", async (_req: Request, res: Response, next: NextFunction) => {
     try {
         res.json(await memoryStats());
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/knowledge/ingest
+lumiRouter.post("/knowledge/ingest", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const summary = await ingestRepositoryKnowledge({
+            rootDir: req.body?.rootDir,
+            includePaths: Array.isArray(req.body?.paths) ? req.body.paths : undefined,
+            sessionId: typeof req.body?.sessionId === "string" ? req.body.sessionId : undefined,
+            tags: Array.isArray(req.body?.tags) ? req.body.tags : undefined,
+            reviewStatus: req.body?.reviewStatus,
+            confidence: req.body?.confidence,
+            sensitivity: req.body?.sensitivity,
+            qualityScore: req.body?.qualityScore,
+            isSeedItem: req.body?.isSeedItem === true,
+        });
+        res.json(summary);
     } catch (err) { next(err); }
 });
 
