@@ -29,6 +29,7 @@ import {promises as fs} from "node:fs";
 import path from "node:path";
 import {callOpenRouterChat} from "./openrouter";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
+import {getBridgeContract, LumiProvider, LumiRuntimeMode, resolveRuntimeProvider} from "./lumi-bridge";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -73,6 +74,8 @@ export interface LumiChatRequest {
     useOllama?: boolean;
     ollamaModel?: string | null;
     domain?: string | null;
+    mode?: LumiRuntimeMode | null;
+    provider?: LumiProvider | null;
 }
 
 export interface LumiChatResponse {
@@ -80,6 +83,9 @@ export interface LumiChatResponse {
     content: string;
     model: string;
     ok: boolean;
+    provider: LumiProvider | "unavailable";
+    runtimeMode: LumiRuntimeMode;
+    fallbackUsed: boolean;
 }
 
 export interface ModelCascadeEntry {
@@ -414,10 +420,24 @@ export async function lumiChat(
 
     let responseText: string;
     let usedModel = getDefaultChatModel();
+    const selection = resolveRuntimeProvider(
+        {
+            mode: req.mode,
+            provider: req.provider,
+            useOllama: req.useOllama,
+        },
+        {
+            ollamaHost: getOllamaHost(),
+            openRouterApiKey: getOpenRouterApiKey(),
+            defaultMode: process.env.LUMI_RUNTIME_MODE as LumiRuntimeMode | undefined,
+        }
+    );
 
-    if (req.useOllama && getOllamaHost()) {
+    if (selection.provider === "ollama" && selection.available) {
         usedModel = req.ollamaModel || "mistral";
         responseText = await ollamaChat(messages, usedModel);
+    } else if (selection.provider === "openrouter" && selection.available) {
+        responseText = await openRouterChat(messages, usedModel);
     } else {
         responseText = await openRouterChat(messages, usedModel);
     }
@@ -429,7 +449,15 @@ export async function lumiChat(
         await remember(sessionId, "assistant", responseText, ["chat", domain]);
     }
 
-    return {role: "assistant", content: responseText, model: usedModel, ok: true};
+    return {
+        role: "assistant",
+        content: responseText,
+        model: usedModel,
+        ok: true,
+        provider: selection.provider,
+        runtimeMode: selection.mode,
+        fallbackUsed: selection.fallbackUsed,
+    };
 }
 
 // ---------------------------------------------------------------------------
@@ -805,6 +833,13 @@ export interface LumiStatus {
     studioUrl: string;
     openRouterConnected: boolean;
     ollamaConnected: boolean;
+    runtime: {
+        defaultMode: LumiRuntimeMode;
+        activeProvider: LumiProvider | "unavailable";
+        localConfigured: boolean;
+        onlineConfigured: boolean;
+        bridgeContractPath: string;
+    };
     memoryBackend: string;
     storage: {
         artifacts: {backend: string; configured: boolean; bucket?: string};
@@ -822,6 +857,16 @@ export async function getLumiStatus(): Promise<LumiStatus> {
     const memoryStorage = getMemoryStorageStatus();
     const capabilities: string[] = ["chat"];
     const openRouterApiKey = getOpenRouterApiKey();
+    const bridgeContract = getBridgeContract();
+    const defaultMode = (process.env.LUMI_RUNTIME_MODE as LumiRuntimeMode | undefined) || bridgeContract.defaults.runtimeMode;
+    const runtimeSelection = resolveRuntimeProvider(
+        {},
+        {
+            ollamaHost: getOllamaHost(),
+            openRouterApiKey,
+            defaultMode,
+        }
+    );
     if (openRouterApiKey) capabilities.push("multi-model-chat", "code-generation", "prompt-enhancement");
     if (process.env.HUGGINGFACE_API_KEY) capabilities.push("image-generation-hf", "audio-generation");
     if (process.env.STABILITY_API_KEY) capabilities.push("image-generation-stability");
@@ -838,6 +883,13 @@ export async function getLumiStatus(): Promise<LumiStatus> {
         studioUrl: "https://studio.trezzhaus.com",
         openRouterConnected: !!openRouterApiKey,
         ollamaConnected: ollamaStatus.available,
+        runtime: {
+            defaultMode,
+            activeProvider: runtimeSelection.provider,
+            localConfigured: Boolean(getOllamaHost()),
+            onlineConfigured: Boolean(openRouterApiKey),
+            bridgeContractPath: bridgeContract.endpoints.contract,
+        },
         memoryBackend: memoryStorage.backend,
         storage: {
             artifacts: {

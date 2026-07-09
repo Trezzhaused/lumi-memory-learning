@@ -19,6 +19,7 @@ import {
 import {converseSpeech, formatBraille, speakText, transcribeAudio} from "./lumi-speech";
 import {buildPromptTrainer} from "./lumi-prompt-trainer";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
+import {getBridgeContract} from "./lumi-bridge";
 
 // ============================================================================
 // App setup
@@ -191,6 +192,11 @@ lumiRouter.get("/status", async (_req: Request, res: Response, next: NextFunctio
     try {
         res.json(await getLumiStatus());
     } catch (err) { next(err); }
+});
+
+// GET /api/lumi/bridge/contract
+lumiRouter.get("/bridge/contract", (_req: Request, res: Response) => {
+    res.json(getBridgeContract());
 });
 
 // GET /api/lumi/memory/stats
