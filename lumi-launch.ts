@@ -1,6 +1,6 @@
 import {existsSync, readFileSync} from "node:fs";
 import path from "node:path";
-import {getMasterFileDir} from "./bootstrap-env";
+import {getMasterFileDir, loadSharedEnvFiles} from "./bootstrap-env";
 import {ingestKnowledgeEntries, memoryStats, getMemoryStorageStatus} from "./lumi-memory";
 import {getArtifactStorageStatus} from "./lumi-storage";
 
@@ -31,14 +31,19 @@ export interface LaunchReadinessSummary {
     ready: boolean;
 }
 
-let launchBootstrapPromise: Promise<LaunchAssetSummary> | null = null;
+const launchBootstrapPromises = new Map<string, Promise<LaunchAssetSummary>>();
 
-function resolveLaunchAssetPath(fileName: string): string | undefined {
-    const masterFileDir = getMasterFileDir();
+function normalizeLaunchCwd(cwd: string = process.cwd()): string {
+    return path.resolve(cwd);
+}
+
+function resolveLaunchAssetPath(fileName: string, cwd: string = process.cwd()): string | undefined {
+    const normalizedCwd = normalizeLaunchCwd(cwd);
+    const masterFileDir = getMasterFileDir(normalizedCwd);
     const candidates = [
         masterFileDir ? path.join(masterFileDir, fileName) : undefined,
-        path.join(process.cwd(), "Master-File", fileName),
-        path.join(process.cwd(), fileName),
+        path.join(normalizedCwd, "Master-File", fileName),
+        path.join(normalizedCwd, fileName),
     ].filter(Boolean) as string[];
     return candidates.find(candidate => existsSync(candidate));
 }
@@ -86,19 +91,21 @@ async function ingestLaunchAsset(filePath: string, tags: string[], reviewStatus:
     return entries.length;
 }
 
-export async function bootstrapLaunchAssets(): Promise<LaunchAssetSummary> {
-    if (launchBootstrapPromise) {
-        return launchBootstrapPromise;
+export async function bootstrapLaunchAssets(cwd: string = process.cwd()): Promise<LaunchAssetSummary> {
+    const normalizedCwd = normalizeLaunchCwd(cwd);
+    const existingPromise = launchBootstrapPromises.get(normalizedCwd);
+    if (existingPromise) {
+        return existingPromise;
     }
 
-    launchBootstrapPromise = (async () => {
+    const bootstrapPromise = (async () => {
         let ingestedEntryCount = 0;
         let seedCorpusLoaded = false;
         let trainingManifestReady = false;
         let evaluationSetDefined = false;
         const assetFilesFound: string[] = [];
 
-        const seedCorpusPath = resolveLaunchAssetPath("seed-corpus.json");
+        const seedCorpusPath = resolveLaunchAssetPath("seed-corpus.json", normalizedCwd);
         if (seedCorpusPath) {
             assetFilesFound.push(seedCorpusPath);
             const payload = readJsonFile<{entries?: Array<{title?: string; content?: string}>}>(seedCorpusPath);
@@ -111,7 +118,7 @@ export async function bootstrapLaunchAssets(): Promise<LaunchAssetSummary> {
             }
         }
 
-        const trainingManifestPath = resolveLaunchAssetPath("training-manifest.json");
+        const trainingManifestPath = resolveLaunchAssetPath("training-manifest.json", normalizedCwd);
         if (trainingManifestPath) {
             assetFilesFound.push(trainingManifestPath);
             const payload = readJsonFile<{examples?: Array<{prompt?: string; response?: string}>}>(trainingManifestPath);
@@ -124,7 +131,7 @@ export async function bootstrapLaunchAssets(): Promise<LaunchAssetSummary> {
             }
         }
 
-        const evaluationSetPath = resolveLaunchAssetPath("evaluation-set.json");
+        const evaluationSetPath = resolveLaunchAssetPath("evaluation-set.json", normalizedCwd);
         if (evaluationSetPath) {
             assetFilesFound.push(evaluationSetPath);
             const payload = readJsonFile<{cases?: Array<{name?: string; prompt?: string; expected?: string}>}>(evaluationSetPath);
@@ -149,10 +156,11 @@ export async function bootstrapLaunchAssets(): Promise<LaunchAssetSummary> {
         };
     })();
 
-    return launchBootstrapPromise;
+    launchBootstrapPromises.set(normalizedCwd, bootstrapPromise);
+    return bootstrapPromise;
 }
 
-export async function getLaunchReadiness(): Promise<LaunchReadinessSummary> {
+export async function getLaunchReadiness(cwd: string = process.cwd()): Promise<LaunchReadinessSummary> {
     const envSummary = {
         loadedFiles: [] as string[],
         appliedEntries: [] as string[],
@@ -160,7 +168,7 @@ export async function getLaunchReadiness(): Promise<LaunchReadinessSummary> {
         masterFileDir: undefined as string | undefined,
     };
     const sharedEnv = await Promise.resolve().then(() => {
-        const {loadedFiles, appliedEntries, sourceFiles, masterFileDir} = require("./bootstrap-env").loadSharedEnvFiles();
+        const {loadedFiles, appliedEntries, sourceFiles, masterFileDir} = loadSharedEnvFiles(cwd);
         return {loadedFiles, appliedEntries, sourceFiles, masterFileDir};
     });
     envSummary.loadedFiles = sharedEnv.loadedFiles;
@@ -168,7 +176,7 @@ export async function getLaunchReadiness(): Promise<LaunchReadinessSummary> {
     envSummary.sourceFiles = sharedEnv.sourceFiles;
     envSummary.masterFileDir = sharedEnv.masterFileDir;
 
-    const assets = await bootstrapLaunchAssets();
+    const assets = await bootstrapLaunchAssets(cwd);
 
     const memoryStatsSummary = await memoryStats();
     const storageStatus = getArtifactStorageStatus();

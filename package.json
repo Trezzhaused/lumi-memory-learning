@@ -11,7 +11,8 @@
     "build": "pnpm exec tsc",
     "start": "node dist/app.js",
     "dev": "tsnd --respawn app.ts",
-    "typecheck": "tsc --noEmit --pretty"
+    "typecheck": "tsc --noEmit --pretty",
+    "bootstrap:ecosystem": "node dist/scripts/bootstrap-ecosystem.js"
   },
   "keywords": [],
   "dependencies": {

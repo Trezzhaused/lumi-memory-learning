@@ -258,6 +258,22 @@ POST /api/lumi/launch/bootstrap
 
 Those endpoints validate the shared env source, load the approved seed corpus and reviewed launch assets from `Master-File/`, and report chat/memory/storage health so you can confirm the launch posture before training.
 
+### Ecosystem bootstrap (multi-repo rollout)
+
+To connect multiple repos into one shared Lumi ecosystem, use the ecosystem bootstrap endpoint or the CLI helper:
+
+```bash
+POST /api/lumi/ecosystem/bootstrap
+Body: { "repos": ["/path/to/repo-a", {"repoPath": "/path/to/repo-b", "includePaths": ["."]}] }
+```
+
+```bash
+pnpm run build
+pnpm run bootstrap:ecosystem -- /path/to/repo-a /path/to/repo-b
+```
+
+The bootstrap flow loads shared environment values from `Master-File/.env.shared` (or sibling `../Master-File/.env.shared`), ingests the repo's launch assets, and imports each repo's knowledge into Lumi memory so the repos can act like one coordinated runtime. This improves cohesion and reduces configuration drift, while the existing ACAM, quarantine, audit, and reviewed-seed controls help keep the ecosystem safer and more auditable.
+
 ```bash
 # Required for chat
 OPENROUTER_API_KEY=sk-or-...     # https://openrouter.ai

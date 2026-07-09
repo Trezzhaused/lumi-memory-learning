@@ -21,6 +21,7 @@ import {buildPromptTrainer} from "./lumi-prompt-trainer";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 import {getBridgeContract} from "./lumi-bridge";
 import {bootstrapLaunchAssets, getLaunchReadiness} from "./lumi-launch";
+import {bootstrapEcosystem} from "./lumi-ecosystem";
 import {queueAutonomyTask, listAutonomyTasks, getAutonomyTask, runAutonomyBenchmark} from "./lumi-autonomy";
 
 // ============================================================================
@@ -208,6 +209,30 @@ lumiRouter.post("/launch/bootstrap", async (_req: Request, res: Response, next: 
     try {
         const assets = await bootstrapLaunchAssets();
         res.json({ok: true, assets});
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/ecosystem/bootstrap
+lumiRouter.post("/ecosystem/bootstrap", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const targets = Array.isArray(req.body?.repos)
+            ? req.body.repos.map((repo: unknown) => {
+                if (typeof repo === "string") {
+                    return {repoPath: repo};
+                }
+                if (repo && typeof repo === "object" && "repoPath" in repo && typeof (repo as {repoPath?: unknown}).repoPath === "string") {
+                    return {
+                        repoPath: (repo as {repoPath: string}).repoPath,
+                        includePaths: Array.isArray((repo as {includePaths?: unknown}).includePaths) ? (repo as {includePaths: string[]}).includePaths : undefined,
+                        sessionId: typeof (repo as {sessionId?: unknown}).sessionId === "string" ? (repo as {sessionId: string}).sessionId : undefined,
+                        tags: Array.isArray((repo as {tags?: unknown}).tags) ? (repo as {tags: string[]}).tags : undefined,
+                    };
+                }
+                return null;
+            }).filter(Boolean) as Array<{repoPath: string; includePaths?: string[]; sessionId?: string; tags?: string[]}>
+            : [];
+        const result = await bootstrapEcosystem(targets);
+        res.json(result);
     } catch (err) { next(err); }
 });
 
