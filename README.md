@@ -217,6 +217,24 @@ Lumi now exposes a shared bridge contract at `/api/lumi/bridge/contract` so the 
 
 ---
 
+## Production rollout controls
+
+For production rollouts, Lumi now defaults to a deny-by-default posture for elevated autonomy actions:
+
+- Least-privilege deployment access: GitHub Actions workflows now use `permissions: contents: read` and the production environment so rollout jobs inherit the minimum write scope.
+- Review gates: `.github/CODEOWNERS` requires owner review for rollout-sensitive and security-sensitive files, and the production workflow is configured to use the protected `production` environment.
+- Network controls: outbound URL fetches are blocked unless the destination host is explicitly allow-listed through `LUMI_NETWORK_ALLOWLIST`.
+- Approval policy: elevated actions such as destructive writes, owner-only actions, and network calls require explicit approval under the rollout policy. Set `LUMI_AUTONOMY_APPROVAL_REQUIRED=true` to enforce this in production.
+
+Recommended production values:
+
+- `ACAM_REQUIRE_AUTH=true`
+- `LUMI_AUTONOMY_ALLOW_OWNER_ACTIONS=false`
+- `LUMI_AUTONOMY_ALLOW_DESTRUCTIVE=false`
+- `LUMI_AUTONOMY_ALLOW_NETWORK=false`
+- `LUMI_AUTONOMY_APPROVAL_REQUIRED=true`
+- `LUMI_NETWORK_ALLOWLIST=api.openrouter.ai,api.openai.com,api.github.com,localhost,127.0.0.1`
+
 ## Setup
 
 ### 1. Clone & install
