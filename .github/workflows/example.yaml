@@ -9,9 +9,13 @@ on:
         type: string
         description: 'Render Service ID to deploy (e.g. srv-xxx)'
 
+permissions:
+  contents: read
+
 jobs:
   deploy-service:
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Install Render CLI
         run: |

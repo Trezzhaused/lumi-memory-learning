@@ -1,0 +1,7 @@
+# Require owner review for rollout-sensitive and security-sensitive paths
+/.github/ @Trezzhaused
+/render.yaml @Trezzhaused
+/.env* @Trezzhaused
+/app.ts @Trezzhaused
+/lumi-acam.ts @Trezzhaused
+/lumi-autonomy.ts @Trezzhaused

@@ -53,9 +53,19 @@ services:
   - key: ACAM_RATE_LIMIT
     value: "60"
   - key: ACAM_REQUIRE_AUTH
-    value: "false"
+    value: "true"
   - key: ACAM_ALLOWED_ORIGINS
     sync: false
+  - key: LUMI_AUTONOMY_ALLOW_OWNER_ACTIONS
+    value: "false"
+  - key: LUMI_AUTONOMY_ALLOW_DESTRUCTIVE
+    value: "false"
+  - key: LUMI_AUTONOMY_ALLOW_NETWORK
+    value: "false"
+  - key: LUMI_AUTONOMY_APPROVAL_REQUIRED
+    value: "true"
+  - key: LUMI_NETWORK_ALLOWLIST
+    value: "api.openrouter.ai,api.openai.com,api.github.com,localhost,127.0.0.1"
   - key: ACAM_EXCLUDED_ORIGINS
     value: "https://studio.trezzhaus.com"
   - key: ACAM_EXCLUDED_HOSTS

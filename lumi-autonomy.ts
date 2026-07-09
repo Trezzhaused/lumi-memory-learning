@@ -120,6 +120,22 @@ function canUseNetworkActions(): boolean {
     return process.env.LUMI_AUTONOMY_ALLOW_NETWORK === "true";
 }
 
+function isApprovalRequired(tool: ToolInvocation): boolean {
+    if (tool.requiresApproval === true) {
+        return true;
+    }
+    const tier = tool.tier || "read_only";
+    return process.env.LUMI_AUTONOMY_APPROVAL_REQUIRED === "true"
+        && (tier === "destructive" || tier === "external_network" || tier === "owner_only");
+}
+
+function getAllowedHosts(): string[] {
+    return (process.env.LUMI_NETWORK_ALLOWLIST || "")
+        .split(",")
+        .map(value => value.trim().toLowerCase())
+        .filter(Boolean);
+}
+
 function normalizeTaskState(raw: Partial<AutonomyQueueState> | null | undefined): AutonomyQueueState {
     return {
         tasks: Array.isArray(raw?.tasks) ? raw.tasks as AutonomyTask[] : [],
@@ -244,6 +260,13 @@ function evaluateToolPolicy(tool: ToolInvocation): {allowed: boolean; reason?: s
     const tier = tool.tier || "read_only";
     if (tier === "read_only") {
         return {allowed: true, tier};
+    }
+    if (isApprovalRequired(tool)) {
+        return {
+            allowed: false,
+            reason: "Manual approval required for this action under the production rollout policy",
+            tier,
+        };
     }
     if (tier === "safe_write") {
         return {allowed: true, tier};
@@ -376,6 +399,22 @@ async function deleteFileTool(tool: ToolInvocation): Promise<ToolExecutionResult
 async function fetchUrlTool(tool: ToolInvocation): Promise<ToolExecutionResult> {
     const url = typeof tool.args.url === "string" ? tool.args.url : "";
     if (!url) return {ok: false, error: "No URL provided"};
+
+    let parsedUrl: URL;
+    try {
+        parsedUrl = new URL(url);
+    } catch {
+        return {ok: false, error: "Invalid URL"};
+    }
+
+    const allowedHosts = getAllowedHosts();
+    if (allowedHosts.length > 0) {
+        const hostname = parsedUrl.hostname.toLowerCase();
+        if (!allowedHosts.includes(hostname)) {
+            return {ok: false, error: `Outbound network access to ${hostname} is blocked by policy`};
+        }
+    }
+
     const response = await fetch(url);
     const text = await response.text();
     return {ok: response.ok, output: text.slice(0, 4000), error: response.ok ? undefined : `HTTP ${response.status}`};

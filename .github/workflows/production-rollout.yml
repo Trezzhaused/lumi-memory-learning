@@ -1,0 +1,57 @@
+name: production-rollout
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Rollout target
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+      reason:
+        description: Reason for the rollout approval
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-rollout
+  cancel-in-progress: false
+
+jobs:
+  rollout-gates:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.10.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run typecheck
+        run: pnpm run typecheck
+
+      - name: Run build
+        run: pnpm run build
+
+      - name: Confirm rollout policy
+        run: |
+          echo "Target: ${{ inputs.target }}"
+          echo "Reason: ${{ inputs.reason }}"
+          echo "Production rollout is gated by the protected environment and requires reviewer approval."
