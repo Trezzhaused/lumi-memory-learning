@@ -37,7 +37,7 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         notes: "Best for broadening the knowledge base and translating high-level AI topics into short training briefs.",
     },
     {
-        id: "mit-competency-based-education",
+        id: "mit-learn-competency-based",
         name: "MIT Learn competency-based education materials",
         url: "https://learn.mit.edu/search?resource=2764&resource_title=competency-based-education",
         category: "learning",
@@ -94,7 +94,7 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         rationale: "K12-KGraph is a curriculum-aligned knowledge graph and benchmark built from official K-12 textbooks, with question and training data for curriculum cognition tasks.",
         useCase: "Use as a benchmark source for educational QA, curriculum-aware question generation, and evaluation of K-12 reasoning and structure understanding.",
         priority: "high",
-        notes: "A powerful resource for building benchmark-style educational datasets. Review licensing terms and adapt the content for any target language, cultural context, and regional curriculum standards before deployment.",
+        notes: "A powerful resource for building benchmark-style educational datasets. Check the repository LICENSE file and any dataset card for terms before deployment, and adapt the content for any target language, cultural context, and regional curriculum standards.",
     },
     {
         id: "deepblue-datasets",
@@ -257,7 +257,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
         `Start with broad text corpora (${selectedResources.filter(resource => ["redpajama", "openwebtext", "wikitext", "commoncrawl"].includes(resource.id)).map(resource => resource.name).join(", ")}) to improve natural language coverage and style diversity.`,
         `Add multimodal datasets (${selectedResources.filter(resource => ["openimages", "coco", "laion"].includes(resource.id)).map(resource => resource.name).join(", ")}) for image, caption, and retrieval-style understanding.`,
         `Incorporate simulation and control resources (${selectedResources.filter(resource => ["mujoco", "deepblue-datasets"].includes(resource.id)).map(resource => resource.name).join(", ")}) to teach embodied reasoning and physics-informed behavior.`,
-        `Use the MIT educator resources (${selectedResources.filter(resource => ["mit-competency-based-education", "mit-ocw-educators", "mit-open-learning-k12"].includes(resource.id)).map(resource => resource.name).join(", ")}) to build K-12 curriculum planning, competency-based assessment, and teacher-facing lesson design support.`,
+        `Use the MIT educator resources (${selectedResources.filter(resource => ["mit-learn-competency-based", "mit-ocw-educators", "mit-open-learning-k12"].includes(resource.id)).map(resource => resource.name).join(", ")}) to build K-12 curriculum planning, competency-based assessment, and teacher-facing lesson design support.`,
         `Use the K-12 curriculum resources (${selectedResources.filter(resource => ["valdosta-k12-oer", "coreknowledge-free-curriculum", "k12-kgraph-dataset"].includes(resource.id)).map(resource => resource.name).join(", ")}) to strengthen OER discovery, curriculum sequencing, and curriculum-aware question generation.`,
         `Use the reasoning and model resources (${selectedResources.filter(resource => ["gpt-oss", "arc-reasoning", "intellek-learning"].includes(resource.id)).map(resource => resource.name).join(", ")}) to strengthen agentic behavior, local deployment knowledge, and benchmark-driven evaluation.`,
     ];
