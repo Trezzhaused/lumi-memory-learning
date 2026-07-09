@@ -94,7 +94,7 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         rationale: "K12-KGraph is a curriculum-aligned knowledge graph and benchmark built from official K-12 textbooks, with question and training data for curriculum cognition tasks.",
         useCase: "Use as a benchmark source for educational QA, curriculum-aware question generation, and evaluation of K-12 reasoning and structure understanding.",
         priority: "high",
-        notes: "A powerful resource for building benchmark-style educational datasets. Note that the dataset is based on Chinese K-12 textbooks, so licensing terms and cultural and geographic alignment should be reviewed before use in other educational contexts.",
+        notes: "A powerful resource for building benchmark-style educational datasets. Review licensing terms and adapt the content for any target language, cultural context, and regional curriculum standards before deployment.",
     },
     {
         id: "deepblue-datasets",
@@ -265,10 +265,16 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
     const knowledgeBankSummary = [
         `Lumi should treat these resources as a layered training program for ${goals.join(", ")}.`,
         "The highest-value immediate path is to combine large-scale text corpora with multimodal datasets, then add simulation and reasoning benchmarks for capability growth.",
-        "MIT Learn, MIT OpenCourseWare, and MIT Open Learning materials are especially useful for K-12 curriculum planning, competency-based education, and teacher-facing resource curation.",
-        "Valdosta State's OER guide, Core Knowledge free curriculum materials, and K12-KGraph provide strong support for open educational resources, curriculum sequencing, and curriculum-aware question generation.",
+        "MIT-based educator materials are especially useful for K-12 curriculum planning, competency-based education, and teacher-facing resource curation.",
+        "Open educational resources, curriculum sequencing frameworks, and curriculum-aligned benchmark datasets provide strong support for curriculum design and curriculum-aware question generation.",
         "For production use, ingest only curated subsets first and keep provenance, licensing, and deduplication metadata attached to each dataset entry.",
     ].join(" ");
+
+    const overviewSegments = [
+        "This resource set covers learning materials, open-weight models, web-scale corpora, multimodal datasets, robotics simulators, and reasoning benchmarks.",
+        "It also incorporates MIT educator resources and K-12 OER, curriculum, and benchmark datasets for curriculum design and educational QA, giving Lumi a strong foundation for broader capabilities.",
+    ];
+    const overview = overviewSegments.join(" ");
 
     const aiMaturityFramework = [
         {
@@ -290,7 +296,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
 
     return {
         generatedAt: new Date().toISOString(),
-        overview: "This resource set covers learning materials, open-weight models, web-scale corpora, multimodal datasets, robotics simulators, reasoning benchmarks, MIT educator resources, and K-12 OER/curriculum datasets for curriculum design and educational QA, giving Lumi a strong foundation for broader capabilities.",
+        overview,
         capabilityTargets,
         priorityResources,
         recommendedIngestionPlan,
