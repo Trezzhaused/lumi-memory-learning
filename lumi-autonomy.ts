@@ -94,6 +94,15 @@ function generateId(prefix = "autonomy"): string {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function resolveWorkspacePath(inputPath: string): string | null {
+    const absolutePath = path.resolve(process.cwd(), inputPath);
+    const relativePath = path.relative(process.cwd(), absolutePath);
+    if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+        return null;
+    }
+    return absolutePath;
+}
+
 function getLoopIntervalMs(): number {
     const parsed = Number(process.env.LUMI_AUTONOMY_LOOP_MS || "7000");
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 7000;
@@ -122,6 +131,21 @@ let autonomyState: AutonomyQueueState = {tasks: [], lastUpdated: new Date().toIS
 let loopTimer: NodeJS.Timeout | null = null;
 let loopStarted = false;
 let loopBusy = false;
+let stateAccessQueue: Promise<void> = Promise.resolve();
+
+async function withStateLock<T>(work: () => Promise<T>): Promise<T> {
+    const previous = stateAccessQueue;
+    let release!: () => void;
+    stateAccessQueue = new Promise<void>(resolve => {
+        release = resolve;
+    });
+    await previous;
+    try {
+        return await work();
+    } finally {
+        release();
+    }
+}
 
 async function ensureStateFile(): Promise<void> {
     const statePath = getAutonomyStatePath();
@@ -134,24 +158,28 @@ async function ensureStateFile(): Promise<void> {
 }
 
 async function loadState(): Promise<AutonomyQueueState> {
-    await ensureStateFile();
-    const statePath = getAutonomyStatePath();
-    try {
-        const raw = await fs.readFile(statePath, "utf8");
-        const parsed = JSON.parse(raw) as Partial<AutonomyQueueState>;
-        autonomyState = normalizeTaskState(parsed);
-        return autonomyState;
-    } catch {
-        autonomyState = {tasks: [], lastUpdated: new Date().toISOString()};
-        return autonomyState;
-    }
+    return withStateLock(async () => {
+        await ensureStateFile();
+        const statePath = getAutonomyStatePath();
+        try {
+            const raw = await fs.readFile(statePath, "utf8");
+            const parsed = JSON.parse(raw) as Partial<AutonomyQueueState>;
+            autonomyState = normalizeTaskState(parsed);
+            return autonomyState;
+        } catch {
+            autonomyState = {tasks: [], lastUpdated: new Date().toISOString()};
+            return autonomyState;
+        }
+    });
 }
 
 async function persistState(): Promise<void> {
-    await ensureStateFile();
-    autonomyState.lastUpdated = new Date().toISOString();
-    const statePath = getAutonomyStatePath();
-    await fs.writeFile(statePath, JSON.stringify(autonomyState, null, 2), "utf8");
+    return withStateLock(async () => {
+        await ensureStateFile();
+        autonomyState.lastUpdated = new Date().toISOString();
+        const statePath = getAutonomyStatePath();
+        await fs.writeFile(statePath, JSON.stringify(autonomyState, null, 2), "utf8");
+    });
 }
 
 function createCheckpoint(task: AutonomyTask, summary: string, state: string): AutonomyCheckpoint {
@@ -189,9 +217,9 @@ function buildDefaultSteps(objective: string): AutonomyStep[] {
         },
         {
             id: generateId("step"),
-            description: `Read the main project manifest to ground the execution for: ${objective}`,
+            description: `Inspect the repository manifest for: ${objective}`,
             tool: {
-                name: "read_file",
+                name: "stat_path",
                 args: {path: path.join(process.cwd(), "package.json")},
                 tier: "read_only",
             },
@@ -254,18 +282,30 @@ async function runCommandTool(tool: ToolInvocation): Promise<ToolExecutionResult
     const child = spawn(command[0], command.slice(1), {
         cwd,
         stdio: ["ignore", "pipe", "pipe"],
-        env: process.env,
+        env: {
+            PATH: process.env.PATH || "",
+            HOME: process.env.HOME || "",
+            USER: process.env.USER || "",
+            SHELL: process.env.SHELL || "",
+            LANG: process.env.LANG || "C.UTF-8",
+            TMPDIR: process.env.TMPDIR || "",
+            DATA_DIR: process.env.DATA_DIR || "",
+            OLLAMA_HOST: process.env.OLLAMA_HOST || "",
+        },
     });
 
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", chunk => { stdout += chunk.toString(); });
-    child.stderr.on("data", chunk => { stderr += chunk.toString(); });
+    const stdoutChunks: string[] = [];
+    const stderrChunks: string[] = [];
+    child.stdout.on("data", chunk => { stdoutChunks.push(chunk.toString()); });
+    child.stderr.on("data", chunk => { stderrChunks.push(chunk.toString()); });
 
     const exitCode = await new Promise<number>((resolve, reject) => {
         child.on("error", reject);
-        child.on("close", resolve);
+        child.on("close", (code) => resolve(code ?? 0));
     });
+
+    const stdout = stdoutChunks.join("");
+    const stderr = stderrChunks.join("");
 
     if (exitCode !== 0) {
         return {ok: false, stdout, stderr, error: `Command exited with ${exitCode}`};
@@ -277,7 +317,9 @@ async function runCommandTool(tool: ToolInvocation): Promise<ToolExecutionResult
 async function readFileTool(tool: ToolInvocation): Promise<ToolExecutionResult> {
     const filePath = typeof tool.args.path === "string" ? tool.args.path : "";
     if (!filePath) return {ok: false, error: "No path provided"};
-    const content = await fs.readFile(filePath, "utf8");
+    const resolvedPath = resolveWorkspacePath(filePath);
+    if (!resolvedPath) return {ok: false, error: "Path escapes the workspace"};
+    const content = await fs.readFile(resolvedPath, "utf8");
     return {ok: true, output: content.slice(0, 4000)};
 }
 
@@ -285,14 +327,17 @@ async function writeFileTool(tool: ToolInvocation): Promise<ToolExecutionResult>
     const filePath = typeof tool.args.path === "string" ? tool.args.path : "";
     const content = typeof tool.args.content === "string" ? tool.args.content : "";
     if (!filePath) return {ok: false, error: "No path provided"};
-    await fs.mkdir(path.dirname(filePath), {recursive: true});
-    await fs.writeFile(filePath, content, "utf8");
-    return {ok: true, artifactPath: filePath, output: `Wrote ${filePath}`};
+    const resolvedPath = resolveWorkspacePath(filePath);
+    if (!resolvedPath) return {ok: false, error: "Path escapes the workspace"};
+    await fs.mkdir(path.dirname(resolvedPath), {recursive: true});
+    await fs.writeFile(resolvedPath, content, "utf8");
+    return {ok: true, artifactPath: resolvedPath, output: `Wrote ${resolvedPath}`};
 }
 
 async function listDirTool(tool: ToolInvocation): Promise<ToolExecutionResult> {
     const dirPath = typeof tool.args.path === "string" ? tool.args.path : process.cwd();
-    const entries = await fs.readdir(dirPath, {withFileTypes: true});
+    const resolvedPath = resolveWorkspacePath(dirPath) || process.cwd();
+    const entries = await fs.readdir(resolvedPath, {withFileTypes: true});
     const names = entries.map(entry => entry.name).sort();
     return {ok: true, output: names.join("\n")};
 }
@@ -300,15 +345,32 @@ async function listDirTool(tool: ToolInvocation): Promise<ToolExecutionResult> {
 async function statPathTool(tool: ToolInvocation): Promise<ToolExecutionResult> {
     const filePath = typeof tool.args.path === "string" ? tool.args.path : "";
     if (!filePath) return {ok: false, error: "No path provided"};
-    const stats = await fs.stat(filePath);
-    return {ok: true, output: JSON.stringify({exists: true, size: stats.size, isFile: stats.isFile(), isDirectory: stats.isDirectory()}, null, 2)};
+    const resolvedPath = resolveWorkspacePath(filePath);
+    if (!resolvedPath) return {ok: false, error: "Path escapes the workspace"};
+    try {
+        const stats = await fs.stat(resolvedPath);
+        return {
+            ok: true,
+            output: JSON.stringify({
+                exists: true,
+                size: stats.size,
+                isFile: stats.isFile(),
+                isDirectory: stats.isDirectory(),
+                isSymbolicLink: stats.isSymbolicLink(),
+            }, null, 2),
+        };
+    } catch (error: any) {
+        return {ok: false, error: error?.message || "Path not found"};
+    }
 }
 
 async function deleteFileTool(tool: ToolInvocation): Promise<ToolExecutionResult> {
     const filePath = typeof tool.args.path === "string" ? tool.args.path : "";
     if (!filePath) return {ok: false, error: "No path provided"};
-    await fs.unlink(filePath);
-    return {ok: true, output: `Deleted ${filePath}`};
+    const resolvedPath = resolveWorkspacePath(filePath);
+    if (!resolvedPath) return {ok: false, error: "Path escapes the workspace"};
+    await fs.unlink(resolvedPath);
+    return {ok: true, output: `Deleted ${resolvedPath}`};
 }
 
 async function fetchUrlTool(tool: ToolInvocation): Promise<ToolExecutionResult> {
@@ -475,13 +537,11 @@ async function processTask(task: AutonomyTask): Promise<void> {
         return;
     }
 
-    if (task.status !== "blocked") {
-        task.status = "failed";
-        task.summary = task.lastError || "Autonomy task stopped with unresolved steps";
-        appendCheckpoint(task, task.summary, "failed");
-        await persistTask(task);
-        await recordOutcomeMemory(task);
-    }
+    task.status = "failed";
+    task.summary = task.lastError || "Autonomy task stopped with unresolved steps";
+    appendCheckpoint(task, task.summary, "failed");
+    await persistTask(task);
+    await recordOutcomeMemory(task);
 }
 
 async function processQueue(): Promise<void> {
@@ -546,22 +606,22 @@ export async function stopAutonomyLoop(): Promise<void> {
 }
 
 export async function runAutonomyBenchmark(): Promise<AutonomyBenchmarkResult[]> {
-    const benchmarkTasks = [
+    const benchmarkTasks: Array<{objective: string; steps: AutonomyStep[]}> = [
         {
             objective: "Inspect the repository roots and summarize the top-level files.",
             steps: [
                 {
                     id: generateId("step"),
                     description: "List the repository root contents",
-                    tool: {name: "list_dir", args: {path: process.cwd()}, tier: "read_only"},
-                    status: "pending" as const,
+                    tool: {name: "list_dir", args: {path: process.cwd()}, tier: "read_only" as ToolTier},
+                    status: "pending",
                     attempts: 0,
                 },
                 {
                     id: generateId("step"),
                     description: "Read the package manifest",
-                    tool: {name: "read_file", args: {path: path.join(process.cwd(), "package.json")}, tier: "read_only"},
-                    status: "pending" as const,
+                    tool: {name: "read_file", args: {path: path.join(process.cwd(), "package.json")}, tier: "read_only" as ToolTier},
+                    status: "pending",
                     attempts: 0,
                 },
             ],
@@ -582,4 +642,4 @@ export async function runAutonomyBenchmark(): Promise<AutonomyBenchmarkResult[]>
     return results;
 }
 
-void startAutonomyLoop().catch(error => console.error("[LumiAutonomy] startup error:", error));
+startAutonomyLoop().catch(error => console.error("[LumiAutonomy] startup error:", error));
