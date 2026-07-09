@@ -1,0 +1,11 @@
+{
+  "name": "Lumi Live training manifest",
+  "reviewedBy": "trezzhaused",
+  "reviewStatus": "approved",
+  "examples": [
+    {
+      "prompt": "Summarize the Lumi Live launch checklist in one paragraph.",
+      "response": "Lumi Live should verify shared environment variables, load an approved seed corpus, prepare a reviewed training manifest, define an evaluation set, and confirm chat, memory, and storage health before training."
+    }
+  ]
+}

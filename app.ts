@@ -20,6 +20,7 @@ import {converseSpeech, formatBraille, speakText, transcribeAudio} from "./lumi-
 import {buildPromptTrainer} from "./lumi-prompt-trainer";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 import {getBridgeContract} from "./lumi-bridge";
+import {bootstrapLaunchAssets, getLaunchReadiness} from "./lumi-launch";
 
 // ============================================================================
 // App setup
@@ -191,6 +192,21 @@ lumiRouter.post("/finetune/assemble", async (_req: Request, res: Response, next:
 lumiRouter.get("/status", async (_req: Request, res: Response, next: NextFunction) => {
     try {
         res.json(await getLumiStatus());
+    } catch (err) { next(err); }
+});
+
+// GET /api/lumi/launch/readiness
+lumiRouter.get("/launch/readiness", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        res.json(await getLaunchReadiness());
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/launch/bootstrap
+lumiRouter.post("/launch/bootstrap", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        const assets = await bootstrapLaunchAssets();
+        res.json({ok: true, assets});
     } catch (err) { next(err); }
 });
 

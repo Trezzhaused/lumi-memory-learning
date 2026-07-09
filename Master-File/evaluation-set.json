@@ -1,0 +1,11 @@
+{
+  "name": "Lumi Live evaluation set",
+  "reviewStatus": "approved",
+  "cases": [
+    {
+      "name": "Launch readiness summary",
+      "prompt": "What is the first thing Lumi should verify before starting training?",
+      "expected": "Shared environment variables and launch readiness checks."
+    }
+  ]
+}

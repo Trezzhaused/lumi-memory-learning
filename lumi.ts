@@ -30,6 +30,7 @@ import path from "node:path";
 import {callOpenRouterChat} from "./openrouter";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 import {getBridgeContract, LumiProvider, LumiRuntimeMode, resolveRuntimeProvider} from "./lumi-bridge";
+import {getLaunchReadiness} from "./lumi-launch";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -849,6 +850,7 @@ export interface LumiStatus {
     acamEnabled: boolean;
     activeMissions: number;
     uptime: number;
+    launchReadiness: Awaited<ReturnType<typeof getLaunchReadiness>>;
 }
 
 export async function getLumiStatus(): Promise<LumiStatus> {
@@ -858,6 +860,7 @@ export async function getLumiStatus(): Promise<LumiStatus> {
     const capabilities: string[] = ["chat"];
     const openRouterApiKey = getOpenRouterApiKey();
     const bridgeContract = getBridgeContract();
+    const launchReadiness = await getLaunchReadiness();
     const defaultMode = (process.env.LUMI_RUNTIME_MODE as LumiRuntimeMode | undefined) || bridgeContract.defaults.runtimeMode;
     const runtimeSelection = resolveRuntimeProvider(
         {},
@@ -908,5 +911,6 @@ export async function getLumiStatus(): Promise<LumiStatus> {
         acamEnabled: defaultAcamConfig.enabled,
         activeMissions: [...missions.values()].filter(m => m.status === "running").length,
         uptime: Math.floor((Date.now() - startTime) / 1000),
+        launchReadiness,
     };
 }

@@ -1,0 +1,10 @@
+{
+  "name": "Lumi Live seed corpus",
+  "reviewStatus": "approved",
+  "entries": [
+    {
+      "title": "Lumi Live launch brief",
+      "content": "Lumi Live should prioritize reviewed knowledge, transparent provenance, and auditable evaluation before broad training. Seed items should be high-confidence, low-sensitivity, and easy to review."
+    }
+  ]
+}

@@ -227,6 +227,22 @@ Fill in `.env`:
 ```bash
 # Required for chat
 OPENROUTER_API_KEY=sk-or-...     # https://openrouter.ai
+```
+
+For multi-repo Trezzhaus setups, a shared environment source is also supported from `Master-File/.env.shared` (or `../Master-File/.env.shared`). Lumi will load those values automatically when present, so you can keep one shared env location for all repos.
+
+Launch-readiness checks are exposed at:
+
+```bash
+GET /api/lumi/launch/readiness
+POST /api/lumi/launch/bootstrap
+```
+
+Those endpoints validate the shared env source, load the approved seed corpus and reviewed launch assets from `Master-File/`, and report chat/memory/storage health so you can confirm the launch posture before training.
+
+```bash
+# Required for chat
+OPENROUTER_API_KEY=sk-or-...     # https://openrouter.ai
 
 # Optional — voice / speech support
 OPENAI_API_KEY=sk-...            # https://platform.openai.com
