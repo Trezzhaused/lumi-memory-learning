@@ -9,6 +9,15 @@ import {
 } from "./lumi-acam";
 import {remember, recall, forget, memoryStats, search as memSearch, getMemoryStorageStatus} from "./lumi-memory";
 import {generate} from "./lumi-generators";
+import {
+    getChunk,
+    getChunkStoreStats,
+    ingestTextChunks,
+    listChunks,
+    runLocalIndexBenchmark,
+    searchChunks,
+    updateChunkQuarantine,
+} from "./lumi-vector-store";
 import {buildProject} from "./lumi-studio";
 import {getArtifact, readArtifactBuffer, getArtifactStorageStatus, listArtifacts} from "./lumi-storage";
 import {
@@ -269,6 +278,98 @@ lumiRouter.get("/storage", (_req: Request, res: Response) => {
         artifacts: getArtifactStorageStatus(),
         memory: getMemoryStorageStatus(),
     });
+});
+
+// POST /api/lumi/vector-index/chunks
+lumiRouter.post("/vector-index/chunks", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {text, source, sessionId, tags, maxChars, overlapChars, quarantine, provenance, importedBy} = req.body ?? {};
+        if (!text || typeof text !== "string") {
+            res.status(400).json({error: "text is required"});
+            return;
+        }
+        const chunks = await ingestTextChunks({
+            text,
+            source,
+            sessionId,
+            tags: Array.isArray(tags) ? tags : undefined,
+            maxChars: typeof maxChars === "number" ? maxChars : undefined,
+            overlapChars: typeof overlapChars === "number" ? overlapChars : undefined,
+            quarantine,
+            provenance,
+            importedBy,
+        });
+        res.json({chunks});
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/vector-index/search
+lumiRouter.post("/vector-index/search", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {query, limit, includeQuarantined, source} = req.body ?? {};
+        if (!query || typeof query !== "string") {
+            res.status(400).json({error: "query is required"});
+            return;
+        }
+        const results = await searchChunks(query, {
+            limit: typeof limit === "number" ? limit : undefined,
+            includeQuarantined: Boolean(includeQuarantined),
+            source: typeof source === "string" ? source : undefined,
+        });
+        res.json({results});
+    } catch (err) { next(err); }
+});
+
+// GET /api/lumi/vector-index/chunks
+lumiRouter.get("/vector-index/chunks", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        const chunks = await listChunks(20);
+        res.json({chunks});
+    } catch (err) { next(err); }
+});
+
+// GET /api/lumi/vector-index/chunks/:chunkId
+lumiRouter.get("/vector-index/chunks/:chunkId", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const chunk = await getChunk(req.params.chunkId);
+        if (!chunk) {
+            res.status(404).json({error: "chunk not found"});
+            return;
+        }
+        res.json({chunk});
+    } catch (err) { next(err); }
+});
+
+// PATCH /api/lumi/vector-index/chunks/:chunkId/quarantine
+lumiRouter.patch("/vector-index/chunks/:chunkId/quarantine", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {flagged, reason, flaggedAt, flaggedBy} = req.body ?? {};
+        const chunk = await updateChunkQuarantine(req.params.chunkId, {
+            flagged: Boolean(flagged),
+            reason: typeof reason === "string" ? reason : undefined,
+            flaggedAt: typeof flaggedAt === "string" ? flaggedAt : undefined,
+            flaggedBy: typeof flaggedBy === "string" ? flaggedBy : undefined,
+        }, typeof req.headers["x-session-id"] === "string" ? req.headers["x-session-id"] : "system");
+        if (!chunk) {
+            res.status(404).json({error: "chunk not found"});
+            return;
+        }
+        res.json({chunk});
+    } catch (err) { next(err); }
+});
+
+// GET /api/lumi/vector-index/stats
+lumiRouter.get("/vector-index/stats", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        res.json(await getChunkStoreStats());
+    } catch (err) { next(err); }
+});
+
+// GET /api/lumi/benchmark/local-index
+lumiRouter.get("/benchmark/local-index", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        res.json(await runLocalIndexBenchmark());
+    } catch (err) { next(err); }
 });
 
 // GET /api/lumi/memory/:sessionId

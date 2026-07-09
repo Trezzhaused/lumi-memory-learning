@@ -187,6 +187,25 @@ GET /api/lumi/storage
 → { artifacts: {backend, configured, bucket}, memory: {backend, configured, bucket, key} }
 ```
 
+### Local vector index / chunk store
+```
+POST /api/lumi/vector-index/chunks
+Body: { text, source?, sessionId?, tags?, maxChars?, overlapChars?, quarantine?, provenance?, importedBy? }
+→ { chunks: [VectorChunk] }
+
+POST /api/lumi/vector-index/search
+Body: { query, limit?, includeQuarantined?, source? }
+→ { results: [{ chunk, score }] }
+
+GET /api/lumi/vector-index/chunks
+GET /api/lumi/vector-index/chunks/:chunkId
+PATCH /api/lumi/vector-index/chunks/:chunkId/quarantine
+GET /api/lumi/vector-index/stats
+GET /api/lumi/benchmark/local-index
+```
+
+These endpoints add a local-first chunk store, token-based vector index, quarantine flags, provenance metadata, and a small benchmark fixture that can be used to smoke-test retrieval quality without external services.
+
 ### System
 ```
 GET /api/lumi/status        → LumiStatus

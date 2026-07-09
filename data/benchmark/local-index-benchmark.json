@@ -1,0 +1,34 @@
+{
+  "name": "local-index-smoke-benchmark",
+  "documents": [
+    {
+      "id": "doc-france",
+      "text": "Paris is the capital city of France and a major European hub for culture, business, and tourism."
+    },
+    {
+      "id": "doc-lumi",
+      "text": "Lumi uses local-first memory and a lightweight vector index for precise retrieval over chunked text."
+    },
+    {
+      "id": "doc-animals",
+      "text": "The quick brown fox jumps over the lazy dog in a playful and memorable sentence."
+    }
+  ],
+  "queries": [
+    {
+      "id": "q-france-capital",
+      "query": "What city is the capital of France?",
+      "expectedIds": ["doc-france"]
+    },
+    {
+      "id": "q-lumi-memory",
+      "query": "How does Lumi store memory and search text?",
+      "expectedIds": ["doc-lumi"]
+    },
+    {
+      "id": "q-animal-sentence",
+      "query": "Which sentence includes a fox and a dog?",
+      "expectedIds": ["doc-animals"]
+    }
+  ]
+}

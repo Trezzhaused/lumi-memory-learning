@@ -23,7 +23,8 @@ import {NextFunction, Request, Response} from "express";
 export type AuditAction =
     | "login" | "logout" | "access" | "create" | "update" | "delete"
     | "publish" | "deploy" | "permission_change" | "role_change"
-    | "content_blocked" | "rate_limited" | "origin_blocked" | "other";
+    | "content_blocked" | "rate_limited" | "origin_blocked" | "quarantine"
+    | "other";
 
 export interface AuditEntry {
     id: string;
