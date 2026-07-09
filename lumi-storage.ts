@@ -30,15 +30,39 @@ interface StoreArtifactInput {
     sourceUrl?: string;
 }
 
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), ".data");
-const ARTIFACTS_DIR = path.join(DATA_DIR, "artifacts");
-const INDEX_DIR = path.join(ARTIFACTS_DIR, ".index");
+function getDataDir(): string {
+    return process.env.DATA_DIR || path.join(process.cwd(), ".data");
+}
 
-const R2_ACCOUNT_ID = process.env.CLOUDFLARE_R2_ACCOUNT_ID || "";
-const R2_ACCESS_KEY_ID = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || "";
-const R2_SECRET_ACCESS_KEY = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || "";
-const R2_BUCKET = process.env.CLOUDFLARE_R2_BUCKET || "";
-const R2_PUBLIC_URL = process.env.CLOUDFLARE_R2_PUBLIC_URL || "";
+function getArtifactsDir(): string {
+    return path.join(getDataDir(), "artifacts");
+}
+
+function getIndexDir(): string {
+    return path.join(getArtifactsDir(), ".index");
+}
+
+function getR2Config(): {client?: S3Client; bucket?: string; endpoint?: string; publicUrl?: string} {
+    const r2AccountId = process.env.CLOUDFLARE_R2_ACCOUNT_ID || "";
+    const r2AccessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || "";
+    const r2SecretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || "";
+    const r2Bucket = process.env.CLOUDFLARE_R2_BUCKET || "";
+    const r2PublicUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL || "";
+    if (!r2AccountId || !r2AccessKeyId || !r2SecretAccessKey || !r2Bucket) {
+        return {};
+    }
+    const endpoint = `https://${r2AccountId}.r2.cloudflarestorage.com`;
+    // Cloudflare R2 uses the account-specific S3-compatible endpoint format below.
+    const client = new S3Client({
+        region: "auto",
+        endpoint,
+        credentials: {
+            accessKeyId: r2AccessKeyId,
+            secretAccessKey: r2SecretAccessKey,
+        },
+    });
+    return {client, bucket: r2Bucket, endpoint, publicUrl: r2PublicUrl || ""};
+}
 
 function sanitizeName(value: string): string {
     const safe = value
@@ -55,7 +79,7 @@ function sanitizeRelativePath(value: string): string {
 }
 
 function resolveArtifactDir(kind: string): string {
-    const baseDir = path.resolve(ARTIFACTS_DIR);
+    const baseDir = path.resolve(getArtifactsDir());
     const safeKind = sanitizeRelativePath(kind);
     const targetDir = path.resolve(baseDir, safeKind);
     if (targetDir !== baseDir && !targetDir.startsWith(baseDir + path.sep)) {
@@ -65,7 +89,7 @@ function resolveArtifactDir(kind: string): string {
 }
 
 function resolveMetadataPath(id: string): string {
-    const baseDir = path.resolve(INDEX_DIR);
+    const baseDir = path.resolve(getIndexDir());
     const safeId = sanitizeRelativePath(id);
     const targetPath = path.resolve(baseDir, `${safeId}.json`);
     if (!targetPath.startsWith(baseDir + path.sep) && targetPath !== baseDir) {
@@ -100,23 +124,6 @@ function buildFilename(input: StoreArtifactInput): string {
     return `${base}${ext}`;
 }
 
-function getR2Config(): {client?: S3Client; bucket?: string; endpoint?: string; publicUrl?: string} {
-    if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET) {
-        return {};
-    }
-    const endpoint = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
-    // Cloudflare R2 uses the account-specific S3-compatible endpoint format below.
-    const client = new S3Client({
-        region: "auto",
-        endpoint,
-        credentials: {
-            accessKeyId: R2_ACCESS_KEY_ID,
-            secretAccessKey: R2_SECRET_ACCESS_KEY,
-        },
-    });
-    return {client, bucket: R2_BUCKET, endpoint, publicUrl: R2_PUBLIC_URL || ""};
-}
-
 export function getArtifactStorageStatus(): ArtifactStorageStatus {
     const {client, bucket} = getR2Config();
     return {
@@ -136,7 +143,7 @@ export async function storeArtifact(input: StoreArtifactInput): Promise<StoredAr
     const objectKey = `${kind}/${artifactId}-${safeFilename}`;
     const localDir = resolveArtifactDir(kind);
     await fs.mkdir(localDir, {recursive: true});
-    await fs.mkdir(INDEX_DIR, {recursive: true});
+    await fs.mkdir(getIndexDir(), {recursive: true});
 
     let buffer: Buffer;
     if (input.buffer) {
@@ -210,12 +217,13 @@ export async function getArtifact(id: string): Promise<StoredArtifact | null> {
 
 export async function listArtifacts(limit = 50): Promise<StoredArtifact[]> {
     try {
-        const entries = await fs.readdir(INDEX_DIR, {withFileTypes: true});
+        const indexDir = getIndexDir();
+        const entries = await fs.readdir(indexDir, {withFileTypes: true});
         const artifacts = await Promise.all(entries
             .filter(entry => entry.isFile() && entry.name.endsWith(".json"))
             .map(async entry => {
                 try {
-                    const metadata = await fs.readFile(path.join(INDEX_DIR, entry.name), "utf8");
+                    const metadata = await fs.readFile(path.join(indexDir, entry.name), "utf8");
                     return JSON.parse(metadata) as StoredArtifact;
                 } catch {
                     return null;

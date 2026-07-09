@@ -20,11 +20,25 @@ import {storeArtifact, StoredArtifact} from "./lumi-storage";
 // Configuration
 // ---------------------------------------------------------------------------
 
-const HF_API_KEY = process.env.HUGGINGFACE_API_KEY || "";
-const STABILITY_API_KEY = process.env.STABILITY_API_KEY || "";
-const FAL_API_KEY = process.env.FAL_KEY || "";
-const REPLICATE_API_KEY = process.env.REPLICATE_API_KEY || "";
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
+function getHfApiKey(): string {
+    return process.env.HUGGINGFACE_API_KEY || "";
+}
+
+function getStabilityApiKey(): string {
+    return process.env.STABILITY_API_KEY || "";
+}
+
+function getFalApiKey(): string {
+    return process.env.FAL_KEY || "";
+}
+
+function getReplicateApiKey(): string {
+    return process.env.REPLICATE_API_KEY || "";
+}
+
+function getOpenRouterApiKey(): string {
+    return process.env.OPENROUTER_API_KEY || "";
+}
 
 const HF_API_URL = "https://api-inference.huggingface.co/models";
 const STABILITY_API_URL = "https://api.stability.ai/v1/generation";
@@ -126,7 +140,7 @@ export async function generateImageHF(req: GenerationRequest): Promise<Generatio
     const res = await fetch(`${HF_API_URL}/${model}`, {
         method: "POST",
         headers: {
-            Authorization: "Bearer " + HF_API_KEY,
+            Authorization: "Bearer " + getHfApiKey(),
             "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
@@ -177,7 +191,7 @@ export async function generateImageStability(req: GenerationRequest): Promise<Ge
             method: "POST",
             headers: {
                 Accept: "application/json",
-                Authorization: "Bearer " + STABILITY_API_KEY,
+                Authorization: "Bearer " + getStabilityApiKey(),
                 "Content-Type": "application/json",
             },
             body: JSON.stringify(body),
@@ -209,10 +223,10 @@ export async function generateImageStability(req: GenerationRequest): Promise<Ge
  * then falls back to Hugging Face.
  */
 export async function generateImage(req: GenerationRequest): Promise<GenerationResult> {
-    if (STABILITY_API_KEY) {
+    if (getStabilityApiKey()) {
         return generateImageStability(req);
     }
-    if (HF_API_KEY) {
+    if (getHfApiKey()) {
         return generateImageHF(req);
     }
     throw new Error(
@@ -231,7 +245,8 @@ export async function generateImage(req: GenerationRequest): Promise<GenerationR
  * TrezzWorld Production Studio.
  */
 export async function generateVideoFal(req: GenerationRequest): Promise<GenerationResult> {
-    if (!FAL_API_KEY) throw new Error("FAL_KEY is not configured.");
+    const falApiKey = getFalApiKey();
+    if (!falApiKey) throw new Error("FAL_KEY is not configured.");
 
     const model = validateModelId(req.model || "fal-ai/wan/t2v-14b");
 
@@ -239,7 +254,7 @@ export async function generateVideoFal(req: GenerationRequest): Promise<Generati
     const submitRes = await fetch(`${FAL_API_URL}/${model}`, {
         method: "POST",
         headers: {
-            Authorization: "Key " + FAL_API_KEY,
+            Authorization: "Key " + falApiKey,
             "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -271,14 +286,14 @@ export async function generateVideoFal(req: GenerationRequest): Promise<Generati
     while (Date.now() < deadline) {
         await new Promise(r => setTimeout(r, 4000));
         const pollRes = await fetch(statusUrl, {
-            headers: {Authorization: "Key " + FAL_API_KEY},
+            headers: {Authorization: "Key " + falApiKey},
         });
         if (!pollRes.ok) continue;
         const pollData: any = await pollRes.json();
         if (pollData.status === "COMPLETED" || pollData.status === "completed") {
             const resultRes = await fetch(
                 `${FAL_API_URL}/${model}/requests/${requestId}`,
-                {headers: {Authorization: "Key " + FAL_API_KEY}}
+                {headers: {Authorization: "Key " + falApiKey}}
             );
             const result: any = await resultRes.json();
             const rawUrl: string = result.video?.url || result.output?.video?.url || "";
@@ -306,7 +321,8 @@ export async function generateVideoFal(req: GenerationRequest): Promise<Generati
 // ---------------------------------------------------------------------------
 
 export async function generateVideoReplicate(req: GenerationRequest): Promise<GenerationResult> {
-    if (!REPLICATE_API_KEY) {
+    const replicateApiKey = getReplicateApiKey();
+    if (!replicateApiKey) {
         throw new Error("REPLICATE_API_KEY is not configured.");
     }
 
@@ -320,7 +336,7 @@ export async function generateVideoReplicate(req: GenerationRequest): Promise<Ge
     const startRes = await fetch(`${REPLICATE_API_URL}/predictions`, {
         method: "POST",
         headers: {
-            Authorization: `Token ${REPLICATE_API_KEY}`,
+            Authorization: `Token ${replicateApiKey}`,
             "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -351,7 +367,7 @@ export async function generateVideoReplicate(req: GenerationRequest): Promise<Ge
     while (Date.now() < deadline) {
         await new Promise(r => setTimeout(r, 3000));
         const pollRes = await fetch(pollUrl, {
-            headers: {Authorization: `Token ${REPLICATE_API_KEY}`},
+            headers: {Authorization: `Token ${replicateApiKey}`},
         });
         const pollData: any = await pollRes.json();
         if (pollData.status === "succeeded") {
@@ -382,8 +398,8 @@ export async function generateVideoReplicate(req: GenerationRequest): Promise<Ge
  * then falls back to Replicate.
  */
 export async function generateVideo(req: GenerationRequest): Promise<GenerationResult> {
-    if (FAL_API_KEY) return generateVideoFal(req);
-    if (REPLICATE_API_KEY) return generateVideoReplicate(req);
+    if (getFalApiKey()) return generateVideoFal(req);
+    if (getReplicateApiKey()) return generateVideoReplicate(req);
     throw new Error(
         "No video generation API key configured. " +
         "Set FAL_KEY (primary) or REPLICATE_API_KEY (fallback)."
@@ -395,7 +411,7 @@ export async function generateVideo(req: GenerationRequest): Promise<GenerationR
 // ---------------------------------------------------------------------------
 
 export async function generateAudio(req: GenerationRequest): Promise<GenerationResult> {
-    if (!HF_API_KEY) {
+    if (!getHfApiKey()) {
         throw new Error("HUGGINGFACE_API_KEY is not configured.");
     }
 
@@ -403,7 +419,7 @@ export async function generateAudio(req: GenerationRequest): Promise<GenerationR
     const res = await fetch(`${HF_API_URL}/${model}`, {
         method: "POST",
         headers: {
-            Authorization: "Bearer " + HF_API_KEY,
+            Authorization: "Bearer " + getHfApiKey(),
             "Content-Type": "application/json",
         },
         body: JSON.stringify({inputs: req.prompt}),
@@ -433,7 +449,8 @@ export async function generateAudio(req: GenerationRequest): Promise<GenerationR
 // ---------------------------------------------------------------------------
 
 export async function generateText(req: GenerationRequest): Promise<GenerationResult> {
-    if (!OPENROUTER_API_KEY) {
+    const openRouterApiKey = getOpenRouterApiKey();
+    if (!openRouterApiKey) {
         throw new Error("OPENROUTER_API_KEY is not configured.");
     }
 
@@ -450,7 +467,7 @@ export async function generateText(req: GenerationRequest): Promise<GenerationRe
         ],
         model,
         {
-            apiKey: OPENROUTER_API_KEY,
+            apiKey: openRouterApiKey,
             httpReferer: "https://trezzhaus.com",
             appTitle: "Lumi — Trezzhaus AI",
             appCategories: "cli-agent,cloud-agent",
@@ -472,7 +489,8 @@ export async function generateText(req: GenerationRequest): Promise<GenerationRe
 // ---------------------------------------------------------------------------
 
 export async function generateDocument(req: GenerationRequest): Promise<GenerationResult> {
-    if (!OPENROUTER_API_KEY) {
+    const openRouterApiKey = getOpenRouterApiKey();
+    if (!openRouterApiKey) {
         throw new Error("OPENROUTER_API_KEY is not configured.");
     }
 
@@ -489,7 +507,7 @@ export async function generateDocument(req: GenerationRequest): Promise<Generati
         ],
         model,
         {
-            apiKey: OPENROUTER_API_KEY,
+            apiKey: openRouterApiKey,
             httpReferer: "https://trezzhaus.com",
             appTitle: "Lumi — Trezzhaus AI",
             appCategories: "cli-agent,cloud-agent",
@@ -511,7 +529,8 @@ export async function generateDocument(req: GenerationRequest): Promise<Generati
 // ---------------------------------------------------------------------------
 
 export async function generateCode(req: GenerationRequest): Promise<GenerationResult> {
-    if (!OPENROUTER_API_KEY) {
+    const openRouterApiKey = getOpenRouterApiKey();
+    if (!openRouterApiKey) {
         throw new Error("OPENROUTER_API_KEY is not configured.");
     }
 
@@ -528,7 +547,7 @@ export async function generateCode(req: GenerationRequest): Promise<GenerationRe
         ],
         model,
         {
-            apiKey: OPENROUTER_API_KEY,
+            apiKey: openRouterApiKey,
             httpReferer: "https://trezzhaus.com",
             appTitle: "Lumi — Trezzhaus AI",
             appCategories: "cli-agent,cloud-agent",

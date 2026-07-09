@@ -27,10 +27,14 @@ export interface SpeechConverseResult {
     error?: string;
 }
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
-const OPENAI_API_URL = process.env.OPENAI_API_URL || "https://api.openai.com/v1";
-const OPENAI_STT_MODEL = process.env.OPENAI_STT_MODEL || "whisper-1";
-const OPENAI_TTS_MODEL = process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts";
+function getOpenAIConfig(): {apiKey: string; apiUrl: string; sttModel: string; ttsModel: string} {
+    return {
+        apiKey: process.env.OPENAI_API_KEY || "",
+        apiUrl: process.env.OPENAI_API_URL || "https://api.openai.com/v1",
+        sttModel: process.env.OPENAI_STT_MODEL || "whisper-1",
+        ttsModel: process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts",
+    };
+}
 
 function getTempFilePath(ext: string): string {
     return path.join(os.tmpdir(), `lumi-speech-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`);
@@ -53,19 +57,20 @@ export async function transcribeAudio(audioBase64: string, mimeType = "audio/web
         return {ok: false, error: "audioBase64 is required"};
     }
 
-    if (OPENAI_API_KEY) {
+    const {apiKey, apiUrl, sttModel} = getOpenAIConfig();
+    if (apiKey) {
         try {
             const filePath = await writeTempAudioFile(audioBase64, mimeType);
             const fileBuffer = await fs.readFile(filePath);
             const formData = new FormData();
             const blob = new Blob([fileBuffer], {type: mimeType});
             formData.append("file", blob, `input.${mimeType.includes("wav") ? "wav" : "webm"}`);
-            formData.append("model", OPENAI_STT_MODEL);
+            formData.append("model", sttModel);
             formData.append("response_format", "text");
 
-            const res = await fetch(`${OPENAI_API_URL}/audio/transcriptions`, {
+            const res = await fetch(`${apiUrl}/audio/transcriptions`, {
                 method: "POST",
-                headers: {Authorization: "Bearer " + OPENAI_API_KEY},
+                headers: {Authorization: "Bearer " + apiKey},
                 body: formData as any,
             });
 
@@ -92,16 +97,17 @@ export async function speakText(text: string, options: {voice?: string; format?:
         return {ok: false, error: "text is required"};
     }
 
-    if (OPENAI_API_KEY) {
+    const {apiKey, apiUrl, ttsModel} = getOpenAIConfig();
+    if (apiKey) {
         try {
-            const res = await fetch(`${OPENAI_API_URL}/audio/speech`, {
+            const res = await fetch(`${apiUrl}/audio/speech`, {
                 method: "POST",
                 headers: {
-                    Authorization: "Bearer " + OPENAI_API_KEY,
+                    Authorization: "Bearer " + apiKey,
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    model: OPENAI_TTS_MODEL,
+                    model: ttsModel,
                     input: text,
                     voice: options.voice || "alloy",
                     response_format: options.format || "mp3",

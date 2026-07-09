@@ -20,6 +20,14 @@ import {remember, recall, MemoryEntry} from "./lumi-memory";
 // Types
 // ---------------------------------------------------------------------------
 
+function getRobloxConfig(): {apiKey: string; universeId: string; placeId: string} {
+    return {
+        apiKey: process.env.ROBLOX_API_KEY || "",
+        universeId: process.env.ROBLOX_UNIVERSE_ID || "",
+        placeId: process.env.ROBLOX_PLACE_ID || "",
+    };
+}
+
 export type ProjectType =
     | "game"
     | "web-app"
@@ -270,9 +278,6 @@ export async function listProjects(sessionId: string): Promise<MemoryEntry[]> {
 // Roblox publishing (mirrors trezzworld-production-studio Roblox integration)
 // ---------------------------------------------------------------------------
 
-const ROBLOX_API_KEY = process.env.ROBLOX_API_KEY || "";
-const ROBLOX_UNIVERSE_ID = process.env.ROBLOX_UNIVERSE_ID || "";
-const ROBLOX_PLACE_ID = process.env.ROBLOX_PLACE_ID || "";
 const ROBLOX_OPEN_CLOUD = "https://apis.roblox.com/universes/v1";
 
 export interface RobloxPublishResult {
@@ -290,7 +295,8 @@ export async function publishToRoblox(
     luauContent: string,
     sessionId: string
 ): Promise<RobloxPublishResult> {
-    if (!ROBLOX_API_KEY || !ROBLOX_UNIVERSE_ID || !ROBLOX_PLACE_ID) {
+    const {apiKey, universeId, placeId} = getRobloxConfig();
+    if (!apiKey || !universeId || !placeId) {
         throw new Error(
             "Roblox publishing requires ROBLOX_API_KEY, ROBLOX_UNIVERSE_ID, " +
             "and ROBLOX_PLACE_ID to be set."
@@ -298,11 +304,11 @@ export async function publishToRoblox(
     }
 
     const res = await fetch(
-        `${ROBLOX_OPEN_CLOUD}/${ROBLOX_UNIVERSE_ID}/places/${ROBLOX_PLACE_ID}/versions`,
+        `${ROBLOX_OPEN_CLOUD}/${universeId}/places/${placeId}/versions`,
         {
             method: "POST",
             headers: {
-                "x-api-key": ROBLOX_API_KEY,
+                "x-api-key": apiKey,
                 "Content-Type": "application/octet-stream",
             },
             body: luauContent,
@@ -316,8 +322,8 @@ export async function publishToRoblox(
 
     const json: any = await res.json();
     const result: RobloxPublishResult = {
-        universeId: ROBLOX_UNIVERSE_ID,
-        placeId: ROBLOX_PLACE_ID,
+        universeId,
+        placeId,
         versionNumber: json.versionNumber,
         publishedAt: new Date().toISOString(),
     };
@@ -325,7 +331,7 @@ export async function publishToRoblox(
     await remember(
         sessionId,
         "assistant",
-        `Published Roblox place ${ROBLOX_PLACE_ID} (version ${result.versionNumber}).`,
+        `Published Roblox place ${placeId} (version ${result.versionNumber}).`,
         ["roblox", "publish"],
         "artifact"
     );

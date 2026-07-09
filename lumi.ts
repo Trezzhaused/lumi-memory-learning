@@ -34,13 +34,27 @@ import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 // Configuration
 // ---------------------------------------------------------------------------
 
-export const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 export const OPENROUTER_API_URL = "https://openrouter.ai/api/v1";
-export const OLLAMA_HOST = process.env.OLLAMA_HOST || "";
 
-/** Default chat model — free tier on OpenRouter */
-export const DEFAULT_CHAT_MODEL =
-    process.env.LUMI_CHAT_MODEL || "mistralai/mistral-7b-instruct:free";
+function getOpenRouterApiKey(): string {
+    return process.env.OPENROUTER_API_KEY || "";
+}
+
+function getOllamaHost(): string {
+    return process.env.OLLAMA_HOST || "";
+}
+
+function getDefaultChatModel(): string {
+    return process.env.LUMI_CHAT_MODEL || "mistralai/mistral-7b-instruct:free";
+}
+
+function getDataDir(): string {
+    return process.env.DATA_DIR || path.join(process.cwd(), ".data");
+}
+
+function getFineTuneDir(): string {
+    return path.join(getDataDir(), "finetune");
+}
 
 // ---------------------------------------------------------------------------
 // Singleton conversation manager (session lifecycle)
@@ -164,8 +178,6 @@ export interface FineTuneStatus {
 
 const missions = new Map<string, MissionStatus>();
 const missionEvents = new Map<string, MissionEvent[]>();
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), ".data");
-const FINETUNE_DIR = path.join(DATA_DIR, "finetune");
 
 function generateId(): string {
     return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -199,8 +211,9 @@ async function ollamaChat(
     messages: Array<{role: string; content: string}>,
     model: string
 ): Promise<string> {
-    if (!OLLAMA_HOST) throw new Error("Ollama host not configured");
-    const res = await fetch(`${OLLAMA_HOST}/api/chat`, {
+    const ollamaHost = getOllamaHost();
+    if (!ollamaHost) throw new Error("Ollama host not configured");
+    const res = await fetch(`${ollamaHost}/api/chat`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({model, messages, stream: false}),
@@ -217,7 +230,8 @@ export async function getOllamaStatus(): Promise<{
     superGemmaReady: boolean;
     installHint: string;
 }> {
-    if (!OLLAMA_HOST) {
+    const ollamaHost = getOllamaHost();
+    if (!ollamaHost) {
         return {
             available: false, host: "", localModels: [],
             superGemmaReady: false,
@@ -225,7 +239,7 @@ export async function getOllamaStatus(): Promise<{
         };
     }
     try {
-        const res = await fetch(`${OLLAMA_HOST}/api/tags`);
+        const res = await fetch(`${ollamaHost}/api/tags`);
         if (!res.ok) throw new Error("unreachable");
         const json: any = await res.json();
         const models: Array<{name: string}> = json.models || [];
@@ -233,13 +247,13 @@ export async function getOllamaStatus(): Promise<{
             m.name.toLowerCase().includes("gemma") || m.name.toLowerCase().includes("mistral")
         );
         return {
-            available: true, host: OLLAMA_HOST, localModels: models,
+            available: true, host: ollamaHost, localModels: models,
             superGemmaReady: localModelReady,
             installHint: "Ollama is running.",
         };
     } catch {
         return {
-            available: false, host: OLLAMA_HOST, localModels: [],
+            available: false, host: ollamaHost, localModels: [],
             superGemmaReady: false,
             installHint: "Ollama host is configured but not reachable.",
         };
@@ -254,14 +268,15 @@ async function openRouterChat(
     messages: Array<{role: string; content: string}>,
     model: string
 ): Promise<string> {
-    if (!OPENROUTER_API_KEY) {
+    const openRouterApiKey = getOpenRouterApiKey();
+    if (!openRouterApiKey) {
         return (
             "Hi, I'm Lumi! I'm not yet fully connected — please configure " +
             "OPENROUTER_API_KEY to activate my full intelligence. I'm here and ready to help!"
         );
     }
     return callOpenRouterChat(messages, model, {
-        apiKey: OPENROUTER_API_KEY,
+        apiKey: openRouterApiKey,
         httpReferer: "https://trezzhaus.com",
         appTitle: "Lumi — Trezzhaus AI",
         appCategories: "cli-agent,cloud-agent",
@@ -398,9 +413,9 @@ export async function lumiChat(
     }
 
     let responseText: string;
-    let usedModel = DEFAULT_CHAT_MODEL;
+    let usedModel = getDefaultChatModel();
 
-    if (req.useOllama && OLLAMA_HOST) {
+    if (req.useOllama && getOllamaHost()) {
         usedModel = req.ollamaModel || "mistral";
         responseText = await ollamaChat(messages, usedModel);
     } else {
@@ -443,7 +458,7 @@ export async function getModelCascade(): Promise<ModelCascadeEntry[]> {
         {id: "nousresearch/hermes-3-llama-3.1-405b:free", provider: "openrouter", label: "Hermes 3 405B (Free)", free: true, contextWindow: 131072},
     ];
 
-    if (OLLAMA_HOST) {
+    if (getOllamaHost()) {
         const status = await getOllamaStatus();
         for (const m of status.localModels) {
             cascade.unshift({id: m.name, provider: "ollama", label: `${m.name} (Local)`, free: true});
@@ -497,7 +512,7 @@ export async function bootMission(prompt: string): Promise<MissionBootResult> {
         rawPlan = await openRouterChat(
             [{role: "system", content: "You are a JSON-only mission planner."},
              {role: "user", content: planPrompt}],
-            DEFAULT_CHAT_MODEL
+            getDefaultChatModel()
         );
     } catch { /* fall through to empty plan */ }
 
@@ -557,7 +572,7 @@ export async function bootMission(prompt: string): Promise<MissionBootResult> {
         objective: prompt,
         status: "executing",
         summary: mission.summary,
-        plannerModel: DEFAULT_CHAT_MODEL,
+        plannerModel: getDefaultChatModel(),
         executionQueue,
         streamUrl: `/api/lumi/missions/${missionId}/events`,
     };
@@ -577,9 +592,7 @@ async function executeMissionAsync(mission: MissionStatus): Promise<void> {
 
                 let output = "";
                 let artifactSummary: MissionArtifactSummary | undefined;
-                const taskPrompt = `${mission.prompt}
-
-Task: ${job.title}`;
+                const taskPrompt = `${mission.prompt}\n\nTask: ${job.title}`;
 
                 if (job.capability === "code") {
                     const result = await generate({type: "code", prompt: taskPrompt});
@@ -648,9 +661,7 @@ Task: ${job.title}`;
                         lineage: {missionId: mission.id, jobId: job.id},
                     } : undefined;
                 } else if (job.capability === "search" || job.capability === "research") {
-                    const research = await lumiChat({message: `Research and summarize the following request. Provide practical next steps and references.
-
-${taskPrompt}`});
+                    const research = await lumiChat({message: `Research and summarize the following request. Provide practical next steps and references.\n\n${taskPrompt}`});
                     output = research.content;
                 } else {
                     const resp = await lumiChat({message: taskPrompt});
@@ -736,11 +747,12 @@ export function listMissions(): MissionStatus[] {
 }
 
 async function listFineTuneDatasets(): Promise<string[]> {
+    const fineTuneDir = getFineTuneDir();
     try {
-        const entries = await fs.readdir(FINETUNE_DIR, {withFileTypes: true});
+        const entries = await fs.readdir(fineTuneDir, {withFileTypes: true});
         return entries
             .filter(entry => entry.isFile() && entry.name.endsWith(".jsonl"))
-            .map(entry => path.join(FINETUNE_DIR, entry.name))
+            .map(entry => path.join(fineTuneDir, entry.name))
             .sort();
     } catch {
         return [];
@@ -767,9 +779,10 @@ export async function assembleFineTuneDataset(): Promise<{path: string; example_
         }))
         .filter(example => example.messages.length >= 2);
 
-    await fs.mkdir(FINETUNE_DIR, {recursive: true});
+    const fineTuneDir = getFineTuneDir();
+    await fs.mkdir(fineTuneDir, {recursive: true});
 
-    const fineTuneDatasetPath = path.join(FINETUNE_DIR, `lumi-finetune-${Date.now()}.jsonl`);
+    const fineTuneDatasetPath = path.join(fineTuneDir, `lumi-finetune-${Date.now()}.jsonl`);
     const fileContent = examples.map(example => JSON.stringify(example)).join("\n");
     await fs.writeFile(fineTuneDatasetPath, fileContent ? `${fileContent}\n` : "", "utf8");
 
@@ -808,7 +821,8 @@ export async function getLumiStatus(): Promise<LumiStatus> {
     const artifactStorage = getArtifactStorageStatus();
     const memoryStorage = getMemoryStorageStatus();
     const capabilities: string[] = ["chat"];
-    if (OPENROUTER_API_KEY) capabilities.push("multi-model-chat", "code-generation", "prompt-enhancement");
+    const openRouterApiKey = getOpenRouterApiKey();
+    if (openRouterApiKey) capabilities.push("multi-model-chat", "code-generation", "prompt-enhancement");
     if (process.env.HUGGINGFACE_API_KEY) capabilities.push("image-generation-hf", "audio-generation");
     if (process.env.STABILITY_API_KEY) capabilities.push("image-generation-stability");
     if (process.env.FAL_KEY) capabilities.push("video-generation-fal");
@@ -822,7 +836,7 @@ export async function getLumiStatus(): Promise<LumiStatus> {
         version: "1.0.0",
         platform: "Trezzhaus",
         studioUrl: "https://studio.trezzhaus.com",
-        openRouterConnected: !!OPENROUTER_API_KEY,
+        openRouterConnected: !!openRouterApiKey,
         ollamaConnected: ollamaStatus.available,
         memoryBackend: memoryStorage.backend,
         storage: {
