@@ -86,6 +86,7 @@ export interface PipelineJob {
     output?: string;
     score?: number;
     error?: string;
+    retryCount?: number;
     startedAt?: string;
     completedAt?: string;
 }
@@ -96,6 +97,7 @@ export interface MissionArtifactSummary {
     artifactId?: string;
     downloadUrl?: string;
     status: "ready" | "failed";
+    lineage?: {missionId: string; jobId: string};
 }
 
 export interface MissionEvent {
@@ -563,104 +565,127 @@ export async function bootMission(prompt: string): Promise<MissionBootResult> {
 
 async function executeMissionAsync(mission: MissionStatus): Promise<void> {
     for (const job of mission.jobs) {
-        try {
-            emitMissionEvent(mission, `Starting task: ${job.title}`, `Capability: ${job.capability}`, "status");
-            job.status = "running";
-            mission.updatedAt = new Date().toISOString();
+        let attempt = 0;
+        const maxAttempts = 2;
+        let lastErrorMessage = "";
+        while (attempt < maxAttempts) {
+            attempt += 1;
+            try {
+                emitMissionEvent(mission, `Starting task: ${job.title}`, `Capability: ${job.capability}`, "status");
+                job.status = "running";
+                mission.updatedAt = new Date().toISOString();
 
-            let output = "";
-            let artifactSummary: MissionArtifactSummary | undefined;
-            const taskPrompt = `${mission.prompt}\n\nTask: ${job.title}`;
+                let output = "";
+                let artifactSummary: MissionArtifactSummary | undefined;
+                const taskPrompt = `${mission.prompt}
 
-            if (job.capability === "code") {
-                const result = await generate({type: "code", prompt: taskPrompt});
-                output = result.text || "";
-                artifactSummary = result.artifact ? {
-                    name: job.title,
-                    kind: "code",
-                    artifactId: result.artifact.id,
-                    downloadUrl: buildArtifactUrl(result.artifact.id),
-                    status: "ready",
-                } : undefined;
-            } else if (job.capability === "image") {
-                const result = await generate({type: "image", prompt: taskPrompt});
-                output = result.data ? `[image:base64:${result.mimeType}]` : result.url || "";
-                artifactSummary = result.artifact ? {
-                    name: job.title,
-                    kind: "image",
-                    artifactId: result.artifact.id,
-                    downloadUrl: buildArtifactUrl(result.artifact.id),
-                    status: "ready",
-                } : undefined;
-            } else if (job.capability === "audio") {
-                const result = await generate({type: "audio", prompt: taskPrompt});
-                output = result.data ? `[audio:base64:audio/flac]` : "";
-                artifactSummary = result.artifact ? {
-                    name: job.title,
-                    kind: "audio",
-                    artifactId: result.artifact.id,
-                    downloadUrl: buildArtifactUrl(result.artifact.id),
-                    status: "ready",
-                } : undefined;
-            } else if (job.capability === "video") {
-                const result = await generate({type: "video", prompt: taskPrompt});
-                output = result.url || result.text || "Video generation queued";
-                artifactSummary = result.artifact ? {
-                    name: job.title,
-                    kind: "video",
-                    artifactId: result.artifact.id,
-                    downloadUrl: buildArtifactUrl(result.artifact.id),
-                    status: "ready",
-                } : undefined;
-            } else if (job.capability === "document") {
-                const result = await generate({type: "document", prompt: taskPrompt});
-                output = result.text || "";
-                artifactSummary = result.artifact ? {
-                    name: job.title,
-                    kind: "document",
-                    artifactId: result.artifact.id,
-                    downloadUrl: buildArtifactUrl(result.artifact.id),
-                    status: "ready",
-                } : undefined;
-            } else if (job.capability === "build") {
-                const result = await generate({type: "code", prompt: `Build a concise starter implementation for: ${taskPrompt}`});
-                output = result.text || "";
-                artifactSummary = result.artifact ? {
-                    name: job.title,
-                    kind: "build",
-                    artifactId: result.artifact.id,
-                    downloadUrl: buildArtifactUrl(result.artifact.id),
-                    status: "ready",
-                } : undefined;
-            } else if (job.capability === "search" || job.capability === "research") {
-                const research = await lumiChat({message: `Research and summarize the following request. Provide practical next steps and references.\n\n${taskPrompt}`});
-                output = research.content;
-            } else {
-                const resp = await lumiChat({message: taskPrompt});
-                output = resp.content;
+Task: ${job.title}`;
+
+                if (job.capability === "code") {
+                    const result = await generate({type: "code", prompt: taskPrompt});
+                    output = result.text || "";
+                    artifactSummary = result.artifact ? {
+                        name: job.title,
+                        kind: "code",
+                        artifactId: result.artifact.id,
+                        downloadUrl: buildArtifactUrl(result.artifact.id),
+                        status: "ready",
+                        lineage: {missionId: mission.id, jobId: job.id},
+                    } : undefined;
+                } else if (job.capability === "image") {
+                    const result = await generate({type: "image", prompt: taskPrompt});
+                    output = result.data ? `[image:base64:${result.mimeType}]` : result.url || "";
+                    artifactSummary = result.artifact ? {
+                        name: job.title,
+                        kind: "image",
+                        artifactId: result.artifact.id,
+                        downloadUrl: buildArtifactUrl(result.artifact.id),
+                        status: "ready",
+                        lineage: {missionId: mission.id, jobId: job.id},
+                    } : undefined;
+                } else if (job.capability === "audio") {
+                    const result = await generate({type: "audio", prompt: taskPrompt});
+                    output = result.data ? `[audio:base64:audio/flac]` : "";
+                    artifactSummary = result.artifact ? {
+                        name: job.title,
+                        kind: "audio",
+                        artifactId: result.artifact.id,
+                        downloadUrl: buildArtifactUrl(result.artifact.id),
+                        status: "ready",
+                        lineage: {missionId: mission.id, jobId: job.id},
+                    } : undefined;
+                } else if (job.capability === "video") {
+                    const result = await generate({type: "video", prompt: taskPrompt});
+                    output = result.url || result.text || "Video generation queued";
+                    artifactSummary = result.artifact ? {
+                        name: job.title,
+                        kind: "video",
+                        artifactId: result.artifact.id,
+                        downloadUrl: buildArtifactUrl(result.artifact.id),
+                        status: "ready",
+                        lineage: {missionId: mission.id, jobId: job.id},
+                    } : undefined;
+                } else if (job.capability === "document") {
+                    const result = await generate({type: "document", prompt: taskPrompt});
+                    output = result.text || "";
+                    artifactSummary = result.artifact ? {
+                        name: job.title,
+                        kind: "document",
+                        artifactId: result.artifact.id,
+                        downloadUrl: buildArtifactUrl(result.artifact.id),
+                        status: "ready",
+                        lineage: {missionId: mission.id, jobId: job.id},
+                    } : undefined;
+                } else if (job.capability === "build") {
+                    const result = await generate({type: "code", prompt: `Build a concise starter implementation for: ${taskPrompt}`});
+                    output = result.text || "";
+                    artifactSummary = result.artifact ? {
+                        name: job.title,
+                        kind: "build",
+                        artifactId: result.artifact.id,
+                        downloadUrl: buildArtifactUrl(result.artifact.id),
+                        status: "ready",
+                        lineage: {missionId: mission.id, jobId: job.id},
+                    } : undefined;
+                } else if (job.capability === "search" || job.capability === "research") {
+                    const research = await lumiChat({message: `Research and summarize the following request. Provide practical next steps and references.
+
+${taskPrompt}`});
+                    output = research.content;
+                } else {
+                    const resp = await lumiChat({message: taskPrompt});
+                    output = resp.content;
+                }
+
+                if (artifactSummary) {
+                    captureMissionArtifact(mission, artifactSummary);
+                    emitMissionEvent(mission, `Artifact ready for ${job.title}`, artifactSummary.downloadUrl || "Artifact saved", "artifact");
+                }
+
+                job.output = output;
+                job.status = "done";
+                job.completedAt = new Date().toISOString();
+                mission.progress.completed += 1;
+                mission.progress.running -= 1;
+                mission.progress.percent = Math.round(
+                    (mission.progress.completed / mission.progress.total) * 100
+                );
+                emitMissionEvent(mission, `Completed task: ${job.title}`, output.slice(0, 220), "log");
+                break;
+            } catch (err: any) {
+                lastErrorMessage = err.message;
+                if (attempt < maxAttempts) {
+                    job.retryCount = (job.retryCount || 0) + 1;
+                    emitMissionEvent(mission, `Retrying task: ${job.title}`, `Attempt ${attempt + 1} failed: ${err.message}`, "status");
+                    continue;
+                }
+                job.status = "error";
+                job.error = `Failed after ${maxAttempts} attempt(s): ${err.message}`;
+                job.completedAt = new Date().toISOString();
+                mission.progress.errored += 1;
+                mission.progress.running -= 1;
+                emitMissionEvent(mission, `Task failed: ${job.title}`, lastErrorMessage, "status");
             }
-
-            if (artifactSummary) {
-                captureMissionArtifact(mission, artifactSummary);
-                emitMissionEvent(mission, `Artifact ready for ${job.title}`, artifactSummary.downloadUrl || "Artifact saved", "artifact");
-            }
-
-            job.output = output;
-            job.status = "done";
-            job.completedAt = new Date().toISOString();
-            mission.progress.completed += 1;
-            mission.progress.running -= 1;
-            mission.progress.percent = Math.round(
-                (mission.progress.completed / mission.progress.total) * 100
-            );
-            emitMissionEvent(mission, `Completed task: ${job.title}`, output.slice(0, 220), "log");
-        } catch (err: any) {
-            job.status = "error";
-            job.error = err.message;
-            job.completedAt = new Date().toISOString();
-            mission.progress.errored += 1;
-            mission.progress.running -= 1;
-            emitMissionEvent(mission, `Task failed: ${job.title}`, err.message, "status");
         }
         mission.updatedAt = new Date().toISOString();
     }

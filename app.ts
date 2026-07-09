@@ -7,7 +7,7 @@ import {
     acamMiddleware, acamContentGuard, defaultAcamConfig, auditLog,
     getRequestOrigin, isOriginAllowed,
 } from "./lumi-acam";
-import {remember, recall, forget, memoryStats, search as memSearch, getMemoryStorageStatus} from "./lumi-memory";
+import {remember, recall, forget, memoryStats, search as memSearch, getMemoryStorageStatus, quarantineMemoryEntry, reviewMemoryEntry, cleanupMemoryEntries, ingestKnowledgeEntries, recordRetrievalFeedback, getAuditTrail, getTelemetrySnapshot, getObservabilitySnapshot} from "./lumi-memory";
 import {generate} from "./lumi-generators";
 import {buildProject} from "./lumi-studio";
 import {getArtifact, readArtifactBuffer, getArtifactStorageStatus, listArtifacts} from "./lumi-storage";
@@ -227,10 +227,81 @@ lumiRouter.delete("/memory/:sessionId", async (req: Request, res: Response, next
 // POST /api/lumi/memory/search
 lumiRouter.post("/memory/search", async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const {query, limit} = req.body;
+        const {query, limit, includeQuarantined, minConfidence} = req.body;
         if (!query) { res.status(400).json({error: "query is required"}); return; }
-        const results = await memSearch(query, limit || 10);
+        const results = await memSearch(query, limit || 10, {includeQuarantined, minConfidence});
         res.json({results});
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/memory/ingest
+lumiRouter.post("/memory/ingest", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {source, content, sessionId, tags, chunkSize, reviewStatus, confidence, qualityScore, sensitivity, license, owner} = req.body;
+        if (!source || !content) { res.status(400).json({error: "source and content are required"}); return; }
+        const entries = await ingestKnowledgeEntries(source, content, {
+            sessionId,
+            chunkSize,
+            tags,
+            reviewStatus,
+            confidence,
+            qualityScore,
+            sensitivity,
+            provenance: {license, owner},
+        });
+        res.json({entries});
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/memory/quarantine/:id
+lumiRouter.post("/memory/quarantine/:id", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const entry = await quarantineMemoryEntry(req.params.id, req.body?.reason);
+        if (!entry) { res.status(404).json({error: "memory entry not found"}); return; }
+        res.json({entry});
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/memory/review/:id
+lumiRouter.post("/memory/review/:id", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {status, reviewer, confidence, qualityScore} = req.body;
+        const entry = await reviewMemoryEntry(req.params.id, status, reviewer, confidence, qualityScore);
+        if (!entry) { res.status(404).json({error: "memory entry not found"}); return; }
+        res.json({entry});
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/memory/cleanup
+lumiRouter.post("/memory/cleanup", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {maxAgeDays, minQuality} = req.body;
+        const result = await cleanupMemoryEntries(maxAgeDays || 30, minQuality || 0.2);
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/memory/feedback
+lumiRouter.post("/memory/feedback", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {query, entryIds, outcome, confidence} = req.body;
+        const event = await recordRetrievalFeedback(query, entryIds || [], outcome, confidence);
+        res.json({event});
+    } catch (err) { next(err); }
+});
+
+// GET /api/lumi/audit
+lumiRouter.get("/audit", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        res.json({events: getAuditTrail(50)});
+    } catch (err) { next(err); }
+});
+
+// GET /api/lumi/observability
+lumiRouter.get("/observability", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        const snapshot = await getObservabilitySnapshot();
+        res.json(snapshot);
     } catch (err) { next(err); }
 });
 
