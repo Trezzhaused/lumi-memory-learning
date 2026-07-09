@@ -177,6 +177,8 @@ const EXACT_MATCH_WEIGHT = 0.15;
 const QUALITY_WEIGHT = 0.2;
 const SEED_ITEM_BOOST = 0.08;
 const MAX_KNOWLEDGE_FILE_BYTES = 200 * 1024;
+const MAX_INGESTED_FILES_PER_REQUEST = 200;
+const MAX_AUDIT_TRAIL_SIZE = 200;
 const TEXT_FILE_EXTENSIONS = new Set([".md", ".txt", ".json", ".jsonl", ".yaml", ".yml", ".ts", ".tsx", ".js", ".jsx", ".html", ".css", ".py", ".csv", ".xml", ".ini", ".toml", ".env.example"]);
 const DEFAULT_IGNORED_DIRS = new Set(["node_modules", ".git", ".data", "dist", "coverage", "build"]);
 const DEFAULT_IGNORED_FILES = new Set(["package-lock.json", "pnpm-lock.yaml", "yarn.lock", "Cargo.lock"]);
@@ -204,26 +206,55 @@ export interface RepositoryKnowledgeIngestionResult {
 
 function isTextFileCandidate(filePath: string): boolean {
     const normalizedPath = filePath.toLowerCase();
-    if (normalizedPath.startsWith(".env")) return false;
     const basename = path.basename(normalizedPath);
+    if (basename.startsWith(".env")) return false;
     if (DEFAULT_IGNORED_FILES.has(basename)) return false;
     const extension = path.extname(normalizedPath);
-    if (!extension) return true;
+    if (!extension) return false;
     return TEXT_FILE_EXTENSIONS.has(extension);
 }
 
-async function collectKnowledgeFiles(rootDir: string, includePaths: string[] = []): Promise<string[]> {
+function resolveKnowledgePath(rootDir: string, entry: string): string | null {
+    if (!entry || entry.includes("\0")) return null;
+    const normalizedEntry = entry.replace(/\\/g, "/").trim().replace(/\/+/g, "/");
+    if (!normalizedEntry || normalizedEntry.startsWith("/")) return null;
+    const segments = normalizedEntry.split("/");
+    if (segments.some(segment => segment === ".." || segment === "")) return null;
     const normalizedRoot = path.resolve(rootDir || process.cwd());
-    const requestedPaths = includePaths && includePaths.length > 0
+    const candidate = path.resolve(normalizedRoot, entry);
+    const relativePath = path.relative(normalizedRoot, candidate);
+    if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) return null;
+    return candidate;
+}
+
+function toRelativeKnowledgePath(rootDir: string, filePath: string): string {
+    return path.relative(rootDir, filePath).split(path.sep).join("/");
+}
+
+function getRequestedKnowledgePaths(rootDir: string, includePaths?: string[]): string[] {
+    const normalizedRoot = path.resolve(rootDir || process.cwd());
+    const rawPaths = includePaths && includePaths.length > 0
         ? includePaths
         : (process.env.LUMI_KNOWLEDGE_PATHS || ".")
             .split(",")
             .map(entry => entry.trim())
             .filter(Boolean);
 
+    return rawPaths.map(entry => {
+        const resolved = path.resolve(normalizedRoot, entry);
+        const relative = path.relative(normalizedRoot, resolved);
+        return relative && !relative.startsWith("..") && !path.isAbsolute(relative) ? relative : entry;
+    });
+}
+
+async function collectKnowledgeFiles(rootDir: string, includePaths: string[] = []): Promise<string[]> {
+    const normalizedRoot = path.resolve(rootDir || process.cwd());
+    const requestedPaths = getRequestedKnowledgePaths(normalizedRoot, includePaths);
+
     const discovered = new Set<string>();
     for (const entry of requestedPaths) {
-        const candidate = path.resolve(normalizedRoot, entry);
+        const candidate = resolveKnowledgePath(normalizedRoot, entry);
+        if (!candidate) continue;
         try {
             const stats = await fs.stat(candidate);
             if (stats.isDirectory()) {
@@ -254,7 +285,7 @@ async function collectKnowledgeFiles(rootDir: string, includePaths: string[] = [
 }
 
 function buildKnowledgeContent(filePath: string, rootDir: string, content: string): string {
-    const relativePath = path.relative(rootDir, filePath).split(path.sep).join("/");
+    const relativePath = toRelativeKnowledgePath(rootDir, filePath);
     return `Source file: ${relativePath}\n\n${content}`;
 }
 
@@ -313,7 +344,8 @@ function normalizeWhitespace(value: string): string {
 }
 
 function buildEntryTags(baseTags: string[], seedItem: boolean): string[] {
-    return Array.from(new Set([...baseTags, ...(seedItem ? ["seed-item"] : [])]));
+    const extraTags = seedItem ? ["seed-item"] : [];
+    return Array.from(new Set([...baseTags, ...extraTags]));
 }
 
 function chunkText(value: string, chunkSize = 400): string[] {
@@ -399,8 +431,8 @@ function recordAuditEvent(type: string, summary: string, detail?: string, sessio
         sessionId,
         createdAt: new Date().toISOString(),
     });
-    if (auditTrail.length > 200) {
-        auditTrail.splice(0, auditTrail.length - 200);
+    if (auditTrail.length > MAX_AUDIT_TRAIL_SIZE) {
+        auditTrail.splice(0, auditTrail.length - MAX_AUDIT_TRAIL_SIZE);
     }
 }
 
@@ -415,8 +447,8 @@ function recordRetrievalOutcome(query: string, outcome: RetrievalTelemetryEvent[
         createdAt: new Date().toISOString(),
         seedItemHits,
     });
-    if (retrievalTelemetry.length > 200) {
-        retrievalTelemetry.splice(0, retrievalTelemetry.length - 200);
+    if (retrievalTelemetry.length > MAX_AUDIT_TRAIL_SIZE) {
+        retrievalTelemetry.splice(0, retrievalTelemetry.length - MAX_AUDIT_TRAIL_SIZE);
     }
 }
 
@@ -745,24 +777,27 @@ export async function ingestRepositoryKnowledge(
             .map(entry => entry.trim())
             .filter(Boolean);
     const scannedFiles = await collectKnowledgeFiles(normalizedRoot, includePaths);
+    const filesToProcess = scannedFiles.slice(0, MAX_INGESTED_FILES_PER_REQUEST);
+    const skippedFiles: string[] = scannedFiles.length > MAX_INGESTED_FILES_PER_REQUEST
+        ? scannedFiles.slice(MAX_INGESTED_FILES_PER_REQUEST).map(file => toRelativeKnowledgePath(normalizedRoot, file))
+        : [];
     const ingestedFiles: string[] = [];
-    const skippedFiles: string[] = [];
     let totalChunks = 0;
     let totalEntries = 0;
 
-    for (const filePath of scannedFiles) {
+    for (const filePath of filesToProcess) {
         try {
             const stats = await fs.stat(filePath);
             if (stats.size > MAX_KNOWLEDGE_FILE_BYTES) {
-                skippedFiles.push(path.relative(normalizedRoot, filePath).split(path.sep).join("/"));
+                skippedFiles.push(toRelativeKnowledgePath(normalizedRoot, filePath));
                 continue;
             }
             const content = await fs.readFile(filePath, "utf8");
             if (!content.trim()) {
-                skippedFiles.push(path.relative(normalizedRoot, filePath).split(path.sep).join("/"));
+                skippedFiles.push(toRelativeKnowledgePath(normalizedRoot, filePath));
                 continue;
             }
-            const relativePath = path.relative(normalizedRoot, filePath).split(path.sep).join("/");
+            const relativePath = toRelativeKnowledgePath(normalizedRoot, filePath);
             const entries = await ingestKnowledgeEntries(relativePath, buildKnowledgeContent(filePath, normalizedRoot, content), {
                 sessionId: options.sessionId || "knowledge-bank",
                 tags: [...(options.tags || []), "repo-knowledge"],
@@ -777,7 +812,7 @@ export async function ingestRepositoryKnowledge(
             totalChunks += entries.length;
             totalEntries += entries.length;
         } catch {
-            skippedFiles.push(path.relative(normalizedRoot, filePath).split(path.sep).join("/"));
+            skippedFiles.push(toRelativeKnowledgePath(normalizedRoot, filePath));
         }
     }
 
@@ -848,7 +883,7 @@ export async function recordRetrievalFeedback(query: string, entryIds: string[],
         seedItemHits,
     };
     retrievalTelemetry.push(event);
-    if (retrievalTelemetry.length > 200) retrievalTelemetry.splice(0, retrievalTelemetry.length - 200);
+    if (retrievalTelemetry.length > MAX_AUDIT_TRAIL_SIZE) retrievalTelemetry.splice(0, retrievalTelemetry.length - MAX_AUDIT_TRAIL_SIZE);
     recordAuditEvent("memory.feedback", `Recorded retrieval feedback: ${outcome}`, query.slice(0, 120), undefined, outcome === "not-useful" ? "warning" : "info");
     return event;
 }

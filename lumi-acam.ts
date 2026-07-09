@@ -278,9 +278,10 @@ function shouldBypassAcam(headers: Record<string, unknown>, config: AcamConfig):
     const normalizedHost = host?.toLowerCase();
     const excludedOrigins = normalizeAllowedOrigins(config.excludedOrigins);
     const excludedHosts = config.excludedHosts.map(hostname => hostname.toLowerCase());
+    const hostWithDot = normalizedHost ? `.${normalizedHost}` : "";
     return Boolean(
         (normalizedOrigin && excludedOrigins.includes(normalizedOrigin)) ||
-        (normalizedHost && (excludedHosts.includes(normalizedHost) || excludedHosts.some(hostname => normalizedHost.endsWith(`.${hostname}`))))
+        (normalizedHost && excludedHosts.some(hostname => hostWithDot.endsWith(`.${hostname}`)))
     );
 }
 
