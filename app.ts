@@ -21,6 +21,7 @@ import {buildPromptTrainer} from "./lumi-prompt-trainer";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
 import {getBridgeContract} from "./lumi-bridge";
 import {bootstrapLaunchAssets, getLaunchReadiness} from "./lumi-launch";
+import {queueAutonomyTask, listAutonomyTasks, getAutonomyTask, runAutonomyBenchmark} from "./lumi-autonomy";
 
 // ============================================================================
 // App setup
@@ -420,6 +421,41 @@ lumiRouter.post("/training-resources", async (req: Request, res: Response, next:
         ].join("\n\n");
         await remember(sessionId, "assistant", summary, ["training", "knowledge-bank", "resources"], "knowledge");
         res.json(analysis);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/autonomy/queue
+lumiRouter.post("/autonomy/queue", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const {objective, steps, metadata} = req.body;
+        if (!objective) { res.status(400).json({error: "objective is required"}); return; }
+        const task = await queueAutonomyTask({objective, steps, metadata});
+        res.json({task});
+    } catch (err) { next(err); }
+});
+
+// GET /api/lumi/autonomy/tasks
+lumiRouter.get("/autonomy/tasks", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        const tasks = await listAutonomyTasks();
+        res.json({tasks});
+    } catch (err) { next(err); }
+});
+
+// GET /api/lumi/autonomy/tasks/:taskId
+lumiRouter.get("/autonomy/tasks/:taskId", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const task = await getAutonomyTask(req.params.taskId);
+        if (!task) { res.status(404).json({error: "autonomy task not found"}); return; }
+        res.json({task});
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/autonomy/benchmark
+lumiRouter.post("/autonomy/benchmark", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        const results = await runAutonomyBenchmark();
+        res.json({results});
     } catch (err) { next(err); }
 });
 

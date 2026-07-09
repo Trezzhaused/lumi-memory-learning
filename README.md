@@ -162,6 +162,24 @@ GET /api/lumi/artifacts
 
 These endpoints let Lumi plan and execute multi-step work, publish progress into a live transcript, and expose generated artifacts for download.
 
+### Persistent autonomy runtime
+```
+POST /api/lumi/autonomy/queue
+Body: { objective, steps?, metadata? }
+→ { task }
+
+GET /api/lumi/autonomy/tasks
+→ { tasks: [AutonomyTask] }
+
+GET /api/lumi/autonomy/tasks/:taskId
+→ { task }
+
+POST /api/lumi/autonomy/benchmark
+→ { results: [AutonomyBenchmarkResult] }
+```
+
+These endpoints add a persistent background autonomy loop with durable task state, policy-checked tool execution, checkpointing, and an evaluation harness for lightweight autonomous workflows.
+
 ### Memory
 ```
 GET    /api/lumi/memory/:sessionId?maxSensitivity=medium&includeSensitive=false

@@ -51,6 +51,21 @@ function readJsonFile<T>(filePath: string): T | null {
     }
 }
 
+async function checkOllamaAvailability(): Promise<{available: boolean; host: string; modelCount: number}> {
+    const ollamaHost = process.env.OLLAMA_HOST || "";
+    if (!ollamaHost) {
+        return {available: false, host: "", modelCount: 0};
+    }
+    try {
+        const response = await fetch(`${ollamaHost}/api/tags`);
+        if (!response.ok) return {available: false, host: ollamaHost, modelCount: 0};
+        const payload = await response.json() as {models?: Array<{name: string}>};
+        return {available: true, host: ollamaHost, modelCount: payload.models?.length || 0};
+    } catch {
+        return {available: false, host: ollamaHost, modelCount: 0};
+    }
+}
+
 async function ingestLaunchAsset(filePath: string, tags: string[], reviewStatus: "approved" | "pending" | "quarantined" | "rejected", content: string): Promise<number> {
     if (!content.trim()) return 0;
     const entries = await ingestKnowledgeEntries(path.basename(filePath), content, {
@@ -158,11 +173,12 @@ export async function getLaunchReadiness(): Promise<LaunchReadinessSummary> {
     const memoryStatsSummary = await memoryStats();
     const storageStatus = getArtifactStorageStatus();
     const memoryStorageStatus = getMemoryStorageStatus();
+    const ollamaHealth = await checkOllamaAvailability();
 
     const healthChecks = {
-        chat: Boolean(process.env.OPENROUTER_API_KEY || process.env.OLLAMA_HOST || true),
-        memory: Boolean(memoryStatsSummary && memoryStatsSummary.totalEntries >= 0),
-        storage: Boolean(storageStatus.configured || memoryStorageStatus.configured || true),
+        chat: Boolean(process.env.OPENROUTER_API_KEY || ollamaHealth.available),
+        memory: Boolean(memoryStatsSummary && memoryStatsSummary.totalEntries >= 0 && memoryStorageStatus.backend),
+        storage: Boolean(storageStatus.configured || memoryStorageStatus.configured || Boolean(process.env.DATA_DIR)),
     };
 
     const ready = Boolean(
