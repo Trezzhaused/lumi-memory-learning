@@ -7,7 +7,7 @@
 
 ### K-12 curriculum design and MIT resources
 
-Lumi can now incorporate MIT Learn's competency-based education materials, MIT OpenCourseWare educator content, and MIT Open Learning K-12 teacher resources into its training and planning prompts. These inputs help with curriculum design, competency mapping, unit planning, pedagogy, and teacher-facing resource curation.
+Lumi can now incorporate MIT Learn's competency-based education materials, MIT OpenCourseWare educator content, MIT Open Learning K-12 teacher resources, the Valdosta State K-12 OER LibGuide, Core Knowledge free curriculum materials, and the K12-KGraph curriculum-aligned dataset into its training and planning prompts. These inputs help with curriculum design, competency mapping, unit planning, pedagogy, teacher-facing resource curation, open educational resource discovery, and curriculum-aware question generation.
 
 | Capability | Detail |
 |---|---|

@@ -67,6 +67,36 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         notes: "Useful for framing how educators can adapt MIT content for everyday classroom use and school-year planning.",
     },
     {
+        id: "valdosta-k12-oer",
+        name: "Valdosta State K-12 OER LibGuide",
+        url: "https://libguides.valdosta.edu/K-12_oers",
+        category: "learning",
+        rationale: "A curated gateway to open textbooks, lesson modules, and teacher support materials that can be reused or adapted for K-12 classrooms.",
+        useCase: "Use to help Lumi surface openly licensed curriculum materials, classroom resources, and teacher-facing support for K-12 instruction.",
+        priority: "high",
+        notes: "Especially useful for OER discovery, low-cost curriculum planning, and finding open textbook alternatives.",
+    },
+    {
+        id: "coreknowledge-free-curriculum",
+        name: "Core Knowledge free curriculum",
+        url: "https://www.coreknowledge.org/download-free-curriculum/",
+        category: "learning",
+        rationale: "Core Knowledge offers free, content-rich curriculum resources organized by grade and subject, with a strong emphasis on coherent scope and sequence.",
+        useCase: "Support Lumi in generating grade-level learning sequences, coherent K-8 unit plans, and content-rich curriculum structures.",
+        priority: "high",
+        notes: "Strong fit for curriculum design workflows that need a logical progression of knowledge across grades and subjects.",
+    },
+    {
+        id: "k12-kgraph-dataset",
+        name: "K12-KGraph curriculum-aligned benchmark dataset",
+        url: "https://github.com/haolpku/K12-Dataset",
+        category: "dataset",
+        rationale: "K12-KGraph is a curriculum-aligned knowledge graph and benchmark built from official K-12 textbooks, with question and training data for curriculum cognition tasks.",
+        useCase: "Use as a benchmark source for educational QA, curriculum-aware question generation, and evaluation of K-12 reasoning and structure understanding.",
+        priority: "high",
+        notes: "A powerful resource for building benchmark-style educational datasets, though localization and licensing context should be reviewed before deployment.",
+    },
+    {
         id: "deepblue-datasets",
         name: "University of Michigan Deep Blue dataset archive",
         url: "https://deepblue.lib.umich.edu/data/concern/data_sets/gq67jr854",
@@ -216,7 +246,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
         "Vision-language grounding and multimodal retrieval",
         "Embodied reasoning via robotics and simulation",
         "Reasoning, planning, and benchmark-driven evaluation",
-        "K-12 curriculum design, competency-based assessment, and educator-facing lesson planning",
+        "K-12 curriculum design, competency-based assessment, educator-facing lesson planning, and curriculum-aware question generation",
     ];
 
     const priorityResources = selectedResources
@@ -228,6 +258,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
         `Add multimodal datasets (${selectedResources.filter(resource => ["openimages", "coco", "laion"].includes(resource.id)).map(resource => resource.name).join(", ")}) for image, caption, and retrieval-style understanding.`,
         `Incorporate simulation and control resources (${selectedResources.filter(resource => ["mujoco", "deepblue-datasets"].includes(resource.id)).map(resource => resource.name).join(", ")}) to teach embodied reasoning and physics-informed behavior.`,
         `Use the MIT educator resources (${selectedResources.filter(resource => ["mit-competency-based-education", "mit-ocw-educators", "mit-open-learning-k12"].includes(resource.id)).map(resource => resource.name).join(", ")}) to build K-12 curriculum planning, competency-based assessment, and teacher-facing lesson design support.`,
+        `Use the K-12 curriculum resources (${selectedResources.filter(resource => ["valdosta-k12-oer", "coreknowledge-free-curriculum", "k12-kgraph-dataset"].includes(resource.id)).map(resource => resource.name).join(", ")}) to strengthen OER discovery, curriculum sequencing, and curriculum-aware question generation.`,
         `Use the reasoning and model resources (${selectedResources.filter(resource => ["gpt-oss", "arc-reasoning", "intellek-learning"].includes(resource.id)).map(resource => resource.name).join(", ")}) to strengthen agentic behavior, local deployment knowledge, and benchmark-driven evaluation.`,
     ];
 
@@ -235,6 +266,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
         `Lumi should treat these resources as a layered training program for ${goals.join(", ")}.`,
         "The highest-value immediate path is to combine large-scale text corpora with multimodal datasets, then add simulation and reasoning benchmarks for capability growth.",
         "MIT Learn, MIT OpenCourseWare, and MIT Open Learning materials are especially useful for K-12 curriculum planning, competency-based education, and teacher-facing resource curation.",
+        "Valdosta State's OER guide, Core Knowledge free curriculum materials, and K12-KGraph provide strong support for open educational resources, curriculum sequencing, and curriculum-aware question generation.",
         "For production use, ingest only curated subsets first and keep provenance, licensing, and deduplication metadata attached to each dataset entry.",
     ].join(" ");
 
@@ -258,7 +290,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
 
     return {
         generatedAt: new Date().toISOString(),
-        overview: "This resource set covers learning materials, open-weight models, web-scale corpora, multimodal datasets, robotics simulators, reasoning benchmarks, and MIT educator resources for K-12 curriculum design, giving Lumi a strong foundation for broader capabilities.",
+        overview: "This resource set covers learning materials, open-weight models, web-scale corpora, multimodal datasets, robotics simulators, reasoning benchmarks, MIT educator resources, and K-12 OER/curriculum datasets for curriculum design and educational QA, giving Lumi a strong foundation for broader capabilities.",
         capabilityTargets,
         priorityResources,
         recommendedIngestionPlan,
