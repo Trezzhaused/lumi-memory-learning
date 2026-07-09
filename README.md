@@ -312,6 +312,8 @@ server via its `AIModelBridge.ts`. All API shapes are kept structurally identica
 
 All requests pass through the **Adaptive Content & Access Manager**:
 
+- **K-12 guidance layer** — ACAM is treated as a lightweight guardrail for K-12 and internal learning flows.
+- **Production Studio access** — the Studio domain can opt out via `ACAM_EXCLUDED_ORIGINS` / `ACAM_EXCLUDED_HOSTS` so `studio.trezzhaus.com` remains unrestricted while you define the rest of your access model.
 - **Rate limiting** — configurable per-minute per-IP (default: 60 req/min)
 - **Origin enforcement** — optional allow-list via `ACAM_ALLOWED_ORIGINS`
 - **Content safety** — heuristic filters for unsafe categories

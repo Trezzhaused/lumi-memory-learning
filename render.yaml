@@ -56,6 +56,13 @@ services:
     value: "false"
   - key: ACAM_ALLOWED_ORIGINS
     sync: false
+  - key: ACAM_EXCLUDED_ORIGINS
+    value: "https://studio.trezzhaus.com"
+  - key: ACAM_EXCLUDED_HOSTS
+    value: "studio.trezzhaus.com"
+  # ── Knowledge ingestion ──────────────────────────────────────────────────────
+  - key: LUMI_KNOWLEDGE_PATHS
+    value: "./,../Master-File,../Production-Studio"
   # ── Persistent storage ───────────────────────────────────────────────────────
   - key: DATA_DIR
     sync: false

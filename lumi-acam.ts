@@ -150,6 +150,8 @@ export const authManager = new AuthManager();
 export interface AcamConfig {
     enabled: boolean;
     allowedOrigins: string[];
+    excludedOrigins: string[];
+    excludedHosts: string[];
     blockedCategories: string[];
     rateLimitPerMinute: number;
     /** If true, every request must carry a valid bearer token. */
@@ -163,6 +165,8 @@ const DEFAULT_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ];
+const DEFAULT_EXCLUDED_ORIGINS = ["https://studio.trezzhaus.com"];
+const DEFAULT_EXCLUDED_HOSTS = ["studio.trezzhaus.com"];
 
 function normalizeOrigin(origin: string): string | null {
     try {
@@ -187,6 +191,12 @@ export function getRequestOrigin(headers: Record<string, unknown>): string | nul
     return rawOrigin ? normalizeOrigin(rawOrigin) : null;
 }
 
+function getRequestHost(headers: Record<string, unknown>): string | null {
+    const rawHost = typeof headers.host === "string" ? headers.host : "";
+    if (!rawHost) return null;
+    return rawHost.split(":")[0].toLowerCase();
+}
+
 export function isOriginAllowed(origin: string, allowedOrigins: string[]): boolean {
     const normalizedOrigin = normalizeOrigin(origin);
     if (!normalizedOrigin) return false;
@@ -198,6 +208,12 @@ export const defaultAcamConfig: AcamConfig = {
     allowedOrigins: process.env.ACAM_ALLOWED_ORIGINS
         ? process.env.ACAM_ALLOWED_ORIGINS.split(",").map(s => s.trim())
         : DEFAULT_ALLOWED_ORIGINS,
+    excludedOrigins: process.env.ACAM_EXCLUDED_ORIGINS
+        ? process.env.ACAM_EXCLUDED_ORIGINS.split(",").map(s => s.trim()).filter(Boolean)
+        : DEFAULT_EXCLUDED_ORIGINS,
+    excludedHosts: process.env.ACAM_EXCLUDED_HOSTS
+        ? process.env.ACAM_EXCLUDED_HOSTS.split(",").map(s => s.trim()).filter(Boolean)
+        : DEFAULT_EXCLUDED_HOSTS,
     blockedCategories: ["violence", "self-harm", "illegal-activity", "personal-data-exfiltration"],
     rateLimitPerMinute: parseInt(process.env.ACAM_RATE_LIMIT || "60", 10),
     requireAuth: process.env.ACAM_REQUIRE_AUTH === "true",
@@ -255,9 +271,23 @@ export function checkContentSafety(
 // Express middleware — request-level checks
 // ---------------------------------------------------------------------------
 
+function shouldBypassAcam(headers: Record<string, unknown>, config: AcamConfig): boolean {
+    const origin = getRequestOrigin(headers);
+    const host = getRequestHost(headers);
+    const normalizedOrigin = origin?.toLowerCase();
+    const normalizedHost = host?.toLowerCase();
+    const excludedOrigins = normalizeAllowedOrigins(config.excludedOrigins);
+    const excludedHosts = config.excludedHosts.map(hostname => hostname.toLowerCase());
+    return Boolean(
+        (normalizedOrigin && excludedOrigins.includes(normalizedOrigin)) ||
+        (normalizedHost && (excludedHosts.includes(normalizedHost) || excludedHosts.some(hostname => normalizedHost.endsWith(`.${hostname}`))))
+    );
+}
+
 export function acamMiddleware(config: AcamConfig = defaultAcamConfig) {
     return (req: Request, res: Response, next: NextFunction): void => {
         if (!config.enabled) { next(); return; }
+        if (shouldBypassAcam(req.headers, config)) { next(); return; }
 
         const ip = req.ip || req.socket.remoteAddress || "unknown";
 
@@ -313,6 +343,7 @@ export function acamMiddleware(config: AcamConfig = defaultAcamConfig) {
 export function acamContentGuard(config: AcamConfig = defaultAcamConfig) {
     return (req: Request, res: Response, next: NextFunction): void => {
         if (!config.enabled) { next(); return; }
+        if (shouldBypassAcam(req.headers, config)) { next(); return; }
 
         const bodyText = typeof req.body === "string"
             ? req.body
