@@ -1,0 +1,95 @@
+{
+  "generatedAt": "2026-07-09T03:22:12.000Z",
+  "sourceSummary": "MIT Open Learning resources that can inform K-12 curriculum design, competency-based progression, and LUMI content generation.",
+  "sourceNotes": [
+    "The MIT Learn and Open Learning pages referenced in this catalog are public-facing resource hubs rather than a single downloadable dataset.",
+    "The content below captures reusable metadata patterns for curriculum planning and LUMI prompts rather than full copyrighted course content."
+  ],
+  "curriculumDesignPrinciples": [
+    "Competency-based progression with transparent learning targets",
+    "Modular lesson design that can be sequenced into units or micro-lessons",
+    "Formative assessment through problem sets, projects, and reflection prompts",
+    "Inquiry-based and hands-on learning for STEM and interdisciplinary topics",
+    "Flexible enrichment pathways for students above grade level"
+  ],
+  "resources": [
+    {
+      "id": "mit-open-learning-library",
+      "name": "MIT Open Learning Library",
+      "url": "https://openlearninglibrary.mit.edu",
+      "resourceType": "resource_collection",
+      "gradeBand": ["K-12", "Higher Education"],
+      "subjects": ["STEM", "Humanities", "Social Sciences"],
+      "curriculumUse": [
+        "assemble competency-based learning paths",
+        "supply modular lesson content",
+        "support teacher-created enrichment pathways"
+      ],
+      "lumiUse": [
+        "seed curriculum planning prompts",
+        "generate standards-aligned lesson outlines",
+        "suggest prerequisite and enrichment sequences"
+      ]
+    },
+    {
+      "id": "mit-ocw-educator-portal",
+      "name": "MIT OpenCourseWare Educator Portal",
+      "url": "https://ocw.mit.edu/educator/",
+      "resourceType": "educator_resource_portal",
+      "gradeBand": ["K-12", "Higher Education"],
+      "subjects": ["STEM", "Engineering", "Science", "Mathematics"],
+      "curriculumUse": [
+        "find modular course materials",
+        "build classroom-ready units",
+        "adapt authentic assessments"
+      ],
+      "lumiUse": [
+        "generate lesson scaffolds from course modules",
+        "suggest formative assessment checkpoints",
+        "create differentiated pathways for learners"
+      ]
+    },
+    {
+      "id": "mitx-edx",
+      "name": "MITx on edX",
+      "url": "https://www.edx.org/school/mitx",
+      "resourceType": "online_course_catalog",
+      "gradeBand": ["High School", "College"],
+      "subjects": ["Computer Science", "Biology", "STEM"],
+      "curriculumUse": [
+        "borrow course structure for high-school pathways",
+        "adapt lecture sequencing into short modules",
+        "use quizzes and projects as assessment templates"
+      ],
+      "lumiUse": [
+        "build project-based learning sequences",
+        "generate study plans by skill level",
+        "recommend supplementary practice tasks"
+      ]
+    },
+    {
+      "id": "mit-pk12-playful-learning",
+      "name": "MIT pK-12 and Playful Learning",
+      "url": "https://openlearning.mit.edu/about/pk-12",
+      "resourceType": "teacher_support_program",
+      "gradeBand": ["PreK-12"],
+      "subjects": ["Science", "Math", "Computing", "Engineering"],
+      "curriculumUse": [
+        "support hands-on inquiry instruction",
+        "build playful learning experiences",
+        "connect projects to standards and competencies"
+      ],
+      "lumiUse": [
+        "generate project-based lesson ideas",
+        "suggest classroom discussion prompts",
+        "create scaffolded challenge ladders"
+      ]
+    }
+  ],
+  "recommendedLumiApplications": [
+    "Create lesson plans that combine competency targets with MIT-style modular content.",
+    "Generate K-12 curriculum trees with prerequisite sequencing and enrichment branches.",
+    "Recommend formative assessments, projects, and reflection tasks based on MIT-inspired pedagogy.",
+    "Surface teacher-facing resources for classroom implementation and differentiation."
+  ]
+}

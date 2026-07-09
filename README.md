@@ -131,9 +131,11 @@ Run `pnpm run fetch:voxel51-zoo` to refresh the archived Dataset Zoo metadata an
 Run `pnpm run fetch:training-datasets` to refresh the Open Images and Deep Blue training-resource manifests in `data/training-datasets/`. The generated catalog feeds a lightweight viewer at `/dataset-viewer.html` (or `public/dataset-viewer.html`) so Lumi can browse dataset sources and download targets without opening the raw sites directly.
 
 ### Educational schema builder
-
+ 
 Run `pnpm run build:education-schema` to generate an AI-ready JSONL dataset for a K-12 or OpenStax-style curriculum node. The script writes a compact JSONL file to `data/educational-datasets/education-schema.jsonl` plus a manifest in `data/educational-datasets/manifest.json`.
-
+ 
+For K-12 curriculum design references, the repo now includes `data/educational-datasets/mit-k12-resource-catalog.json`, which captures MIT Open Learning, OCW educator resources, MITx course patterns, and pK-12/playful-learning guidance that can inform LUMI lesson planning, competency sequencing, and assessment generation.
+ 
 ### Self-paced learning engine
 
 Run `pnpm run build:self-paced-bank` to generate a JSONL question bank and tier-alignment matrix in `data/self-paced-learning/`. Run `pnpm run self-paced:demo` to simulate routing and adaptive tier updates for a sample learner.
