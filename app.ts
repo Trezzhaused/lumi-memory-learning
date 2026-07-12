@@ -138,6 +138,12 @@ app.get('/', (_req: Request, res: Response) => {
 const lumiRouter = express.Router();
 lumiRouter.use(acamContentGuard(defaultAcamConfig));
 
+function parsePositiveInt(value: unknown, fallback: number): number {
+    if (typeof value !== "string") return fallback;
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 // POST /api/lumi/chat
 lumiRouter.post("/chat", async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -152,7 +158,7 @@ lumiRouter.get("/chat/history", async (req: Request, res: Response, next: NextFu
     try {
         const sessionId = (req.query.mission_id as string) ||
                           (req.headers["x-session-id"] as string) || "default";
-        const limit = parseInt(req.query.limit as string || "40", 10);
+        const limit = parsePositiveInt(req.query.limit, 40);
         const history = await getChatHistory(sessionId, limit);
         res.json({history});
     } catch (err) { next(err); }
@@ -283,7 +289,8 @@ lumiRouter.get("/memory/:sessionId", async (req: Request, res: Response, next: N
     try {
         const maxSensitivity = (req.query.maxSensitivity as string | undefined) as "low" | "medium" | "high" | undefined;
         const includeSensitive = req.query.includeSensitive === "true";
-        const entries = await recall(req.params.sessionId, 50, undefined, {maxSensitivity, includeSensitive});
+        const limit = parsePositiveInt(req.query.limit, 50);
+        const entries = await recall(req.params.sessionId, limit, undefined, {maxSensitivity, includeSensitive});
         res.json({entries});
     } catch (err) { next(err); }
 });
@@ -364,9 +371,12 @@ lumiRouter.post("/memory/feedback", async (req: Request, res: Response, next: Ne
 });
 
 // GET /api/lumi/audit
-lumiRouter.get("/audit", async (_req: Request, res: Response, next: NextFunction) => {
+lumiRouter.get("/audit", async (req: Request, res: Response, next: NextFunction) => {
     try {
-        res.json({events: getAuditTrail(50)});
+        const limit = parsePositiveInt(req.query.limit, 50);
+        const events = getAuditTrail(limit);
+        const entries = auditLog.query({limit});
+        res.json({events, entries, memoryEvents: events, securityEntries: entries});
     } catch (err) { next(err); }
 });
 
@@ -553,12 +563,6 @@ lumiRouter.post("/project", async (req: Request, res: Response, next: NextFuncti
         const project = await buildProject(spec);
         res.json(project);
     } catch (err) { next(err); }
-});
-
-// GET /api/lumi/audit?limit=100
-lumiRouter.get("/audit", (req: Request, res: Response) => {
-    const limit = parseInt(req.query.limit as string || "100", 10);
-    res.json({entries: auditLog.query({limit})});
 });
 
 // GET /api/lumi/conversations
