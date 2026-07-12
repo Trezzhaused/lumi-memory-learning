@@ -16,6 +16,7 @@
 
 import {GetObjectCommand, PutObjectCommand, S3Client} from "@aws-sdk/client-s3";
 import {Octokit} from "@octokit/core";
+import {randomUUID} from "node:crypto";
 import {promises as fs} from "node:fs";
 import path from "node:path";
 
@@ -150,7 +151,38 @@ export interface MemoryObservabilitySnapshot {
         lowConfidenceRetrievals: number;
         seedItemHits: number;
     };
+    evaluation: {
+        generatedAt: string;
+        retrievalUsefulness: number;
+        quarantineRate: number;
+        seedItemHitRate: number;
+        reviewBacklog: number;
+        totalEntries: number;
+        quarantined: number;
+        pendingReview: number;
+        totalRetrievals: number;
+        usefulRetrievals: number;
+        uncertainRetrievals: number;
+        lowConfidenceRetrievals: number;
+        seedItemHits: number;
+    };
     audit: MemoryAuditEvent[];
+}
+
+export interface AdaptiveLearningEvaluationSummary {
+    generatedAt: string;
+    retrievalUsefulness: number;
+    quarantineRate: number;
+    seedItemHitRate: number;
+    reviewBacklog: number;
+    totalEntries: number;
+    quarantined: number;
+    pendingReview: number;
+    totalRetrievals: number;
+    usefulRetrievals: number;
+    uncertainRetrievals: number;
+    lowConfidenceRetrievals: number;
+    seedItemHits: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -216,12 +248,16 @@ function isTextFileCandidate(filePath: string): boolean {
 
 function resolveKnowledgePath(rootDir: string, entry: string): string | null {
     if (!entry || entry.includes("\0")) return null;
-    const normalizedEntry = entry.replace(/\\/g, "/").trim().replace(/\/+/g, "/");
-    if (!normalizedEntry || normalizedEntry.startsWith("/")) return null;
-    const segments = normalizedEntry.split("/");
-    if (segments.some(segment => segment === ".." || segment === "")) return null;
     const normalizedRoot = path.resolve(rootDir || process.cwd());
-    const candidate = path.resolve(normalizedRoot, entry);
+    const normalizedEntry = entry.replace(/\\/g, "/").trim();
+    if (!normalizedEntry || normalizedEntry === ".") return normalizedRoot;
+    const normalizedPath = normalizedEntry.replace(/\/+/g, "/");
+    if (normalizedPath === "." || normalizedPath === "./") return normalizedRoot;
+    const trimmedPath = normalizedPath.replace(/^\.\//, "");
+    const segments = trimmedPath.split("/").filter(segment => segment !== ".");
+    if (!trimmedPath || segments.some(segment => segment === ".." || segment === "")) return null;
+    if (trimmedPath.startsWith("/")) return null;
+    const candidate = path.resolve(normalizedRoot, trimmedPath);
     const relativePath = path.relative(normalizedRoot, candidate);
     if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) return null;
     return candidate;
@@ -323,7 +359,7 @@ export function getMemoryStorageStatus(): MemoryStorageStatus {
 // ---------------------------------------------------------------------------
 
 function generateId(): string {
-    return `mem_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    return `mem_${Date.now()}_${randomUUID().slice(0, 8)}`;
 }
 
 function isExpired(entry: MemoryEntry): boolean {
@@ -945,8 +981,33 @@ export function getTelemetrySnapshot(): {totalRetrievals: number; usefulRetrieva
     return {totalRetrievals, usefulRetrievals, uncertainRetrievals, lowConfidenceRetrievals, seedItemHits};
 }
 
+export async function getAdaptiveLearningEvaluationSummary(): Promise<AdaptiveLearningEvaluationSummary> {
+    const stats = await memoryStats();
+    const telemetry = getTelemetrySnapshot();
+    const totalEntries = stats.totalEntries;
+    const retrievalUsefulness = telemetry.totalRetrievals > 0 ? telemetry.usefulRetrievals / telemetry.totalRetrievals : 0;
+    const quarantineRate = totalEntries > 0 ? stats.quarantined / totalEntries : 0;
+    const seedItemHitRate = telemetry.totalRetrievals > 0 ? telemetry.seedItemHits / telemetry.totalRetrievals : 0;
+    return {
+        generatedAt: new Date().toISOString(),
+        retrievalUsefulness,
+        quarantineRate,
+        seedItemHitRate,
+        reviewBacklog: stats.pendingReview,
+        totalEntries,
+        quarantined: stats.quarantined,
+        pendingReview: stats.pendingReview,
+        totalRetrievals: telemetry.totalRetrievals,
+        usefulRetrievals: telemetry.usefulRetrievals,
+        uncertainRetrievals: telemetry.uncertainRetrievals,
+        lowConfidenceRetrievals: telemetry.lowConfidenceRetrievals,
+        seedItemHits: telemetry.seedItemHits,
+    };
+}
+
 export async function getObservabilitySnapshot(): Promise<MemoryObservabilitySnapshot> {
     const stats = await memoryStats();
+    const evaluation = await getAdaptiveLearningEvaluationSummary();
     return {
         memory: {
             totalEntries: stats.totalEntries,
@@ -960,6 +1021,7 @@ export async function getObservabilitySnapshot(): Promise<MemoryObservabilitySna
             sensitiveEntries: stats.sensitiveEntries,
         },
         telemetry: getTelemetrySnapshot(),
+        evaluation,
         audit: getAuditTrail(20),
     };
 }

@@ -12,7 +12,8 @@
     "start": "node dist/app.js",
     "dev": "tsnd --respawn app.ts",
     "typecheck": "tsc --noEmit --pretty",
-    "bootstrap:ecosystem": "node dist/scripts/bootstrap-ecosystem.js"
+    "bootstrap:ecosystem": "node dist/scripts/bootstrap-ecosystem.js",
+    "validate:bootstrap": "node dist/scripts/validate-bootstrap.js"
   },
   "keywords": [],
   "dependencies": {

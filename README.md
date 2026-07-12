@@ -198,6 +198,17 @@ GET    /api/lumi/observability
 
 These endpoints add provenance-aware memory entries, quarantine/review handling, lightweight retrieval feedback, ingestion support, and observability for the adaptive-learning workflow. The new knowledge-ingestion endpoint will scan repository files (or any supplied directories such as `../Master-File` and `../Production-Studio`) and turn them into Lumi knowledge entries.
 
+### Adaptive-learning validation + K-College workflow
+```
+POST /api/lumi/validation/bootstrap
+GET  /api/lumi/observability/evaluate
+POST /api/lumi/kcollege/plan
+POST /api/lumi/kcollege/assessment
+POST /api/lumi/kcollege/resources/ingest
+```
+
+Use `POST /api/lumi/validation/bootstrap` (or `pnpm run validate:bootstrap -- /path/to/repo`) to run the existing launch-readiness, ecosystem bootstrap, and repository knowledge-ingestion path end to end. The evaluation endpoint returns a lightweight summary for retrieval usefulness, quarantine rate, seed-item hit rate, and review backlog so the adaptive loop can be tracked from the same observability surface.
+
 ### Storage
 ```
 GET /api/lumi/storage

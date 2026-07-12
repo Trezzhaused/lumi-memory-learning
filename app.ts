@@ -7,7 +7,7 @@ import {
     acamMiddleware, acamContentGuard, defaultAcamConfig, auditLog,
     getRequestOrigin, isOriginAllowed,
 } from "./lumi-acam";
-import {remember, recall, forget, memoryStats, search as memSearch, getMemoryStorageStatus, quarantineMemoryEntry, reviewMemoryEntry, cleanupMemoryEntries, ingestKnowledgeEntries, recordRetrievalFeedback, getAuditTrail, getTelemetrySnapshot, getObservabilitySnapshot, ingestRepositoryKnowledge} from "./lumi-memory";
+import {remember, recall, forget, memoryStats, search as memSearch, getMemoryStorageStatus, quarantineMemoryEntry, reviewMemoryEntry, cleanupMemoryEntries, ingestKnowledgeEntries, recordRetrievalFeedback, getAuditTrail, getTelemetrySnapshot, getAdaptiveLearningEvaluationSummary, getObservabilitySnapshot, ingestRepositoryKnowledge} from "./lumi-memory";
 import {generate} from "./lumi-generators";
 import {buildProject} from "./lumi-studio";
 import {getArtifact, readArtifactBuffer, getArtifactStorageStatus, listArtifacts} from "./lumi-storage";
@@ -19,6 +19,7 @@ import {
 import {converseSpeech, formatBraille, speakText, transcribeAudio} from "./lumi-speech";
 import {buildPromptTrainer} from "./lumi-prompt-trainer";
 import {buildTrainingResourceAnalysis} from "./lumi-training-resources";
+import {buildCurriculumPlan, buildStandardsAlignedAssessment, ingestTrainingResourceCatalog} from "./lumi-kcollege";
 import {getBridgeContract} from "./lumi-bridge";
 import {bootstrapLaunchAssets, getLaunchReadiness} from "./lumi-launch";
 import {bootstrapEcosystem} from "./lumi-ecosystem";
@@ -246,6 +247,18 @@ lumiRouter.post("/ecosystem/bootstrap", async (req: Request, res: Response, next
     } catch (err) { next(err); }
 });
 
+// POST /api/lumi/validation/bootstrap
+lumiRouter.post("/validation/bootstrap", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const repoPath = typeof req.body?.repoPath === "string" ? req.body.repoPath : process.cwd();
+        const sessionId = typeof req.body?.sessionId === "string" ? req.body.sessionId : "bootstrap-validation";
+        const tags = Array.isArray(req.body?.tags) ? req.body.tags.filter((entry: unknown): entry is string => typeof entry === "string") : ["bootstrap-validation"];
+        const result = await bootstrapEcosystem([{repoPath, sessionId, tags}]);
+        const evaluation = await getAdaptiveLearningEvaluationSummary();
+        res.json({...result, evaluation});
+    } catch (err) { next(err); }
+});
+
 // GET /api/lumi/bridge/contract
 lumiRouter.get("/bridge/contract", (_req: Request, res: Response) => {
     res.json(getBridgeContract());
@@ -388,6 +401,14 @@ lumiRouter.get("/observability", async (_req: Request, res: Response, next: Next
     } catch (err) { next(err); }
 });
 
+// GET /api/lumi/observability/evaluate
+lumiRouter.get("/observability/evaluate", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        const evaluation = await getAdaptiveLearningEvaluationSummary();
+        res.json(evaluation);
+    } catch (err) { next(err); }
+});
+
 // POST /api/lumi/generate  (image / video / audio / code / text / document)
 lumiRouter.post("/generate", async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -460,6 +481,39 @@ lumiRouter.post("/training-resources", async (req: Request, res: Response, next:
         ].join("\n\n");
         await remember(sessionId, "assistant", summary, ["training", "knowledge-bank", "resources"], "knowledge");
         res.json(analysis);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/kcollege/plan
+lumiRouter.post("/kcollege/plan", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const sessionId = (req.headers["x-session-id"] as string | undefined) || "default";
+        const plan = buildCurriculumPlan(req.body);
+        await remember(sessionId, "assistant", JSON.stringify(plan), ["kcollege", "curriculum-plan"], "knowledge");
+        res.json(plan);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/kcollege/assessment
+lumiRouter.post("/kcollege/assessment", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const sessionId = (req.headers["x-session-id"] as string | undefined) || "default";
+        const assessment = buildStandardsAlignedAssessment(req.body);
+        await remember(sessionId, "assistant", JSON.stringify(assessment), ["kcollege", "assessment"], "knowledge");
+        res.json(assessment);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/kcollege/resources/ingest
+lumiRouter.post("/kcollege/resources/ingest", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const sessionId = (req.headers["x-session-id"] as string | undefined) || "default";
+        const result = await ingestTrainingResourceCatalog({
+            resources: Array.isArray(req.body?.resources) ? req.body.resources.filter((entry: unknown): entry is string => typeof entry === "string") : undefined,
+            goals: Array.isArray(req.body?.goals) ? req.body.goals.filter((entry: unknown): entry is string => typeof entry === "string") : undefined,
+            sessionId,
+        });
+        res.json(result);
     } catch (err) { next(err); }
 });
 

@@ -25,7 +25,18 @@ export interface EcosystemBootstrapResult {
 }
 
 function normalizeRepoPath(repoPath: string): string {
-    return path.resolve(repoPath);
+    if (!repoPath || repoPath.includes("\0")) {
+        throw new Error("repo path is required");
+    }
+    const normalizedEntry = repoPath.replace(/\\/g, "/").trim();
+    if (!normalizedEntry) {
+        throw new Error("repo path is required");
+    }
+    const segments = normalizedEntry.split("/").filter(segment => segment !== "." && segment !== "");
+    if (segments.some(segment => segment === ".." || segment === "")) {
+        throw new Error("repo path must not contain traversal segments");
+    }
+    return path.resolve(normalizedEntry);
 }
 
 export async function bootstrapEcosystem(targets: EcosystemBootstrapTarget[]): Promise<EcosystemBootstrapResult> {

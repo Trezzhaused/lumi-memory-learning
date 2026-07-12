@@ -34,16 +34,25 @@ export interface LaunchReadinessSummary {
 const launchBootstrapPromises = new Map<string, Promise<LaunchAssetSummary>>();
 
 function normalizeLaunchCwd(cwd: string = process.cwd()): string {
-    return path.resolve(cwd);
+    if (!cwd || cwd.includes("\0")) {
+        return path.resolve(process.cwd());
+    }
+    const normalizedEntry = cwd.replace(/\\/g, "/").trim();
+    const segments = normalizedEntry.split("/").filter(segment => segment !== "." && segment !== "");
+    if (!normalizedEntry || segments.some(segment => segment === ".." || segment === "")) {
+        return path.resolve(process.cwd());
+    }
+    return path.resolve(normalizedEntry);
 }
 
 function resolveLaunchAssetPath(fileName: string, cwd: string = process.cwd()): string | undefined {
     const normalizedCwd = normalizeLaunchCwd(cwd);
+    const safeFileName = fileName.replace(/\\/g, "/").replace(/^\//, "").split("/").filter(segment => segment !== "..").join("/");
     const masterFileDir = getMasterFileDir(normalizedCwd);
     const candidates = [
-        masterFileDir ? path.join(masterFileDir, fileName) : undefined,
-        path.join(normalizedCwd, "Master-File", fileName),
-        path.join(normalizedCwd, fileName),
+        masterFileDir ? path.join(masterFileDir, safeFileName) : undefined,
+        path.join(normalizedCwd, "Master-File", safeFileName),
+        path.join(normalizedCwd, safeFileName),
     ].filter(Boolean) as string[];
     return candidates.find(candidate => existsSync(candidate));
 }
