@@ -10,6 +10,7 @@ import {
 import {remember, recall, forget, memoryStats, search as memSearch, getMemoryStorageStatus, quarantineMemoryEntry, reviewMemoryEntry, cleanupMemoryEntries, ingestKnowledgeEntries, recordRetrievalFeedback, getAuditTrail, getTelemetrySnapshot, getAdaptiveLearningEvaluationSummary, getObservabilitySnapshot, ingestRepositoryKnowledge, listMemoryEntries, getRetrievalCalibrationSnapshot} from "./lumi-memory";
 import {generate} from "./lumi-generators";
 import {buildProject} from "./lumi-studio";
+import {buildMediaBrandingPipeline, buildBrandingMediaPipeline, buildFullIndependenceMediaBrandingPipeline, executeMediaBrandingPipeline} from "./lumi-media-branding";
 import {getArtifact, readArtifactBuffer, getArtifactStorageStatus, listArtifacts} from "./lumi-storage";
 import {
     lumiChat, getChatHistory, getModelCascade, enhancePrompt,
@@ -432,6 +433,50 @@ lumiRouter.get("/observability/evaluate", async (_req: Request, res: Response, n
 lumiRouter.post("/generate", async (req: Request, res: Response, next: NextFunction) => {
     try {
         const result = await generate(req.body);
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/media/branding/pipeline
+lumiRouter.post("/media/branding/pipeline", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const sessionId = (req.headers["x-session-id"] as string | undefined) || "default";
+        const brief = req.body?.brief ?? req.body;
+        const generateAssets = req.body?.generateAssets === true || req.body?.options?.generateAssets === true;
+        const result = await buildMediaBrandingPipeline(brief, {sessionId, generateAssets});
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/branding/pipeline (alias)
+lumiRouter.post("/branding/pipeline", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const sessionId = (req.headers["x-session-id"] as string | undefined) || "default";
+        const brief = req.body?.brief ?? req.body;
+        const generateAssets = req.body?.generateAssets === true || req.body?.options?.generateAssets === true;
+        const result = await buildBrandingMediaPipeline(brief, {sessionId, generateAssets});
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/media/branding/full-independence
+lumiRouter.post("/media/branding/full-independence", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const sessionId = (req.headers["x-session-id"] as string | undefined) || "default";
+        const brief = req.body?.brief ?? req.body;
+        const generateAssets = req.body?.generateAssets === true || req.body?.options?.generateAssets === true;
+        const result = await buildFullIndependenceMediaBrandingPipeline(brief, {sessionId, generateAssets});
+        res.json(result);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/media/branding/execute
+lumiRouter.post("/media/branding/execute", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const sessionId = (req.headers["x-session-id"] as string | undefined) || "default";
+        const brief = req.body?.brief ?? req.body;
+        const generateAssets = req.body?.generateAssets === true || req.body?.options?.generateAssets === true;
+        const result = await executeMediaBrandingPipeline(brief, {sessionId, generateAssets});
         res.json(result);
     } catch (err) { next(err); }
 });

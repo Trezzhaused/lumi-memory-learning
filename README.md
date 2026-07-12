@@ -106,6 +106,19 @@ Body: { type: "image"|"video"|"audio"|"code"|"text"|"document", prompt, ...optio
 GET /api/lumi/artifacts/:artifactId
 → downloads the stored artifact from local storage or redirects to R2
 
+### Media / branding pipeline
+```
+POST /api/lumi/media/branding/pipeline
+Body: { brief, generateAssets? }
+→ { brandName, summary, positioning, audience, tone, visualDirection, contentPillars, channelPlan, deliverables, generatedAt, mode }
+
+POST /api/lumi/branding/pipeline
+POST /api/lumi/media/branding/full-independence
+POST /api/lumi/media/branding/execute
+```
+
+These routes turn a brand brief into a structured, independence-first media/branding plan with asset briefs and optional generation attempts when the relevant providers are configured.
+
 ### Voice / Speech
 ```
 POST /api/lumi/speech/transcribe
