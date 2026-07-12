@@ -28,15 +28,23 @@ function normalizeRepoPath(repoPath: string): string {
     if (!repoPath || repoPath.includes("\0")) {
         throw new Error("repo path is required");
     }
+    const workspaceRoot = path.resolve(process.cwd(), "..");
     const normalizedEntry = repoPath.replace(/\\/g, "/").trim();
     if (!normalizedEntry) {
         throw new Error("repo path is required");
     }
-    const segments = normalizedEntry.split("/").filter(segment => segment !== "." && segment !== "");
-    if (segments.some(segment => segment === ".." || segment === "")) {
+    const isAbsolute = path.isAbsolute(normalizedEntry);
+    const resolved = isAbsolute
+        ? path.resolve(normalizedEntry)
+        : path.resolve(process.cwd(), ...normalizedEntry.split("/").filter(segment => segment !== "." && segment !== ""));
+    const relativeToWorkspace = path.relative(workspaceRoot, resolved);
+    if (relativeToWorkspace.startsWith("..") || path.isAbsolute(relativeToWorkspace)) {
+        throw new Error("repo path must stay within the workspace root");
+    }
+    if (!isAbsolute && normalizedEntry.split("/").some(segment => segment === ".." || segment === "")) {
         throw new Error("repo path must not contain traversal segments");
     }
-    return path.resolve(normalizedEntry);
+    return resolved;
 }
 
 export async function bootstrapEcosystem(targets: EcosystemBootstrapTarget[]): Promise<EcosystemBootstrapResult> {

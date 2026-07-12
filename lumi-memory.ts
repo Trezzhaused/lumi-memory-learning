@@ -250,17 +250,21 @@ function resolveKnowledgePath(rootDir: string, entry: string): string | null {
     if (!entry || entry.includes("\0")) return null;
     const normalizedRoot = path.resolve(rootDir || process.cwd());
     const normalizedEntry = entry.replace(/\\/g, "/").trim();
-    if (!normalizedEntry || normalizedEntry === ".") return normalizedRoot;
-    const normalizedPath = normalizedEntry.replace(/\/+/g, "/");
-    if (normalizedPath === "." || normalizedPath === "./") return normalizedRoot;
-    const trimmedPath = normalizedPath.replace(/^\.\//, "");
-    const segments = trimmedPath.split("/").filter(segment => segment !== ".");
-    if (!trimmedPath || segments.some(segment => segment === ".." || segment === "")) return null;
-    if (trimmedPath.startsWith("/")) return null;
-    const candidate = path.resolve(normalizedRoot, trimmedPath);
+    if (!normalizedEntry || normalizedEntry === "." || normalizedEntry === "./") return normalizedRoot;
+    if (normalizedEntry.startsWith("/")) return null;
+    const segments = normalizedEntry.split("/").filter(segment => segment && segment !== ".");
+    if (segments.some(segment => segment === ".." || segment === "")) return null;
+    const candidate = path.resolve(normalizedRoot, ...segments);
     const relativePath = path.relative(normalizedRoot, candidate);
     if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) return null;
     return candidate;
+}
+
+function isWithinRoot(rootDir: string, candidatePath: string): boolean {
+    const normalizedRoot = path.resolve(rootDir || process.cwd());
+    const normalizedCandidate = path.resolve(candidatePath);
+    const relativePath = path.relative(normalizedRoot, normalizedCandidate);
+    return !relativePath.startsWith("..") && !path.isAbsolute(relativePath);
 }
 
 function toRelativeKnowledgePath(rootDir: string, filePath: string): string {
@@ -277,9 +281,10 @@ function getRequestedKnowledgePaths(rootDir: string, includePaths?: string[]): s
             .filter(Boolean);
 
     return rawPaths.map(entry => {
-        const resolved = path.resolve(normalizedRoot, entry);
+        const resolved = resolveKnowledgePath(normalizedRoot, entry);
+        if (!resolved) return entry;
         const relative = path.relative(normalizedRoot, resolved);
-        return relative && !relative.startsWith("..") && !path.isAbsolute(relative) ? relative : entry;
+        return relative && !relative.startsWith("..") && !path.isAbsolute(relative) ? relative.split(path.sep).join("/") : ".";
     });
 }
 
@@ -290,16 +295,18 @@ async function collectKnowledgeFiles(rootDir: string, includePaths: string[] = [
     const discovered = new Set<string>();
     for (const entry of requestedPaths) {
         const candidate = resolveKnowledgePath(normalizedRoot, entry);
-        if (!candidate) continue;
+        if (!candidate || !isWithinRoot(normalizedRoot, candidate)) continue;
         try {
-            const stats = await fs.stat(candidate);
+            const safeCandidate = path.resolve(candidate);
+            const stats = await fs.stat(safeCandidate);
             if (stats.isDirectory()) {
-                const stack = [candidate];
+                const stack = [safeCandidate];
                 while (stack.length > 0) {
-                    const currentDir = stack.pop()!;
+                    const currentDir = path.resolve(stack.pop()!);
+                    if (!isWithinRoot(normalizedRoot, currentDir)) continue;
                     const items = await fs.readdir(currentDir, {withFileTypes: true});
                     for (const item of items) {
-                        const fullPath = path.join(currentDir, item.name);
+                        const fullPath = path.resolve(currentDir, item.name);
                         const relativePath = path.relative(normalizedRoot, fullPath);
                         const segments = relativePath.split(path.sep);
                         if (segments.some(segment => DEFAULT_IGNORED_DIRS.has(segment))) continue;
@@ -310,8 +317,8 @@ async function collectKnowledgeFiles(rootDir: string, includePaths: string[] = [
                         }
                     }
                 }
-            } else if (stats.isFile() && isTextFileCandidate(candidate)) {
-                discovered.add(candidate);
+            } else if (stats.isFile() && isTextFileCandidate(safeCandidate)) {
+                discovered.add(safeCandidate);
             }
         } catch {
             // Skip inaccessible/absent paths.
@@ -359,7 +366,7 @@ export function getMemoryStorageStatus(): MemoryStorageStatus {
 // ---------------------------------------------------------------------------
 
 function generateId(): string {
-    return `mem_${Date.now()}_${randomUUID().slice(0, 8)}`;
+    return `mem_${randomUUID().replace(/-/g, "")}`;
 }
 
 function isExpired(entry: MemoryEntry): boolean {

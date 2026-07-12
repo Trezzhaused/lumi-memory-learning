@@ -47,14 +47,24 @@ function normalizeLaunchCwd(cwd: string = process.cwd()): string {
 
 function resolveLaunchAssetPath(fileName: string, cwd: string = process.cwd()): string | undefined {
     const normalizedCwd = normalizeLaunchCwd(cwd);
-    const safeFileName = fileName.replace(/\\/g, "/").replace(/^\//, "").split("/").filter(segment => segment !== "..").join("/");
+    const normalizedEntry = fileName.replace(/\\/g, "/").trim();
+    if (!normalizedEntry || normalizedEntry.includes("\0") || normalizedEntry.startsWith("/")) {
+        return undefined;
+    }
+    const segments = normalizedEntry.split("/").filter(segment => segment && segment !== ".");
+    if (segments.some(segment => segment === ".." || segment === "")) {
+        return undefined;
+    }
     const masterFileDir = getMasterFileDir(normalizedCwd);
     const candidates = [
-        masterFileDir ? path.join(masterFileDir, safeFileName) : undefined,
-        path.join(normalizedCwd, "Master-File", safeFileName),
-        path.join(normalizedCwd, safeFileName),
-    ].filter(Boolean) as string[];
-    return candidates.find(candidate => existsSync(candidate));
+        masterFileDir ? {rootDir: masterFileDir, candidate: path.resolve(masterFileDir, ...segments)} : undefined,
+        {rootDir: normalizedCwd, candidate: path.resolve(normalizedCwd, "Master-File", ...segments)},
+        {rootDir: normalizedCwd, candidate: path.resolve(normalizedCwd, ...segments)},
+    ].filter(Boolean) as Array<{rootDir: string; candidate: string}>;
+    return candidates.find(({rootDir, candidate}) => {
+        const relativePath = path.relative(rootDir, candidate);
+        return existsSync(candidate) && !relativePath.startsWith("..") && !path.isAbsolute(relativePath);
+    })?.candidate;
 }
 
 function readJsonFile<T>(filePath: string): T | null {
