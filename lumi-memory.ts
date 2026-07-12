@@ -102,6 +102,17 @@ export interface MemorySearchOptions {
     tags?: string[];
     maxSensitivity?: MemorySensitivity;
     includeSensitive?: boolean;
+    calibration?: RetrievalCalibrationSettings;
+}
+
+export interface RetrievalCalibrationSettings {
+    emptyQueryScore?: number;
+    matchThreshold?: number;
+    baseMatchScore?: number;
+    overlapWeight?: number;
+    exactMatchWeight?: number;
+    qualityWeight?: number;
+    seedItemBoost?: number;
 }
 
 export interface MemoryRecallOptions {
@@ -196,18 +207,15 @@ const R2_ACCOUNT_ID = process.env.CLOUDFLARE_R2_ACCOUNT_ID || "";
 const R2_ACCESS_KEY_ID = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || "";
 const R2_SECRET_ACCESS_KEY = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || "";
 const R2_BUCKET = process.env.CLOUDFLARE_R2_BUCKET || "";
-// Keep empty-query matches visible enough to still sort by quality when no search terms are provided.
-const EMPTY_QUERY_SCORE = 0.2;
-// Only keep candidates whose relevance score is above this threshold.
-const MATCH_THRESHOLD = 0.2;
-// Baseline relevance for a match before weighting exact/overlapping terms and entry quality.
-const BASE_MATCH_SCORE = 0.35;
-// Weight for partial keyword overlap versus exact phrase matches.
-const OVERLAP_WEIGHT = 0.5;
-const EXACT_MATCH_WEIGHT = 0.15;
-// Let higher-quality and seed-calibrated items rank above weaker matches.
-const QUALITY_WEIGHT = 0.2;
-const SEED_ITEM_BOOST = 0.08;
+const DEFAULT_RETRIEVAL_CALIBRATION = {
+    emptyQueryScore: 0.2,
+    matchThreshold: 0.2,
+    baseMatchScore: 0.35,
+    overlapWeight: 0.5,
+    exactMatchWeight: 0.15,
+    qualityWeight: 0.2,
+    seedItemBoost: 0.08,
+};
 const MAX_KNOWLEDGE_FILE_BYTES = 200 * 1024;
 const MAX_INGESTED_FILES_PER_REQUEST = 200;
 const MAX_AUDIT_TRAIL_SIZE = 200;
@@ -246,14 +254,31 @@ function isTextFileCandidate(filePath: string): boolean {
     return TEXT_FILE_EXTENSIONS.has(extension);
 }
 
-function resolveKnowledgePath(rootDir: string, entry: string): string | null {
+function resolveKnowledgeRoot(rootDir: string): string {
+    const baseRoot = path.resolve(process.cwd());
+    const candidateRoot = rootDir ? path.resolve(baseRoot, rootDir) : baseRoot;
+    const relativePath = path.relative(baseRoot, candidateRoot);
+    if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+        return baseRoot;
+    }
+    return candidateRoot;
+}
+
+function sanitizeKnowledgeSegments(entry: string): string[] | null {
     if (!entry || entry.includes("\0")) return null;
-    const normalizedRoot = path.resolve(rootDir || process.cwd());
     const normalizedEntry = entry.replace(/\\/g, "/").trim();
-    if (!normalizedEntry || normalizedEntry === "." || normalizedEntry === "./") return normalizedRoot;
+    if (!normalizedEntry || normalizedEntry === "." || normalizedEntry === "./") return [];
     if (normalizedEntry.startsWith("/")) return null;
     const segments = normalizedEntry.split("/").filter(segment => segment && segment !== ".");
     if (segments.some(segment => segment === ".." || segment === "")) return null;
+    return segments;
+}
+
+function resolveKnowledgePath(rootDir: string, entry: string): string | null {
+    const normalizedRoot = resolveKnowledgeRoot(rootDir);
+    const segments = sanitizeKnowledgeSegments(entry);
+    if (segments === null) return null;
+    if (segments.length === 0) return normalizedRoot;
     const candidate = path.resolve(normalizedRoot, ...segments);
     const relativePath = path.relative(normalizedRoot, candidate);
     if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) return null;
@@ -289,7 +314,7 @@ function getRequestedKnowledgePaths(rootDir: string, includePaths?: string[]): s
 }
 
 async function collectKnowledgeFiles(rootDir: string, includePaths: string[] = []): Promise<string[]> {
-    const normalizedRoot = path.resolve(rootDir || process.cwd());
+    const normalizedRoot = resolveKnowledgeRoot(rootDir);
     const requestedPaths = getRequestedKnowledgePaths(normalizedRoot, includePaths);
 
     const discovered = new Set<string>();
@@ -417,19 +442,39 @@ function chunkText(value: string, chunkSize = 400): string[] {
     return chunks.length > 0 ? chunks : [normalized.slice(0, chunkSize)];
 }
 
-function computeMatchScore(query: string, entry: MemoryEntry): number {
+function normalizeCalibrationValue(value: number | undefined, fallback: number): number {
+    return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+export function getRetrievalCalibration(input?: RetrievalCalibrationSettings): RetrievalCalibrationSettings {
+    return {
+        emptyQueryScore: normalizeCalibrationValue(input?.emptyQueryScore, Number(process.env.LUMI_RETRIEVAL_EMPTY_QUERY_SCORE || DEFAULT_RETRIEVAL_CALIBRATION.emptyQueryScore)),
+        matchThreshold: normalizeCalibrationValue(input?.matchThreshold, Number(process.env.LUMI_RETRIEVAL_MATCH_THRESHOLD || DEFAULT_RETRIEVAL_CALIBRATION.matchThreshold)),
+        baseMatchScore: normalizeCalibrationValue(input?.baseMatchScore, Number(process.env.LUMI_RETRIEVAL_BASE_MATCH_SCORE || DEFAULT_RETRIEVAL_CALIBRATION.baseMatchScore)),
+        overlapWeight: normalizeCalibrationValue(input?.overlapWeight, Number(process.env.LUMI_RETRIEVAL_OVERLAP_WEIGHT || DEFAULT_RETRIEVAL_CALIBRATION.overlapWeight)),
+        exactMatchWeight: normalizeCalibrationValue(input?.exactMatchWeight, Number(process.env.LUMI_RETRIEVAL_EXACT_MATCH_WEIGHT || DEFAULT_RETRIEVAL_CALIBRATION.exactMatchWeight)),
+        qualityWeight: normalizeCalibrationValue(input?.qualityWeight, Number(process.env.LUMI_RETRIEVAL_QUALITY_WEIGHT || DEFAULT_RETRIEVAL_CALIBRATION.qualityWeight)),
+        seedItemBoost: normalizeCalibrationValue(input?.seedItemBoost, Number(process.env.LUMI_RETRIEVAL_SEED_ITEM_BOOST || DEFAULT_RETRIEVAL_CALIBRATION.seedItemBoost)),
+    };
+}
+
+export function getRetrievalCalibrationSnapshot(): RetrievalCalibrationSettings {
+    return getRetrievalCalibration();
+}
+
+function computeMatchScore(query: string, entry: MemoryEntry, calibration: RetrievalCalibrationSettings = getRetrievalCalibration()): number {
     const q = normalizeWhitespace(query).toLowerCase();
     // Return a small neutral score for empty queries so the caller can still rank by quality
     // after the normal relevance calculation instead of dropping all results.
-    if (!q) return EMPTY_QUERY_SCORE;
+    if (!q) return calibration.emptyQueryScore || DEFAULT_RETRIEVAL_CALIBRATION.emptyQueryScore;
     const content = entry.content.toLowerCase();
     const terms = q.split(/\s+/).filter(Boolean);
     const matchedTerms = terms.filter(term => content.includes(term)).length;
     const overlap = terms.length > 0 ? matchedTerms / terms.length : 0;
     const exact = content.includes(q) ? 1 : 0;
-    const base = BASE_MATCH_SCORE + overlap * OVERLAP_WEIGHT + exact * EXACT_MATCH_WEIGHT;
-    const qualityBoost = (entry.qualityScore || 0.6) * QUALITY_WEIGHT;
-    const seedBoost = entry.seedItem ? SEED_ITEM_BOOST : 0;
+    const base = (calibration.baseMatchScore || DEFAULT_RETRIEVAL_CALIBRATION.baseMatchScore) + overlap * (calibration.overlapWeight || DEFAULT_RETRIEVAL_CALIBRATION.overlapWeight) + exact * (calibration.exactMatchWeight || DEFAULT_RETRIEVAL_CALIBRATION.exactMatchWeight);
+    const qualityBoost = (entry.qualityScore || 0.6) * (calibration.qualityWeight || DEFAULT_RETRIEVAL_CALIBRATION.qualityWeight);
+    const seedBoost = entry.seedItem ? (calibration.seedItemBoost || DEFAULT_RETRIEVAL_CALIBRATION.seedItemBoost) : 0;
     return Math.min(1, base + qualityBoost + seedBoost);
 }
 
@@ -676,11 +721,12 @@ export async function recall(
 export async function search(query: string, limit = 10, options: MemorySearchOptions = {}): Promise<MemoryEntry[]> {
     const snapshot = await getStore();
     const q = normalizeWhitespace(query);
+    const calibration = getRetrievalCalibration(options.calibration);
     const candidateEntries = snapshot.entries.filter(e => !isExpired(e) && shouldExposeEntry(e, options));
     const results = candidateEntries
         .filter(e => meetsMinimumConfidence(e, options.minConfidence))
-        .map(entry => ({...entry, score: computeMatchScore(q, entry), effectiveConfidence: deriveEffectiveConfidence(entry)}))
-        .filter(entry => (entry.score || 0) > MATCH_THRESHOLD)
+        .map(entry => ({...entry, score: computeMatchScore(q, entry, calibration), effectiveConfidence: deriveEffectiveConfidence(entry)}))
+        .filter(entry => (entry.score || 0) > (calibration.matchThreshold || DEFAULT_RETRIEVAL_CALIBRATION.matchThreshold))
         .filter(entry => !options.tags || options.tags.length === 0 || options.tags.some(tag => entry.tags.includes(tag)))
         .sort((a, b) => (b.score || 0) - (a.score || 0))
         .slice(0, limit);
@@ -689,6 +735,14 @@ export async function search(query: string, limit = 10, options: MemorySearchOpt
     recordRetrievalOutcome(q, results.length > 0 ? "useful" : "uncertain", results[0]?.effectiveConfidence, results.length, results.map(entry => entry.id), seedItemHits);
     recordAuditEvent("memory.search", `Searched memory for "${q.slice(0, 80)}"`, `${results.length} result(s)`, undefined, results.some(r => r.effectiveConfidence === "low") ? "warning" : "info");
     return results;
+}
+
+export async function listMemoryEntries(limit = 100, options: MemoryRecallOptions = {}): Promise<MemoryEntry[]> {
+    const snapshot = await getStore();
+    const entries = snapshot.entries
+        .filter(e => !isExpired(e) && shouldExposeEntry(e, options))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return entries.slice(0, limit);
 }
 
 /**
@@ -812,7 +866,7 @@ export async function ingestRepositoryKnowledge(
         isSeedItem?: boolean;
     } = {}
 ): Promise<RepositoryKnowledgeIngestionResult> {
-    const normalizedRoot = path.resolve(options.rootDir || process.cwd());
+    const normalizedRoot = resolveKnowledgeRoot(options.rootDir || process.cwd());
     const includePaths = options.includePaths && options.includePaths.length > 0
         ? options.includePaths
         : (process.env.LUMI_KNOWLEDGE_PATHS || ".")

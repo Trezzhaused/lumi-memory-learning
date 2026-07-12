@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lumi Memory Operations</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 2rem; background: #f7f8fb; color: #18212f; }
+    h1, h2 { margin-top: 0; }
+    .panel { background: white; border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1rem; box-shadow: 0 8px 24px rgba(0,0,0,.05); }
+    .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .metric { background: #f0f4ff; border-radius: 10px; padding: 0.85rem; }
+    .metric strong { display: block; font-size: 1.25rem; }
+    .entry { border: 1px solid #e6ebf5; border-radius: 10px; padding: 0.8rem; margin-bottom: 0.75rem; }
+    .entry header { display: flex; justify-content: space-between; gap: 1rem; align-items: center; margin-bottom: 0.4rem; }
+    .pill { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.8rem; background: #eef2ff; color: #4c5fd6; }
+    .actions button { margin-right: 0.4rem; margin-top: 0.35rem; }
+    textarea, input, select { width: 100%; margin-top: 0.35rem; padding: 0.55rem; border: 1px solid #d9e0ec; border-radius: 8px; }
+    form { display: grid; gap: 0.55rem; }
+    .muted { color: #65748b; font-size: 0.92rem; }
+    code { background: #f3f5f9; padding: 0.15rem 0.3rem; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Lumi Memory Operations</h1>
+  <p class="muted">Review memory entries, quarantine risky ones, and record retrieval feedback without leaving the app.</p>
+
+  <div class="panel">
+    <h2>Adaptive learning snapshot</h2>
+    <div id="summary" class="grid"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Search memory</h2>
+    <form id="search-form">
+      <input id="search-query" name="query" placeholder="Search memory" required />
+      <button type="submit">Search</button>
+    </form>
+    <div id="search-results"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Pending/reviewable entries</h2>
+    <div id="entries"></div>
+  </div>
+
+  <script>
+    const state = { entries: [], lastQuery: '' };
+
+    function renderSummary(summary, observability) {
+      const container = document.getElementById('summary');
+      const items = [
+        ['Entries', summary.totalEntries ?? observability?.memory?.totalEntries ?? 0],
+        ['Quarantined', summary.quarantined ?? observability?.memory?.quarantined ?? 0],
+        ['Pending review', summary.pendingReview ?? observability?.memory?.pendingReview ?? 0],
+        ['Seed items', summary.seedItems ?? observability?.memory?.seedItems ?? 0],
+        ['Retrieval usefulness', `${((summary.retrievalUsefulness || 0) * 100).toFixed(0)}%`],
+        ['Seed hit rate', `${((summary.seedItemHitRate || 0) * 100).toFixed(0)}%`],
+      ];
+      container.innerHTML = items.map(([label, value]) => `
+        <div class="metric">
+          <span class="muted">${label}</span>
+          <strong>${value}</strong>
+        </div>
+      `).join('');
+    }
+
+    function renderEntries(entries) {
+      const container = document.getElementById('entries');
+      if (!entries.length) {
+        container.innerHTML = '<p class="muted">No entries yet.</p>';
+        return;
+      }
+      container.innerHTML = entries.map(entry => `
+        <article class="entry" data-entry-id="${entry.id}">
+          <header>
+            <div>
+              <strong>${entry.id}</strong><br />
+              <span class="muted">session: ${entry.sessionId || 'n/a'} • review: ${entry.reviewStatus || 'pending'}</span>
+            </div>
+            <div>
+              <span class="pill">${entry.type || 'context'}</span>
+              ${entry.seedItem ? '<span class="pill">seed</span>' : ''}
+            </div>
+          </header>
+          <div class="muted">confidence: ${entry.effectiveConfidence || entry.confidence || 'medium'} • quality: ${(entry.qualityScore || 0).toFixed(2)} • sensitivity: ${entry.sensitivity || 'low'}</div>
+          <p>${(entry.content || '').replace(/\s+/g, ' ').slice(0, 220)}</p>
+          <div class="actions">
+            <button data-action="quarantine">Quarantine</button>
+            <button data-action="approve">Approve</button>
+            <button data-action="reject">Reject</button>
+            <button data-action="feedback-useful">Feedback useful</button>
+            <button data-action="feedback-not-useful">Feedback not useful</button>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    function renderSearchResults(results) {
+      const container = document.getElementById('search-results');
+      if (!results.length) {
+        container.innerHTML = '<p class="muted">No search results.</p>';
+        return;
+      }
+      container.innerHTML = results.map(result => `
+        <div class="entry">
+          <strong>${result.id}</strong>
+          <div class="muted">score: ${(result.score || 0).toFixed(2)} • review: ${result.reviewStatus || 'pending'}</div>
+          <p>${(result.content || '').replace(/\s+/g, ' ').slice(0, 220)}</p>
+        </div>
+      `).join('');
+    }
+
+    async function loadData() {
+      const [evaluationResponse, observabilityResponse, entriesResponse, calibrationResponse] = await Promise.all([
+        fetch('/api/lumi/observability/evaluate'),
+        fetch('/api/lumi/observability'),
+        fetch('/api/lumi/memory/entries?limit=50'),
+        fetch('/api/lumi/memory/calibration'),
+      ]);
+      const evaluation = await evaluationResponse.json();
+      const observability = await observabilityResponse.json();
+      const entriesPayload = await entriesResponse.json();
+      const calibrationPayload = await calibrationResponse.json();
+      state.entries = entriesPayload.entries || [];
+      renderSummary(evaluation, observability);
+      renderEntries(state.entries);
+      const calibration = calibrationPayload.calibration || {};
+      document.getElementById('search-results').innerHTML = `<p class="muted">Calibration: ${JSON.stringify(calibration)}</p>`;
+    }
+
+    document.getElementById('search-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const query = document.getElementById('search-query').value;
+      state.lastQuery = query;
+      const response = await fetch('/api/lumi/memory/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, limit: 10 }),
+      });
+      const payload = await response.json();
+      renderSearchResults(payload.results || []);
+    });
+
+    document.addEventListener('click', async (event) => {
+      const button = event.target.closest('button[data-action]');
+      if (!button) return;
+      const entryElement = button.closest('.entry');
+      const entryId = entryElement?.getAttribute('data-entry-id');
+      const action = button.getAttribute('data-action');
+      if (!entryId) return;
+      if (action === 'quarantine') {
+        const reason = window.prompt('Quarantine reason', 'Needs operator review');
+        if (!reason) return;
+        await fetch(`/api/lumi/memory/quarantine/${entryId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason }) });
+      } else if (action === 'approve') {
+        await fetch(`/api/lumi/memory/review/${entryId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'approved', reviewer: 'operator', confidence: 'high', qualityScore: 0.95 }) });
+      } else if (action === 'reject') {
+        await fetch(`/api/lumi/memory/review/${entryId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'rejected', reviewer: 'operator', confidence: 'low', qualityScore: 0.2 }) });
+      } else if (action === 'feedback-useful') {
+        await fetch('/api/lumi/memory/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: state.lastQuery || document.getElementById('search-query').value || 'memory review', entryIds: [entryId], outcome: 'useful', confidence: 'high' }) });
+      } else if (action === 'feedback-not-useful') {
+        await fetch('/api/lumi/memory/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: state.lastQuery || document.getElementById('search-query').value || 'memory review', entryIds: [entryId], outcome: 'not-useful', confidence: 'low' }) });
+      }
+      await loadData();
+    });
+
+    loadData().catch(err => {
+      document.getElementById('entries').innerHTML = `<p class="muted">Failed to load memory operations: ${err.message}</p>`;
+    });
+  </script>
+</body>
+</html>

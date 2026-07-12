@@ -190,6 +190,8 @@ POST   /api/lumi/memory/quarantine/:id { reason? }
 POST   /api/lumi/memory/review/:id   { status, reviewer?, confidence?, qualityScore? }
 POST   /api/lumi/memory/cleanup      { maxAgeDays?, minQuality? }
 POST   /api/lumi/memory/feedback     { query, entryIds, outcome, confidence? }
+GET    /api/lumi/memory/entries     ?limit=50&includeQuarantined=true&includeSensitive=true
+GET    /api/lumi/memory/calibration
 DELETE /api/lumi/memory/:sessionId
 GET    /api/lumi/memory/stats
 GET    /api/lumi/audit
@@ -197,6 +199,8 @@ GET    /api/lumi/observability
 ```
 
 These endpoints add provenance-aware memory entries, quarantine/review handling, lightweight retrieval feedback, ingestion support, and observability for the adaptive-learning workflow. The new knowledge-ingestion endpoint will scan repository files (or any supplied directories such as `../Master-File` and `../Production-Studio`) and turn them into Lumi knowledge entries.
+
+Open `/memory-ops.html` to review memory entries, quarantine or approve them, and record feedback from a lightweight operator UI. Retrieval ranking now also honors `LUMI_RETRIEVAL_*` environment values (for example `LUMI_RETRIEVAL_MATCH_THRESHOLD` and `LUMI_RETRIEVAL_SEED_ITEM_BOOST`) so the calibration loop can be tuned from real validation runs.
 
 ### Adaptive-learning validation + K-College workflow
 ```

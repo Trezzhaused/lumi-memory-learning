@@ -12,6 +12,7 @@
     "start": "node dist/app.js",
     "dev": "tsnd --respawn app.ts",
     "typecheck": "tsc --noEmit --pretty",
+    "test": "pnpm exec tsc && node --test dist/tests/lumi-memory.test.js",
     "bootstrap:ecosystem": "node dist/scripts/bootstrap-ecosystem.js",
     "validate:bootstrap": "node dist/scripts/validate-bootstrap.js"
   },

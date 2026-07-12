@@ -7,7 +7,7 @@ import {
     acamMiddleware, acamContentGuard, defaultAcamConfig, auditLog,
     getRequestOrigin, isOriginAllowed,
 } from "./lumi-acam";
-import {remember, recall, forget, memoryStats, search as memSearch, getMemoryStorageStatus, quarantineMemoryEntry, reviewMemoryEntry, cleanupMemoryEntries, ingestKnowledgeEntries, recordRetrievalFeedback, getAuditTrail, getTelemetrySnapshot, getAdaptiveLearningEvaluationSummary, getObservabilitySnapshot, ingestRepositoryKnowledge} from "./lumi-memory";
+import {remember, recall, forget, memoryStats, search as memSearch, getMemoryStorageStatus, quarantineMemoryEntry, reviewMemoryEntry, cleanupMemoryEntries, ingestKnowledgeEntries, recordRetrievalFeedback, getAuditTrail, getTelemetrySnapshot, getAdaptiveLearningEvaluationSummary, getObservabilitySnapshot, ingestRepositoryKnowledge, listMemoryEntries, getRetrievalCalibrationSnapshot} from "./lumi-memory";
 import {generate} from "./lumi-generators";
 import {buildProject} from "./lumi-studio";
 import {getArtifact, readArtifactBuffer, getArtifactStorageStatus, listArtifacts} from "./lumi-storage";
@@ -297,6 +297,25 @@ lumiRouter.get("/storage", (_req: Request, res: Response) => {
     });
 });
 
+// GET /api/lumi/memory/entries
+lumiRouter.get("/memory/entries", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const maxSensitivity = (req.query.maxSensitivity as string | undefined) as "low" | "medium" | "high" | undefined;
+        const includeSensitive = req.query.includeSensitive === "true";
+        const includeQuarantined = req.query.includeQuarantined === "true";
+        const limit = parsePositiveInt(req.query.limit, 100);
+        const entries = await listMemoryEntries(limit, {maxSensitivity, includeSensitive, includeQuarantined});
+        res.json({entries});
+    } catch (err) { next(err); }
+});
+
+// GET /api/lumi/memory/calibration
+lumiRouter.get("/memory/calibration", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+        res.json({calibration: getRetrievalCalibrationSnapshot()});
+    } catch (err) { next(err); }
+});
+
 // GET /api/lumi/memory/:sessionId
 lumiRouter.get("/memory/:sessionId", async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -319,9 +338,9 @@ lumiRouter.delete("/memory/:sessionId", async (req: Request, res: Response, next
 // POST /api/lumi/memory/search
 lumiRouter.post("/memory/search", async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const {query, limit, includeQuarantined, minConfidence, maxSensitivity, includeSensitive} = req.body;
+        const {query, limit, includeQuarantined, minConfidence, maxSensitivity, includeSensitive, calibration} = req.body;
         if (!query) { res.status(400).json({error: "query is required"}); return; }
-        const results = await memSearch(query, limit || 10, {includeQuarantined, minConfidence, maxSensitivity, includeSensitive});
+        const results = await memSearch(query, limit || 10, {includeQuarantined, minConfidence, maxSensitivity, includeSensitive, calibration});
         res.json({results});
     } catch (err) { next(err); }
 });
