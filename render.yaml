@@ -5,10 +5,21 @@ services:
   plan: starter
   envVars:
   # ── Lumi / AI ───────────────────────────────────────────────────────────────
+  - key: LUMI_RUNTIME_MODE
+    value: auto
   - key: OPENROUTER_API_KEY
     sync: false
   - key: LUMI_CHAT_MODEL
     value: mistralai/mistral-7b-instruct:free
+  # ── Optional speech support ─────────────────────────────────────────────────
+  - key: OPENAI_API_KEY
+    sync: false
+  - key: OPENAI_API_URL
+    value: https://api.openai.com/v1
+  - key: OPENAI_STT_MODEL
+    value: whisper-1
+  - key: OPENAI_TTS_MODEL
+    value: gpt-4o-mini-tts
   # ── Optional local model support (Ollama) ───────────────────────────────────
   - key: OLLAMA_HOST
     sync: false
