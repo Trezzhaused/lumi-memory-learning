@@ -47,7 +47,7 @@ test("training resource catalog includes the requested education and agent resou
     const analysis = buildTrainingResourceAnalysis();
     const resourceIds = new Set(analysis.resources.map(resource => resource.id));
 
-    for (const id of ["a-to-z-students", "awesome-claude-code-subagents", "awesome-agent-skills", "awesome-deep-learning", "awesome-stock-resources", "awesome-math"]) {
+    for (const id of ["a-to-z-students", "awesome-claude-code-subagents", "awesome-agent-skills", "awesome-deep-learning", "awesome-stock-resources", "awesome-math", "awesome-generative-ai", "awesome-nano-banana-pro-prompts", "mind-expanding-books"]) {
         assert.equal(resourceIds.has(id), true, `expected resource ${id} to be present`);
     }
 

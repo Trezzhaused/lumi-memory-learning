@@ -245,6 +245,36 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         notes: "Best used as a discovery layer for open-source agents and agentic workflows; prioritize this before Claude/GPT/paid services for experimentation and adaptation.",
     },
     {
+        id: "awesome-generative-ai",
+        name: "Awesome Generative AI",
+        url: "https://github.com/steven2358/awesome-generative-ai.git",
+        category: "learning",
+        rationale: "A curated catalog of generative-AI projects, papers, tools, and references that helps with model and workflow discovery for creative and production use cases.",
+        useCase: "Use to broaden Lumi's generative-AI education, tool discovery, and prompt-driven content workflows for education programs, creator tooling, and product prototyping.",
+        priority: "high",
+        notes: "Useful as a discovery layer for generative-AI ecosystems, emerging techniques, and practical examples that can be adapted into training material.",
+    },
+    {
+        id: "awesome-nano-banana-pro-prompts",
+        name: "Awesome Nano Banana Pro Prompts",
+        url: "https://github.com/YouMind-OpenLab/awesome-nano-banana-pro-prompts.git",
+        category: "learning",
+        rationale: "A prompt catalog useful for experimenting with instruction design, multimodal generation, and richer prompt patterns in creative and educational workflows.",
+        useCase: "Use to help Lumi generate stronger multimodal prompts, evaluate prompt libraries, and shape education or creator-facing workflows around visual generation.",
+        priority: "medium",
+        notes: "Best suited for prompt-library expansion and multimodal experimentation rather than core curriculum planning.",
+    },
+    {
+        id: "mind-expanding-books",
+        name: "Mind Expanding Books",
+        url: "https://github.com/hackerkid/Mind-Expanding-Books.git",
+        category: "learning",
+        rationale: "A curated reading list for broadening knowledge across science, technology, philosophy, and creativity, which helps with enrichment and self-directed learning programs.",
+        useCase: "Use to support Lumi's reading-path planning, enrichment programs, and human-centered learning experiences that benefit from curated book recommendations.",
+        priority: "medium",
+        notes: "A good fit for building a humanistic or enrichment layer around technical education and personal-growth programs.",
+    },
+    {
         id: "redpajama",
         name: "RedPajama data",
         url: "https://github.com/togethercomputer/RedPajama-Data",
@@ -369,9 +399,11 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
         `Use the programming-language learning resources (${selectedResources.filter(resource => ["gobooks", "awesome-courses", "intellek-learning"].includes(resource.id)).map(resource => resource.name).join(", ")}) to build coding-curriculum pathways, progression maps, and project-based learning sequences.`,
         `Use the K-12 curriculum resources (${selectedResources.filter(resource => ["valdosta-k12-oer", "coreknowledge-free-curriculum", "k12-kgraph-dataset"].includes(resource.id)).map(resource => resource.name).join(", ")}) to strengthen OER discovery, curriculum sequencing, and curriculum-aware question generation.`,
         `Use the open-source agent catalog (${selectedResources.filter(resource => ["awesome-ai-agents", "gpt-oss", "intellek-learning"].includes(resource.id)).map(resource => resource.name).join(", ")}) to prioritize free agent implementations, local-first architectures, and benchmarked agent behavior before paying for proprietary services.`,
+        `Use the generative-AI and prompt resources (${selectedResources.filter(resource => ["awesome-generative-ai", "awesome-nano-banana-pro-prompts"].includes(resource.id)).map(resource => resource.name).join(", ")}) to broaden prompt engineering, multimodal content creation, and creator-focused workflow design.`,
         `Use the student-facing and domain-resource collections (${selectedResources.filter(resource => ["a-to-z-students", "awesome-math", "awesome-deep-learning"].includes(resource.id)).map(resource => resource.name).join(", ")}) to broaden education pathways, structured study guides, and domain-specific technical lesson planning.`,
         `Use the sub-agent and skill catalogs (${selectedResources.filter(resource => ["awesome-claude-code-subagents", "awesome-agent-skills"].includes(resource.id)).map(resource => resource.name).join(", ")}) to structure delegation patterns, reusable skills, and modular agent workflows.`,
         `Use the visual media catalog (${selectedResources.filter(resource => ["awesome-stock-resources"].includes(resource.id)).map(resource => resource.name).join(", ")}) when the curriculum or interface needs stock imagery or other multimodal assets.`,
+        `Use the culture and enrichment resources (${selectedResources.filter(resource => ["mind-expanding-books"].includes(resource.id)).map(resource => resource.name).join(", ")}) to add reading paths, interdisciplinary inspiration, and broader self-directed learning options.`,
         `Use the reasoning and model resources (${selectedResources.filter(resource => ["gpt-oss", "arc-reasoning", "intellek-learning"].includes(resource.id)).map(resource => resource.name).join(", ")}) to strengthen agentic behavior, local deployment knowledge, and benchmark-driven evaluation.`,
     ];
 
@@ -384,6 +416,8 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
         "GoBooks should be used as a structured programming-education reference for Go-language curriculum design, reading paths, and skill progression.",
         "Student-facing study collections, math resources, and deep-learning references are useful for expanding curriculum scaffolds, enrichment pathways, and domain-specific lesson planning.",
         "The open-source agent catalog and sub-agent/skill catalogs should be prioritized as a discovery layer for free agent implementations, tool-use patterns, reusable capabilities, and local-first architectures before moving to Claude, GPT, or paid services.",
+        "Generative-AI and prompt-resource collections should be used to expand prompt engineering, multimodal content creation, and creator-facing education workflows without relying solely on proprietary tooling.",
+        "Mind-expanding book lists add an enrichment layer for reading pathways, interdisciplinary inspiration, and self-directed learning experiences.",
         "stock-image collections support image-rich educational assets and visual media planning for multimodal learning experiences.",
         "For production use, ingest only curated subsets first and keep provenance, licensing, and deduplication metadata attached to each dataset entry.",
     ].join(" ");
@@ -430,7 +464,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
 
     return {
         generatedAt: new Date().toISOString(),
-        overview: "This resource set covers learning materials, open-weight models, web-scale corpora, multimodal datasets, robotics simulators, reasoning benchmarks, free/open-source agent catalogs, curated programming-learning resources such as GoBooks, student-facing and curriculum resources, sub-agent and skill catalogs, deep-learning references, stock-media libraries, and mathematics resources. It also incorporates MIT educator resources and K-12 OER, curriculum, and benchmark datasets for curriculum design and educational QA, giving Lumi a strong foundation for broader capabilities.",
+        overview: "This resource set covers learning materials, open-weight models, web-scale corpora, multimodal datasets, robotics simulators, reasoning benchmarks, free/open-source agent catalogs, curated programming-learning resources such as GoBooks, student-facing and curriculum resources, sub-agent and skill catalogs, deep-learning references, stock-media libraries, mathematics resources, and generative-AI/prompt and enrichment collections. It also incorporates MIT educator resources and K-12 OER, curriculum, and benchmark datasets for curriculum design and educational QA, giving Lumi a strong foundation for broader capabilities.",
         capabilityTargets,
         priorityResources,
         recommendedIngestionPlan,
