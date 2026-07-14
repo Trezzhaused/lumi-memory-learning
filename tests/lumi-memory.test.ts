@@ -56,6 +56,21 @@ test("training resource catalog includes the requested education and agent resou
         "awesome-generative-ai",
         "awesome-nano-banana-pro-prompts",
         "mind-expanding-books",
+        "awesome-chatgpt-api",
+        "awesome-free-apps",
+        "awesome-cryptography",
+        "awesome-blender",
+        "awesome-crawler",
+        "awesome-gpt-image-2",
+        "alternative-front-ends",
+        "ai-collection",
+        "awesome-totally-open-chatgpt",
+        "awesome-db-tools",
+        "awesome-ai-tools",
+        "awesome-infosec",
+        "awesome-video-diffusion",
+        "awesome-ai-in-finance",
+        "humhub",
     ];
 
     for (const id of requiredResourceIds) {

@@ -158,7 +158,7 @@ Body: { resources?, goals? }
 → { generatedAt, overview, capabilityTargets, priorityResources, recommendedIngestionPlan, knowledgeBankSummary, promptPatterns, aiMaturityFramework, resources }
 ```
 
-This endpoint analyzes the curated training-resource catalog for Lumi and stores a knowledge-bank summary in memory for later recall. The catalog now includes open-source agent collections, curated programming and curriculum resources, student-facing learning libraries, sub-agent and skill catalogs, deep-learning references, stock-image collections, mathematics resources, generative-AI and prompt resources, and mind-expanding book collections so Lumi can discover free implementations, learning pathways, agentic patterns, and richer educational content before leaning on Claude, GPT, or paid services.
+This endpoint analyzes the curated training-resource catalog for Lumi and stores a knowledge-bank summary in memory for later recall. The catalog now includes open-source agent collections, curated programming and curriculum resources, student-facing learning libraries, sub-agent and skill catalogs, deep-learning references, stock-image collections, mathematics resources, generative-AI and prompt resources, mind-expanding book collections, LLM integration and open-assistant references, creative-media and video-generation resources, database/tooling collections, security references, finance-oriented AI resources, and community-platform examples so Lumi can discover free implementations, learning pathways, agentic patterns, and richer educational content before leaning on Claude, GPT, or paid services.
 
 ### Autonomous missions
 ```
