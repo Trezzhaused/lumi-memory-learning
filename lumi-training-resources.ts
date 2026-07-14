@@ -65,6 +65,16 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         notes: "Best used as a red-team reference and evaluation resource, not as general educational content or a production prompt source.",
     },
     {
+        id: "gobooks",
+        name: "GoBooks",
+        url: "https://github.com/dariubs/GoBooks.git",
+        category: "learning",
+        rationale: "A curated collection of Go books and learning resources for beginners through advanced developers that can support structured programming curricula and self-paced learning paths.",
+        useCase: "Use to support Lumi's Go-language education workflows, book-based curriculum sequencing, and beginner-to-advanced skill progression planning.",
+        priority: "high",
+        notes: "Especially useful for technical education and programming pathways; review the repository's curated recommendations and any external book-link context before publishing a lesson plan.",
+    },
+    {
         id: "mit-learn-competency-based",
         name: "MIT Learn competency-based education materials",
         url: "https://learn.mit.edu/search?resource=2764&resource_title=competency-based-education",
@@ -296,6 +306,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
         `Add multimodal datasets (${selectedResources.filter(resource => ["openimages", "coco", "laion"].includes(resource.id)).map(resource => resource.name).join(", ")}) for image, caption, and retrieval-style understanding.`,
         `Incorporate simulation and control resources (${selectedResources.filter(resource => ["mujoco", "deepblue-datasets"].includes(resource.id)).map(resource => resource.name).join(", ")}) to teach embodied reasoning and physics-informed behavior.`,
         `Use the MIT educator resources (${selectedResources.filter(resource => ["mit-learn-competency-based", "mit-ocw-educators", "mit-open-learning-k12"].includes(resource.id)).map(resource => resource.name).join(", ")}) to build K-12 curriculum planning, competency-based assessment, and teacher-facing lesson design support.`,
+        `Use the programming-language learning resources (${selectedResources.filter(resource => ["gobooks", "awesome-courses", "intellek-learning"].includes(resource.id)).map(resource => resource.name).join(", ")}) to build coding-curriculum pathways, progression maps, and project-based learning sequences.`,
         `Use the K-12 curriculum resources (${selectedResources.filter(resource => ["valdosta-k12-oer", "coreknowledge-free-curriculum", "k12-kgraph-dataset"].includes(resource.id)).map(resource => resource.name).join(", ")}) to strengthen OER discovery, curriculum sequencing, and curriculum-aware question generation.`,
         `Use the open-source agent catalog (${selectedResources.filter(resource => ["awesome-ai-agents", "gpt-oss", "intellek-learning"].includes(resource.id)).map(resource => resource.name).join(", ")}) to prioritize free agent implementations, local-first architectures, and benchmarked agent behavior before paying for proprietary services.`,
         `Use the reasoning and model resources (${selectedResources.filter(resource => ["gpt-oss", "arc-reasoning", "intellek-learning"].includes(resource.id)).map(resource => resource.name).join(", ")}) to strengthen agentic behavior, local deployment knowledge, and benchmark-driven evaluation.`,
@@ -307,6 +318,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
         "The highest-value immediate path is to combine large-scale text corpora with multimodal datasets, then add simulation and reasoning benchmarks for capability growth.",
         "MIT-based educator materials are especially useful for K-12 curriculum planning, competency-based education, and teacher-facing resource curation.",
         "Open educational resources, curriculum sequencing frameworks, and curriculum-aligned benchmark datasets provide strong support for curriculum design and curriculum-aware question generation.",
+        "GoBooks should be used as a structured programming-education reference for Go-language curriculum design, reading paths, and skill progression.",
         "The open-source agent catalog should be prioritized as a discovery layer for free agent implementations, tool-use patterns, and local-first architectures before moving to Claude, GPT, or paid services.",
         "For production use, ingest only curated subsets first and keep provenance, licensing, and deduplication metadata attached to each dataset entry.",
     ].join(" ");
@@ -353,7 +365,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
 
     return {
         generatedAt: new Date().toISOString(),
-        overview: "This resource set covers learning materials, open-weight models, web-scale corpora, multimodal datasets, robotics simulators, reasoning benchmarks, and free/open-source agent catalogs. It also incorporates MIT educator resources and K-12 OER, curriculum, and benchmark datasets for curriculum design and educational QA, giving Lumi a strong foundation for broader capabilities.",
+        overview: "This resource set covers learning materials, open-weight models, web-scale corpora, multimodal datasets, robotics simulators, reasoning benchmarks, free/open-source agent catalogs, and curated programming-learning resources such as GoBooks. It also incorporates MIT educator resources and K-12 OER, curriculum, and benchmark datasets for curriculum design and educational QA, giving Lumi a strong foundation for broader capabilities.",
         capabilityTargets,
         priorityResources,
         recommendedIngestionPlan,
