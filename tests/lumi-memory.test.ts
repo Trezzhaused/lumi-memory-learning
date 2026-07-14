@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
+import {buildTrainingResourceAnalysis} from "../lumi-training-resources";
 import {forget, ingestKnowledgeEntries, recordRetrievalFeedback, remember, quarantineMemoryEntry, reviewMemoryEntry, search} from "../lumi-memory";
 
 test("quarantine, review, and feedback update memory state", {concurrency: false}, async () => {
@@ -40,4 +41,16 @@ test("knowledge ingestion creates reviewable entries", {concurrency: false}, asy
     assert.equal(entries[0]?.tags.includes("test"), true);
 
     await forget(entries[0]!.sessionId);
+});
+
+test("training resource catalog includes the requested education and agent resources", () => {
+    const analysis = buildTrainingResourceAnalysis();
+    const resourceIds = new Set(analysis.resources.map(resource => resource.id));
+
+    for (const id of ["a-to-z-students", "awesome-claude-code-subagents", "awesome-agent-skills", "awesome-deep-learning", "awesome-stock-resources", "awesome-math"]) {
+        assert.equal(resourceIds.has(id), true, `expected resource ${id} to be present`);
+    }
+
+    assert.ok(analysis.knowledgeBankSummary.includes("sub-agent"));
+    assert.ok(analysis.knowledgeBankSummary.includes("stock-image"));
 });

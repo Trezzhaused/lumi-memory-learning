@@ -158,7 +158,7 @@ Body: { resources?, goals? }
 → { generatedAt, overview, capabilityTargets, priorityResources, recommendedIngestionPlan, knowledgeBankSummary, promptPatterns, aiMaturityFramework, resources }
 ```
 
-This endpoint analyzes the curated training-resource catalog for Lumi and stores a knowledge-bank summary in memory for later recall. The catalog now includes the open-source Awesome AI Agents repository and curated language-learning resources such as GoBooks so Lumi can discover free agent implementations, programming-learning pathways, and agentic patterns before leaning on Claude, GPT, or paid services.
+This endpoint analyzes the curated training-resource catalog for Lumi and stores a knowledge-bank summary in memory for later recall. The catalog now includes open-source agent collections, curated programming and curriculum resources, student-facing learning libraries, sub-agent and skill catalogs, deep-learning references, stock-image collections, and mathematics resources so Lumi can discover free implementations, learning pathways, agentic patterns, and richer educational content before leaning on Claude, GPT, or paid services.
 
 ### Autonomous missions
 ```
