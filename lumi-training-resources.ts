@@ -45,6 +45,16 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         notes: "Best for broadening the knowledge base and translating high-level AI topics into short training briefs.",
     },
     {
+        id: "awesome-courses",
+        name: "Awesome CS Courses",
+        url: "https://github.com/prakhar1989/awesome-courses",
+        category: "learning",
+        rationale: "A curated catalog of free university-quality computer science courses with lectures, notes, assignments, and exams that can inform curriculum design and topic sequencing.",
+        useCase: "Use for education-game content planning, technical skill progression, and discovery of strong course modules that can be adapted into game-based learning paths.",
+        priority: "high",
+        notes: "Especially useful for building structured learning journeys in systems, AI, ML, security, graphics, and theory topics.",
+    },
+    {
         id: "mit-learn-competency-based",
         name: "MIT Learn competency-based education materials",
         url: "https://learn.mit.edu/search?resource=2764&resource_title=competency-based-education",
