@@ -67,7 +67,7 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
     {
         id: "gobooks",
         name: "GoBooks",
-        url: "https://github.com/dariubs/GoBooks.git",
+        url: "https://github.com/dariubs/GoBooks",
         category: "learning",
         rationale: "A curated collection of Go books and learning resources for beginners through advanced developers that can support structured programming curricula and self-paced learning paths.",
         useCase: "Use to support Lumi's Go-language education workflows, book-based curriculum sequencing, and beginner-to-advanced skill progression planning.",
