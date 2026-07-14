@@ -6,8 +6,8 @@
  * so knowledge objects are structurally compatible.
  *
  * Storage backends (priority order):
- *   1. GitHub Gists  – free, version-controlled cloud storage.
- *   2. In-process Map – fallback when no GitHub token is configured.
+ *   1. GitHub Gists  - free, version-controlled cloud storage.
+ *   2. In-process Map - fallback when no GitHub token is configured.
  *
  * Extended vs. Studio baseline:
  *   - Adds `role`, `sessionId`, `tags`, `expiresAt` for chat-history use.
@@ -200,7 +200,7 @@ export interface AdaptiveLearningEvaluationSummary {
 // Configuration
 // ---------------------------------------------------------------------------
 
-const GIST_DESCRIPTION = "Lumi Memory – Trezzhaus AI";
+const GIST_DESCRIPTION = "Lumi Memory - Trezzhaus AI";
 const GIST_FILENAME = "lumi-memory.json";
 const R2_MEMORY_KEY = process.env.CLOUDFLARE_R2_MEMORY_KEY || "lumi/memory/lumi-memory.json";
 const R2_ACCOUNT_ID = process.env.CLOUDFLARE_R2_ACCOUNT_ID || "";
@@ -391,7 +391,7 @@ export function getMemoryStorageStatus(): MemoryStorageStatus {
 // ---------------------------------------------------------------------------
 
 function generateId(): string {
-    return `mem_${randomUUID().replace(/-/g, "")}`;
+    return `mem_${randomUUID()}`;
 }
 
 function isExpired(entry: MemoryEntry): boolean {
@@ -724,6 +724,8 @@ export async function search(query: string, limit = 10, options: MemorySearchOpt
     const calibration = getRetrievalCalibration(options.calibration);
     const candidateEntries = snapshot.entries.filter(e => !isExpired(e) && shouldExposeEntry(e, options));
     const threshold = calibration.matchThreshold || DEFAULT_RETRIEVAL_CALIBRATION.matchThreshold;
+    // Empty queries are treated as a neutral retrieval request: return the highest-quality
+    // entries instead of forcing a hard relevance cutoff.
     const results = candidateEntries
         .filter(e => meetsMinimumConfidence(e, options.minConfidence))
         .map(entry => ({...entry, score: computeMatchScore(q, entry, calibration), effectiveConfidence: deriveEffectiveConfidence(entry)}))

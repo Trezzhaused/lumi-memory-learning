@@ -34,6 +34,8 @@ export interface TrainingResourceAnalysisRequest {
     goals?: string[];
 }
 
+const k12ComplianceNote = "Review licensing, local standards, and district policy before using these materials in a classroom-ready plan.";
+
 const DEFAULT_RESOURCES: TrainingResource[] = [
     {
         id: "intellek-learning",
@@ -174,7 +176,7 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         useCase: "Use to help Lumi reason about competency maps, standards-aligned curriculum design, and evidence-based instructional planning for K-12 settings.",
         priority: "high",
         notes: "Particularly useful for curriculum designers who want to connect learning goals, performance evidence, and student agency.",
-        complianceNote: "Review licensing, local standards, and district policy before using these materials in a classroom-ready plan.",
+        complianceNote: k12ComplianceNote,
     },
     {
         id: "mit-ocw-educators",
@@ -185,7 +187,7 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         useCase: "Use when designing enrichment modules, classroom-ready activities, or cross-disciplinary K-12 learning experiences.",
         priority: "high",
         notes: "Best applied as a source of structured content and pedagogical patterns rather than as a complete curriculum package.",
-        complianceNote: "Review licensing, local standards, and district policy before using these materials in a classroom-ready plan.",
+        complianceNote: k12ComplianceNote,
     },
     {
         id: "mit-open-learning-k12",
@@ -196,7 +198,7 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         useCase: "Support Lumi in generating teacher-friendly curriculum briefs, pacing suggestions, and classroom resource recommendations for K-12 environments.",
         priority: "medium",
         notes: "Useful for framing how educators can adapt MIT content for everyday classroom use and school-year planning.",
-        complianceNote: "Review licensing, local standards, and district policy before using these materials in a classroom-ready plan.",
+        complianceNote: k12ComplianceNote,
     },
     {
         id: "valdosta-k12-oer",
@@ -207,7 +209,7 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         useCase: "Use to help Lumi surface openly licensed curriculum materials, classroom resources, and teacher-facing support for K-12 instruction.",
         priority: "high",
         notes: "Especially useful for OER discovery, low-cost curriculum planning, and finding open textbook alternatives.",
-        complianceNote: "Review licensing, local standards, and district policy before using these materials in a classroom-ready plan.",
+        complianceNote: k12ComplianceNote,
     },
     {
         id: "coreknowledge-free-curriculum",
@@ -218,7 +220,7 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         useCase: "Support Lumi in generating grade-level learning sequences, coherent K-8 unit plans, and content-rich curriculum structures.",
         priority: "high",
         notes: "Strong fit for curriculum design workflows that need a logical progression of knowledge across grades and subjects.",
-        complianceNote: "Review licensing, local standards, and district policy before using these materials in a classroom-ready plan.",
+        complianceNote: k12ComplianceNote,
     },
     {
         id: "k12-kgraph-dataset",
@@ -229,7 +231,7 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         useCase: "Use as a benchmark source for educational QA, curriculum-aware question generation, and evaluation of K-12 reasoning and structure understanding.",
         priority: "high",
         notes: "A powerful resource for building benchmark-style educational datasets. Review the repository LICENSE file and any dataset card before deployment.",
-        complianceNote: "Review licensing, local standards, and district policy before using these materials in a classroom-ready plan.",
+        complianceNote: k12ComplianceNote,
     },
     {
         id: "deepblue-datasets",

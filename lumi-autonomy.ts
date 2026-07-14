@@ -1,4 +1,5 @@
 import {spawn} from "node:child_process";
+import {randomUUID} from "node:crypto";
 import {promises as fs} from "node:fs";
 import path from "node:path";
 import {auditLog} from "./lumi-acam";
@@ -91,7 +92,7 @@ function getAutonomyStatePath(): string {
 }
 
 function generateId(prefix = "autonomy"): string {
-    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    return `${prefix}-${Date.now()}-${randomUUID().replace(/-/g, "").slice(0, 8)}`;
 }
 
 async function resolveWorkspacePath(inputPath: string): Promise<string | null> {
@@ -307,6 +308,17 @@ function evaluateToolPolicy(tool: ToolInvocation): {allowed: boolean; reason?: s
     return {allowed: true, tier};
 }
 
+function getSafeCommandEnvironment(): NodeJS.ProcessEnv {
+    const allowedKeys = new Set(["PATH", "HOME", "USER", "SHELL", "LANG", "TMPDIR", "DATA_DIR"]);
+    const env: NodeJS.ProcessEnv = {};
+    for (const [key, value] of Object.entries(process.env)) {
+        if (value !== undefined && allowedKeys.has(key)) {
+            env[key] = value;
+        }
+    }
+    return env;
+}
+
 async function runCommandTool(tool: ToolInvocation): Promise<ToolExecutionResult> {
     const command = Array.isArray(tool.args.command) ? (tool.args.command as string[]) : [];
     const cwd = typeof tool.args.cwd === "string" ? tool.args.cwd : process.cwd();
@@ -317,14 +329,7 @@ async function runCommandTool(tool: ToolInvocation): Promise<ToolExecutionResult
     const child = spawn(command[0], command.slice(1), {
         cwd,
         stdio: ["ignore", "pipe", "pipe"],
-        env: {
-            PATH: process.env.PATH || "",
-            HOME: process.env.HOME || "",
-            USER: process.env.USER || "",
-            SHELL: process.env.SHELL || "",
-            LANG: process.env.LANG || "C.UTF-8",
-            TMPDIR: process.env.TMPDIR || "",
-        },
+        env: getSafeCommandEnvironment(),
     });
 
     const stdoutChunks: string[] = [];
