@@ -94,13 +94,25 @@ function generateId(prefix = "autonomy"): string {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function resolveWorkspacePath(inputPath: string): string | null {
-    const absolutePath = path.resolve(process.cwd(), inputPath);
-    const relativePath = path.relative(process.cwd(), absolutePath);
+async function resolveWorkspacePath(inputPath: string): Promise<string | null> {
+    const workspaceRoot = await fs.realpath(process.cwd()).catch(() => process.cwd());
+    const absolutePath = path.resolve(workspaceRoot, inputPath);
+    const relativePath = path.relative(workspaceRoot, absolutePath);
     if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
         return null;
     }
-    return absolutePath;
+
+    try {
+        const realParentDir = await fs.realpath(path.dirname(absolutePath)).catch(() => path.dirname(absolutePath));
+        const normalizedTargetPath = path.resolve(realParentDir, path.basename(absolutePath));
+        const normalizedRelativePath = path.relative(workspaceRoot, normalizedTargetPath);
+        if (normalizedRelativePath.startsWith("..") || path.isAbsolute(normalizedRelativePath)) {
+            return null;
+        }
+        return normalizedTargetPath;
+    } catch {
+        return null;
+    }
 }
 
 function getLoopIntervalMs(): number {
@@ -338,7 +350,7 @@ async function runCommandTool(tool: ToolInvocation): Promise<ToolExecutionResult
 async function readFileTool(tool: ToolInvocation): Promise<ToolExecutionResult> {
     const filePath = typeof tool.args.path === "string" ? tool.args.path : "";
     if (!filePath) return {ok: false, error: "No path provided"};
-    const resolvedPath = resolveWorkspacePath(filePath);
+    const resolvedPath = await resolveWorkspacePath(filePath);
     if (!resolvedPath) return {ok: false, error: "Path escapes the workspace"};
     const content = await fs.readFile(resolvedPath, "utf8");
     return {ok: true, output: content.slice(0, 4000)};
@@ -348,7 +360,7 @@ async function writeFileTool(tool: ToolInvocation): Promise<ToolExecutionResult>
     const filePath = typeof tool.args.path === "string" ? tool.args.path : "";
     const content = typeof tool.args.content === "string" ? tool.args.content : "";
     if (!filePath) return {ok: false, error: "No path provided"};
-    const resolvedPath = resolveWorkspacePath(filePath);
+    const resolvedPath = await resolveWorkspacePath(filePath);
     if (!resolvedPath) return {ok: false, error: "Path escapes the workspace"};
     await fs.mkdir(path.dirname(resolvedPath), {recursive: true});
     await fs.writeFile(resolvedPath, content, "utf8");
@@ -357,8 +369,9 @@ async function writeFileTool(tool: ToolInvocation): Promise<ToolExecutionResult>
 
 async function listDirTool(tool: ToolInvocation): Promise<ToolExecutionResult> {
     const dirPath = typeof tool.args.path === "string" ? tool.args.path : process.cwd();
-    const resolvedPath = resolveWorkspacePath(dirPath) || process.cwd();
-    const entries = await fs.readdir(resolvedPath, {withFileTypes: true});
+    const resolvedPath = await resolveWorkspacePath(dirPath);
+    const safePath = resolvedPath || process.cwd();
+    const entries = await fs.readdir(safePath, {withFileTypes: true});
     const names = entries.map(entry => entry.name).sort();
     return {ok: true, output: names.join("\n")};
 }
@@ -366,7 +379,7 @@ async function listDirTool(tool: ToolInvocation): Promise<ToolExecutionResult> {
 async function statPathTool(tool: ToolInvocation): Promise<ToolExecutionResult> {
     const filePath = typeof tool.args.path === "string" ? tool.args.path : "";
     if (!filePath) return {ok: false, error: "No path provided"};
-    const resolvedPath = resolveWorkspacePath(filePath);
+    const resolvedPath = await resolveWorkspacePath(filePath);
     if (!resolvedPath) return {ok: false, error: "Path escapes the workspace"};
     try {
         const stats = await fs.stat(resolvedPath);
@@ -388,7 +401,7 @@ async function statPathTool(tool: ToolInvocation): Promise<ToolExecutionResult> 
 async function deleteFileTool(tool: ToolInvocation): Promise<ToolExecutionResult> {
     const filePath = typeof tool.args.path === "string" ? tool.args.path : "";
     if (!filePath) return {ok: false, error: "No path provided"};
-    const resolvedPath = resolveWorkspacePath(filePath);
+    const resolvedPath = await resolveWorkspacePath(filePath);
     if (!resolvedPath) return {ok: false, error: "Path escapes the workspace"};
     await fs.unlink(resolvedPath);
     return {ok: true, output: `Deleted ${resolvedPath}`};

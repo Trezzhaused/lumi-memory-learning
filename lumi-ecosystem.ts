@@ -47,38 +47,16 @@ function normalizeRepoPath(repoPath: string): string {
     return resolved;
 }
 
-export async function bootstrapEcosystem(targets: EcosystemBootstrapTarget[]): Promise<EcosystemBootstrapResult> {
-    const repos = [] as EcosystemRepoBootstrapResult[];
-    for (const target of targets) {
-        const repoPath = normalizeRepoPath(target.repoPath);
-        const errors: string[] = [];
-        if (!existsSync(repoPath)) {
-            errors.push(`repo path does not exist: ${repoPath}`);
-            repos.push({
-                repoPath,
-                ready: false,
-                launchReadiness: {
-                    env: {loadedFiles: [], appliedEntries: [], sourceFiles: [], masterFileDir: undefined},
-                    assets: {
-                        seedCorpusLoaded: false,
-                        trainingManifestReady: false,
-                        evaluationSetDefined: false,
-                        ingestedEntryCount: 0,
-                        assetFilesFound: [],
-                    },
-                    healthChecks: {chat: false, memory: false, storage: false},
-                    ready: false,
-                },
-                knowledgeSummary: {
-                    rootDir: repoPath,
-                    includedPaths: target.includePaths || [],
-                    scannedFiles: [],
-                    ingestedFiles: [],
-                    skippedFiles: [],
-                    totalChunks: 0,
-                    totalEntries: 0,
-                    sessionId: target.sessionId || `ecosystem:${path.basename(repoPath)}`,
-                },
+async function bootstrapSingleRepo(target: EcosystemBootstrapTarget): Promise<EcosystemRepoBootstrapResult> {
+    const repoPath = normalizeRepoPath(target.repoPath);
+    const errors: string[] = [];
+    if (!existsSync(repoPath)) {
+        errors.push(`repo path does not exist: ${repoPath}`);
+        return {
+            repoPath,
+            ready: false,
+            launchReadiness: {
+                env: {loadedFiles: [], appliedEntries: [], sourceFiles: [], masterFileDir: undefined},
                 assets: {
                     seedCorpusLoaded: false,
                     trainingManifestReady: false,
@@ -86,27 +64,57 @@ export async function bootstrapEcosystem(targets: EcosystemBootstrapTarget[]): P
                     ingestedEntryCount: 0,
                     assetFilesFound: [],
                 },
-                errors,
-            });
-            continue;
-        }
+                healthChecks: {chat: false, memory: false, storage: false},
+                ready: false,
+            },
+            knowledgeSummary: {
+                rootDir: repoPath,
+                includedPaths: target.includePaths || [],
+                scannedFiles: [],
+                ingestedFiles: [],
+                skippedFiles: [],
+                totalChunks: 0,
+                totalEntries: 0,
+                sessionId: target.sessionId || `ecosystem:${path.basename(repoPath)}`,
+            },
+            assets: {
+                seedCorpusLoaded: false,
+                trainingManifestReady: false,
+                evaluationSetDefined: false,
+                ingestedEntryCount: 0,
+                assetFilesFound: [],
+            },
+            errors,
+        };
+    }
 
-        const launchReadiness = await getLaunchReadiness(repoPath);
-        const assets = await bootstrapLaunchAssets(repoPath);
-        const knowledgeSummary = await ingestRepositoryKnowledge({
-            rootDir: repoPath,
-            includePaths: target.includePaths,
-            sessionId: target.sessionId || `ecosystem:${path.basename(repoPath)}`,
-            tags: [...(target.tags || []), "ecosystem-bootstrap", "shared-runtime"],
-            reviewStatus: "approved",
-            confidence: "high",
-            sensitivity: "low",
-            qualityScore: 0.9,
-            isSeedItem: true,
-        });
+    const launchReadiness = await getLaunchReadiness(repoPath);
+    const assets = await bootstrapLaunchAssets(repoPath);
+    const knowledgeSummary = await ingestRepositoryKnowledge({
+        rootDir: repoPath,
+        includePaths: target.includePaths,
+        sessionId: target.sessionId || `ecosystem:${path.basename(repoPath)}`,
+        tags: [...(target.tags || []), "ecosystem-bootstrap", "shared-runtime"],
+        reviewStatus: "approved",
+        confidence: "high",
+        sensitivity: "low",
+        qualityScore: 0.9,
+        isSeedItem: true,
+    });
 
-        const ready = Boolean(launchReadiness.ready && assets.seedCorpusLoaded && assets.trainingManifestReady && assets.evaluationSetDefined && knowledgeSummary.totalEntries > 0);
-        repos.push({repoPath, ready, launchReadiness, knowledgeSummary, assets, errors});
+    const ready = Boolean(launchReadiness.ready && assets.seedCorpusLoaded && assets.trainingManifestReady && assets.evaluationSetDefined && knowledgeSummary.totalEntries > 0);
+    return {repoPath, ready, launchReadiness, knowledgeSummary, assets, errors};
+}
+
+export async function bootstrapEcosystem(targets: EcosystemBootstrapTarget[]): Promise<EcosystemBootstrapResult> {
+    const concurrencyLimit = Number(process.env.LUMI_ECOSYSTEM_CONCURRENCY || "4");
+    const safeConcurrency = Number.isFinite(concurrencyLimit) && concurrencyLimit > 0 ? Math.floor(concurrencyLimit) : 4;
+    const repos: EcosystemRepoBootstrapResult[] = [];
+
+    for (let index = 0; index < targets.length; index += safeConcurrency) {
+        const batch = targets.slice(index, index + safeConcurrency);
+        const batchResults = await Promise.all(batch.map(target => bootstrapSingleRepo(target)));
+        repos.push(...batchResults);
     }
 
     return {

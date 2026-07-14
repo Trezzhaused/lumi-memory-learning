@@ -723,10 +723,11 @@ export async function search(query: string, limit = 10, options: MemorySearchOpt
     const q = normalizeWhitespace(query);
     const calibration = getRetrievalCalibration(options.calibration);
     const candidateEntries = snapshot.entries.filter(e => !isExpired(e) && shouldExposeEntry(e, options));
+    const threshold = calibration.matchThreshold || DEFAULT_RETRIEVAL_CALIBRATION.matchThreshold;
     const results = candidateEntries
         .filter(e => meetsMinimumConfidence(e, options.minConfidence))
         .map(entry => ({...entry, score: computeMatchScore(q, entry, calibration), effectiveConfidence: deriveEffectiveConfidence(entry)}))
-        .filter(entry => (entry.score || 0) > (calibration.matchThreshold || DEFAULT_RETRIEVAL_CALIBRATION.matchThreshold))
+        .filter(entry => !q || (entry.score || 0) >= threshold)
         .filter(entry => !options.tags || options.tags.length === 0 || options.tags.some(tag => entry.tags.includes(tag)))
         .sort((a, b) => (b.score || 0) - (a.score || 0))
         .slice(0, limit);
