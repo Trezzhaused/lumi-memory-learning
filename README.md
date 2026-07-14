@@ -158,7 +158,7 @@ Body: { resources?, goals? }
 → { generatedAt, overview, capabilityTargets, priorityResources, recommendedIngestionPlan, knowledgeBankSummary, promptPatterns, aiMaturityFramework, resources }
 ```
 
-This endpoint analyzes the curated training-resource catalog for Lumi and stores a knowledge-bank summary in memory for later recall.
+This endpoint analyzes the curated training-resource catalog for Lumi and stores a knowledge-bank summary in memory for later recall. The catalog now includes the open-source Awesome AI Agents repository so Lumi can discover free agent implementations and agentic patterns before leaning on Claude, GPT, or paid services.
 
 ### Autonomous missions
 ```

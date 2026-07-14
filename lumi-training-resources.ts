@@ -165,6 +165,16 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         notes: "Great for building a practical knowledge bank around open-weight serving, quantization, and tool-calling behavior.",
     },
     {
+        id: "awesome-ai-agents",
+        name: "Awesome AI Agents",
+        url: "https://github.com/e2b-dev/awesome-ai-agents.git",
+        category: "learning",
+        rationale: "A curated catalog of open-source AI agent projects, frameworks, and examples that can be evaluated before relying on proprietary or paid services.",
+        useCase: "Use as the first-stop reference for discovering free open-source agents, agent architectures, tool-use patterns, and implementation examples that fit Lumi's local-first roadmap.",
+        priority: "high",
+        notes: "Best used as a discovery layer for open-source agents and agentic workflows; prioritize this before Claude/GPT/paid services for experimentation and adaptation.",
+    },
+    {
         id: "redpajama",
         name: "RedPajama data",
         url: "https://github.com/togethercomputer/RedPajama-Data",
@@ -287,6 +297,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
         `Incorporate simulation and control resources (${selectedResources.filter(resource => ["mujoco", "deepblue-datasets"].includes(resource.id)).map(resource => resource.name).join(", ")}) to teach embodied reasoning and physics-informed behavior.`,
         `Use the MIT educator resources (${selectedResources.filter(resource => ["mit-learn-competency-based", "mit-ocw-educators", "mit-open-learning-k12"].includes(resource.id)).map(resource => resource.name).join(", ")}) to build K-12 curriculum planning, competency-based assessment, and teacher-facing lesson design support.`,
         `Use the K-12 curriculum resources (${selectedResources.filter(resource => ["valdosta-k12-oer", "coreknowledge-free-curriculum", "k12-kgraph-dataset"].includes(resource.id)).map(resource => resource.name).join(", ")}) to strengthen OER discovery, curriculum sequencing, and curriculum-aware question generation.`,
+        `Use the open-source agent catalog (${selectedResources.filter(resource => ["awesome-ai-agents", "gpt-oss", "intellek-learning"].includes(resource.id)).map(resource => resource.name).join(", ")}) to prioritize free agent implementations, local-first architectures, and benchmarked agent behavior before paying for proprietary services.`,
         `Use the reasoning and model resources (${selectedResources.filter(resource => ["gpt-oss", "arc-reasoning", "intellek-learning"].includes(resource.id)).map(resource => resource.name).join(", ")}) to strengthen agentic behavior, local deployment knowledge, and benchmark-driven evaluation.`,
     ];
 
@@ -296,6 +307,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
         "The highest-value immediate path is to combine large-scale text corpora with multimodal datasets, then add simulation and reasoning benchmarks for capability growth.",
         "MIT-based educator materials are especially useful for K-12 curriculum planning, competency-based education, and teacher-facing resource curation.",
         "Open educational resources, curriculum sequencing frameworks, and curriculum-aligned benchmark datasets provide strong support for curriculum design and curriculum-aware question generation.",
+        "The open-source agent catalog should be prioritized as a discovery layer for free agent implementations, tool-use patterns, and local-first architectures before moving to Claude, GPT, or paid services.",
         "For production use, ingest only curated subsets first and keep provenance, licensing, and deduplication metadata attached to each dataset entry.",
     ].join(" ");
 
@@ -341,7 +353,7 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
 
     return {
         generatedAt: new Date().toISOString(),
-        overview: "This resource set covers learning materials, open-weight models, web-scale corpora, multimodal datasets, robotics simulators, and reasoning benchmarks. It also incorporates MIT educator resources and K-12 OER, curriculum, and benchmark datasets for curriculum design and educational QA, giving Lumi a strong foundation for broader capabilities.",
+        overview: "This resource set covers learning materials, open-weight models, web-scale corpora, multimodal datasets, robotics simulators, reasoning benchmarks, and free/open-source agent catalogs. It also incorporates MIT educator resources and K-12 OER, curriculum, and benchmark datasets for curriculum design and educational QA, giving Lumi a strong foundation for broader capabilities.",
         capabilityTargets,
         priorityResources,
         recommendedIngestionPlan,
