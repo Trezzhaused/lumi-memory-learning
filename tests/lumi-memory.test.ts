@@ -46,8 +46,19 @@ test("knowledge ingestion creates reviewable entries", {concurrency: false}, asy
 test("training resource catalog includes the requested education and agent resources", () => {
     const analysis = buildTrainingResourceAnalysis();
     const resourceIds = new Set(analysis.resources.map(resource => resource.id));
+    const requiredResourceIds = [
+        "a-to-z-students",
+        "awesome-claude-code-subagents",
+        "awesome-agent-skills",
+        "awesome-deep-learning",
+        "awesome-stock-resources",
+        "awesome-math",
+        "awesome-generative-ai",
+        "awesome-nano-banana-pro-prompts",
+        "mind-expanding-books",
+    ];
 
-    for (const id of ["a-to-z-students", "awesome-claude-code-subagents", "awesome-agent-skills", "awesome-deep-learning", "awesome-stock-resources", "awesome-math", "awesome-generative-ai", "awesome-nano-banana-pro-prompts", "mind-expanding-books"]) {
+    for (const id of requiredResourceIds) {
         assert.equal(resourceIds.has(id), true, `expected resource ${id} to be present`);
     }
 

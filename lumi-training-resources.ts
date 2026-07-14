@@ -464,7 +464,10 @@ export function buildTrainingResourceAnalysis(req: TrainingResourceAnalysisReque
 
     return {
         generatedAt: new Date().toISOString(),
-        overview: "This resource set covers learning materials, open-weight models, web-scale corpora, multimodal datasets, robotics simulators, reasoning benchmarks, free/open-source agent catalogs, curated programming-learning resources such as GoBooks, student-facing and curriculum resources, sub-agent and skill catalogs, deep-learning references, stock-media libraries, mathematics resources, and generative-AI/prompt and enrichment collections. It also incorporates MIT educator resources and K-12 OER, curriculum, and benchmark datasets for curriculum design and educational QA, giving Lumi a strong foundation for broader capabilities.",
+        overview: [
+            "This resource set covers learning materials, open-weight models, web-scale corpora, multimodal datasets, robotics simulators, reasoning benchmarks, free/open-source agent catalogs, curated programming-learning resources such as GoBooks, student-facing and curriculum resources, sub-agent and skill catalogs, deep-learning references, stock-media libraries, mathematics resources, and generative-AI/prompt and enrichment collections.",
+            "It also incorporates MIT educator resources and K-12 OER, curriculum, and benchmark datasets for curriculum design and educational QA, giving Lumi a strong foundation for broader capabilities.",
+        ].join(" "),
         capabilityTargets,
         priorityResources,
         recommendedIngestionPlan,
