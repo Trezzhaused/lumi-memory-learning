@@ -55,6 +55,16 @@ const DEFAULT_RESOURCES: TrainingResource[] = [
         notes: "Especially useful for building structured learning journeys in systems, AI, ML, security, graphics, and theory topics.",
     },
     {
+        id: "system-prompts-leaks",
+        name: "System Prompts Leaks",
+        url: "https://github.com/asgeirtj/system_prompts_leaks",
+        category: "benchmark",
+        rationale: "A public collection of documented system prompts for major AI assistants that can be used to study prompt structure, tool-use behavior, and guardrail patterns for red-team evaluation.",
+        useCase: "Use for adversarial prompt analysis, prompt-hardening experiments, and stress-testing Lumi's safety and routing behavior in a controlled research setting.",
+        priority: "medium",
+        notes: "Best used as a red-team reference and evaluation resource, not as general educational content or a production prompt source.",
+    },
+    {
         id: "mit-learn-competency-based",
         name: "MIT Learn competency-based education materials",
         url: "https://learn.mit.edu/search?resource=2764&resource_title=competency-based-education",
