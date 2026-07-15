@@ -9,7 +9,7 @@ import {
 } from "./lumi-acam";
 import {remember, recall, forget, memoryStats, search as memSearch, getMemoryStorageStatus, quarantineMemoryEntry, reviewMemoryEntry, cleanupMemoryEntries, ingestKnowledgeEntries, recordRetrievalFeedback, getAuditTrail, getTelemetrySnapshot, getAdaptiveLearningEvaluationSummary, getObservabilitySnapshot, ingestRepositoryKnowledge, listMemoryEntries, getRetrievalCalibrationSnapshot} from "./lumi-memory";
 import {generate} from "./lumi-generators";
-import {buildProject} from "./lumi-studio";
+import {buildProject, buildTrezzbloxWorldBundle, publishCreationBundle} from "./lumi-studio";
 import {buildMediaBrandingPipeline, buildBrandingMediaPipeline, buildFullIndependenceMediaBrandingPipeline, executeMediaBrandingPipeline} from "./lumi-media-branding";
 import {getArtifact, readArtifactBuffer, getArtifactStorageStatus, listArtifacts} from "./lumi-storage";
 import {
@@ -680,6 +680,40 @@ lumiRouter.post("/project", async (req: Request, res: Response, next: NextFuncti
         const spec = {...req.body, sessionId};
         const project = await buildProject(spec);
         res.json(project);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/creation/build
+lumiRouter.post("/creation/build", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const sessionId = req.headers["x-session-id"] as string | undefined || "default";
+        const prompt = typeof req.body?.prompt === "string" ? req.body.prompt : "";
+        const mode = typeof req.body?.mode === "string" ? req.body.mode : "full";
+        if (!prompt) {
+            res.status(400).json({error: "prompt is required"});
+            return;
+        }
+        const bundle = await buildTrezzbloxWorldBundle({
+            name: "TrezzBlox creation",
+            type: "trezzblox-world",
+            description: prompt,
+            sessionId,
+        }, mode as any);
+        res.json(bundle);
+    } catch (err) { next(err); }
+});
+
+// POST /api/lumi/creation/publish
+lumiRouter.post("/creation/publish", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const sessionId = req.headers["x-session-id"] as string | undefined || "default";
+        const bundle = req.body?.bundle;
+        if (!bundle || typeof bundle !== "object") {
+            res.status(400).json({error: "bundle is required"});
+            return;
+        }
+        const result = await publishCreationBundle(bundle as any, sessionId);
+        res.json({publish: result});
     } catch (err) { next(err); }
 });
 

@@ -36,7 +36,8 @@ export type ProjectType =
     | "discord-bot"
     | "animation"
     | "music-track"
-    | "image-series";
+    | "image-series"
+    | "trezzblox-world";
 
 export interface ProjectSpec {
     name: string;
@@ -52,6 +53,42 @@ export interface ProjectArtifact {
     name: string;
     role: "scaffold" | "code" | "image" | "audio" | "video" | "manifest";
     result: GenerationResult | {text: string};
+}
+
+export type CreationFlowMode = "full" | "storyboard" | "assets" | "publish";
+
+export interface TrezzbloxAssetRecommendation {
+    id: string;
+    name: string;
+    kind: "character" | "environment" | "prop" | "npc" | "effect" | "system";
+    description: string;
+    trezzbloxClass: string;
+    tags: string[];
+}
+
+export interface CreationStage {
+    id: string;
+    title: string;
+    summary: string;
+    content: string;
+    status: "complete" | "ready" | "pending";
+}
+
+export interface CreationBundle {
+    id: string;
+    prompt: string;
+    title: string;
+    createdAt: string;
+    mode: CreationFlowMode;
+    stages: CreationStage[];
+    assets: TrezzbloxAssetRecommendation[];
+    scripts: Array<{name: string; language: "luau" | "json" | "typescript"; content: string}>;
+    publish: {
+        target: "roblox";
+        approved: boolean;
+        status: "ready" | "simulated" | "skipped" | "failed";
+        message: string;
+    };
 }
 
 export interface Project {
@@ -103,6 +140,10 @@ Return a single descriptive sentence that captures the style, mood, instruments,
     "image-series": `Create 4 detailed image generation prompts for an image series called "{name}".
 Description: {description}
 Return a JSON array of 4 strings, each a self-contained prompt for a diffusion model.`,
+
+    "trezzblox-world": `Create a TrezzBlox-ready world build plan called "{name}".
+Description: {description}
+Return a structured plan with world concept, character roster, environment assets, gameplay systems, scripts, and export notes.`,
 };
 
 // ---------------------------------------------------------------------------
@@ -119,6 +160,219 @@ function fillTemplate(template: string, spec: ProjectSpec): string {
 
 function generateProjectId(): string {
     return `proj_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function extractKeywords(prompt: string): string[] {
+    return prompt.toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter(Boolean)
+        .filter(tag => !["build", "create", "a", "an", "the", "with", "and", "for", "into", "that", "this"].includes(tag))
+        .slice(0, 10);
+}
+
+function titleFromPrompt(prompt: string): string {
+    const cleaned = prompt.trim().replace(/\s+/g, " ");
+    return cleaned.length > 64 ? `${cleaned.slice(0, 61)}...` : cleaned;
+}
+
+async function generateText(prompt: string, fallback: string): Promise<string> {
+    try {
+        const result = await generate({type: "text", prompt, language: "plain text"});
+        return (result.text || fallback).trim() || fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+function makeStage(id: string, title: string, summary: string, content: string): CreationStage {
+    return {id, title, summary, content, status: "complete"};
+}
+
+function buildAssetRegistry(prompt: string): TrezzbloxAssetRecommendation[] {
+    const keywords = extractKeywords(prompt);
+    const assets: TrezzbloxAssetRecommendation[] = [];
+
+    if (keywords.some(keyword => keyword.includes("character") || keyword.includes("character") || keyword.includes("hero") || keyword.includes("npc"))) {
+        assets.push({
+            id: "asset-character",
+            name: "Hero Character Rig",
+            kind: "character",
+            description: "A stylized humanoid rig with expressive animation hooks and a combat-ready idle cycle.",
+            trezzbloxClass: "CharacterRig",
+            tags: ["stylized", "humanoid", "animated"],
+        });
+    }
+
+    if (keywords.some(keyword => keyword.includes("world") || keyword.includes("environment") || keyword.includes("landscape") || keyword.includes("map"))) {
+        assets.push({
+            id: "asset-environment",
+            name: "Procedural World Tiles",
+            kind: "environment",
+            description: "A set of modular terrain tiles and atmospheric props for open-world traversal.",
+            trezzbloxClass: "EnvironmentTile",
+            tags: ["terrain", "modular", "world"],
+        });
+    }
+
+    if (keywords.some(keyword => keyword.includes("quest") || keyword.includes("gameplay") || keyword.includes("combat") || keyword.includes("system"))) {
+        assets.push({
+            id: "asset-system",
+            name: "Quest and Combat Systems",
+            kind: "system",
+            description: "A reusable quest state machine and combat flow system for live encounters.",
+            trezzbloxClass: "GameSystem",
+            tags: ["quest", "combat", "systems"],
+        });
+    }
+
+    if (keywords.some(keyword => keyword.includes("pokemon") || keyword.includes("creature") || keyword.includes("pet"))) {
+        assets.push({
+            id: "asset-companion",
+            name: "Companion Creature",
+            kind: "npc",
+            description: "A companion creature with creature-like movement, reactions, and battle flair.",
+            trezzbloxClass: "CompanionNpc",
+            tags: ["creature", "companion", "animated"],
+        });
+    }
+
+    if (assets.length === 0) {
+        assets.push({
+            id: "asset-prop",
+            name: "Starter Prop Kit",
+            kind: "prop",
+            description: "A fallback asset pack for world decoration and interaction hooks.",
+            trezzbloxClass: "PropPack",
+            tags: ["starter", "modular"],
+        });
+    }
+
+    return assets;
+}
+
+function buildScripts(prompt: string, assets: TrezzbloxAssetRecommendation[]): CreationBundle["scripts"] {
+    const title = titleFromPrompt(prompt);
+    return [
+        {
+            name: "WorldManifest.json",
+            language: "json",
+            content: JSON.stringify({
+                title,
+                assets: assets.map(asset => ({name: asset.name, class: asset.trezzbloxClass, tags: asset.tags})),
+                workflow: ["concept", "storyboard", "design", "assets", "publish"],
+            }, null, 2),
+        },
+        {
+            name: "WorldController.luau",
+            language: "luau",
+            content: `-- Generated Luau scaffold for ${title}\nlocal world = {}\nworld.title = "${title}"\nworld.assets = {${assets.map(asset => `"${asset.trezzbloxClass}"`).join(", ")}}\nreturn world\n`,
+        },
+    ];
+}
+
+async function buildTrezzbloxWorldFlow(spec: ProjectSpec, mode: CreationFlowMode = "full"): Promise<CreationBundle> {
+    const prompt = `${spec.name}: ${spec.description}`;
+    const title = titleFromPrompt(prompt);
+    const concept = await generateText(
+        `Create a concise concept for a TrezzBlox-ready game world based on: ${prompt}`,
+        `A stylized fantasy sandbox where players explore a living world with expressive NPCs, modular terrain, and combat-ready systems.`
+    );
+    const storyboard = await generateText(
+        `Create a three-scene storyboard for this world: ${prompt}`,
+        `Scene 1: Arrival in a glowing frontier city. Scene 2: Exploration of a ruined biome. Scene 3: Final raid against a creature guardian.`
+    );
+    const designSpec = await generateText(
+        `Create a compact design specification for a TrezzBlox project based on: ${prompt}`,
+        `The experience should balance exploration, customizable companions, and a modular world-building loop.`
+    );
+    const assets = buildAssetRegistry(prompt);
+    const scripts = buildScripts(prompt, assets);
+
+    const stages: CreationStage[] = [
+        makeStage("prompt", "Prompt captured", "The game brief is ready for the studio flow.", prompt),
+        makeStage("concept", "World concept", concept, concept),
+        makeStage("storyboard", "Storyboard draft", storyboard, storyboard),
+        makeStage("design", "Design spec", designSpec, designSpec),
+        makeStage("assets", "Asset manifest", `Generated ${assets.length} TrezzBlox-ready assets.`, assets.map(asset => `${asset.name} (${asset.trezzbloxClass})`).join("\n")),
+        makeStage("scripts", "Scripts & bundles", `Generated ${scripts.length} delivery files.`, scripts.map(script => `${script.name} (${script.language})`).join("\n")),
+    ];
+
+    const publish = {
+        target: "roblox" as const,
+        approved: false,
+        status: process.env.LUMI_CREATION_TEST_MODE === "true" ? "simulated" as const : "ready" as const,
+        message: process.env.LUMI_CREATION_TEST_MODE === "true"
+            ? "Publish is being simulated for test/dev mode."
+            : "Publish is ready once approval is granted.",
+    };
+
+    const fullBundle: CreationBundle = {
+        id: generateProjectId(),
+        prompt,
+        title,
+        createdAt: new Date().toISOString(),
+        mode,
+        stages: mode === "storyboard"
+            ? stages.slice(0, 3)
+            : mode === "assets"
+                ? stages.slice(0, 5)
+                : stages,
+        assets,
+        scripts,
+        publish,
+    };
+
+    if (mode === "publish") {
+        fullBundle.publish.status = process.env.LUMI_CREATION_TEST_MODE === "true" ? "simulated" : "ready";
+    }
+
+    return fullBundle;
+}
+
+export async function buildTrezzbloxWorldBundle(spec: ProjectSpec, mode: CreationFlowMode = "full"): Promise<CreationBundle> {
+    return buildTrezzbloxWorldFlow(spec, mode);
+}
+
+export async function publishCreationBundle(bundle: CreationBundle, sessionId: string): Promise<CreationBundle["publish"]> {
+    if (process.env.LUMI_CREATION_TEST_MODE === "true") {
+        return {
+            target: "roblox",
+            approved: true,
+            status: "simulated",
+            message: `Simulated Roblox publish for ${bundle.title}.`,
+        };
+    }
+
+    if (process.env.LUMI_CREATION_APPROVAL_REQUIRED === "true" && !bundle.publish.approved) {
+        return {
+            target: "roblox",
+            approved: false,
+            status: "skipped",
+            message: "Publishing requires explicit approval.",
+        };
+    }
+
+    try {
+        const script = bundle.scripts.find(entry => entry.language === "luau");
+        if (!script) {
+            throw new Error("No Luau script available to publish.");
+        }
+        const result = await publishToRoblox(script.content, sessionId);
+        return {
+            target: "roblox",
+            approved: true,
+            status: "ready",
+            message: `Roblox publish succeeded (version ${result.versionNumber || "unknown"}).`,
+        };
+    } catch (error: any) {
+        return {
+            target: "roblox",
+            approved: false,
+            status: "failed",
+            message: error?.message || "Roblox publish failed.",
+        };
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -138,7 +392,13 @@ export async function buildProject(spec: ProjectSpec): Promise<Project> {
         const template = CODE_TEMPLATES[spec.type] || CODE_TEMPLATES["web-app"];
         const prompt = fillTemplate(template, spec);
 
-        if (["game", "web-app", "api", "cli-tool", "discord-bot"].includes(spec.type)) {
+        if (spec.type === "trezzblox-world") {
+            const bundle = await buildTrezzbloxWorldBundle(spec, "full");
+            project.artifacts.push({name: "world-concept", role: "manifest", result: {text: JSON.stringify(bundle.stages.slice(0, 4), null, 2)}});
+            project.artifacts.push({name: "asset-manifest", role: "manifest", result: {text: JSON.stringify(bundle.assets, null, 2)}});
+            project.artifacts.push({name: "scripts", role: "code", result: {text: bundle.scripts.map(script => `// ${script.name}\n${script.content}`).join("\n\n")}});
+
+        } else if (["game", "web-app", "api", "cli-tool", "discord-bot"].includes(spec.type)) {
             // Code-based project
             const codeReq: GenerationRequest = {
                 type: "code",

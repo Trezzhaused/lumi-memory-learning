@@ -20,10 +20,43 @@
     .progress-bar > div { height: 100%; background: linear-gradient(90deg, #4f8cff, #3edc7b); width: 0%; transition: width 0.3s ease; }
     .artifact { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
     a { color: #8ab6ff; }
+    .assistant-shell { position: fixed; right: 20px; bottom: 20px; width: min(420px, calc(100vw - 32px)); z-index: 20; background: rgba(8, 18, 33, 0.92); border: 1px solid rgba(255,255,255,0.14); border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.35); backdrop-filter: blur(20px); overflow: hidden; }
+    .assistant-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: rgba(255,255,255,0.05); }
+    .assistant-body { padding: 14px; display: block; }
+    .assistant-body.collapsed { display: none; }
+    .assistant-chip { display: inline-block; padding: 4px 8px; border-radius: 999px; background: rgba(79,140,255,0.2); color: #9dc7ff; font-size: 0.82rem; margin-right: 6px; margin-top: 6px; }
+    .assistant-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .assistant-actions button { padding: 8px 10px; border-radius: 999px; font-size: 0.92rem; }
+    .assistant-workspace { margin-top: 12px; padding: 10px; border-radius: 12px; background: rgba(255,255,255,0.04); }
+    .assistant-workspace pre { white-space: pre-wrap; word-break: break-word; font-size: 0.9rem; line-height: 1.45; margin: 0; }
+    .assistant-empty { color: #8ea3c3; font-size: 0.9rem; }
   </style>
 </head>
 <body>
-  <main>
+<div id="assistantShell" class="assistant-shell">
+  <div class="assistant-header">
+    <div>
+      <strong>LUMI workspace</strong><br />
+      <span class="meta">Persistent creation companion</span>
+    </div>
+    <button id="assistantToggle">Collapse</button>
+  </div>
+  <div id="assistantBody" class="assistant-body">
+    <textarea id="creationPrompt" placeholder="Example: build a 3D virtual world with human-like characters that look like World of Warcraft fused with Pokémon-style animated characters."></textarea>
+    <div class="assistant-actions">
+      <button id="buildWorldBtn">Build world</button>
+      <button id="storyboardBtn">Generate storyboard</button>
+      <button id="assetsBtn">Build assets</button>
+      <button id="publishBtn">Publish to Roblox</button>
+    </div>
+    <div id="assistantStatus" class="status">Ready to begin a TrezzBlox creation flow.</div>
+    <div id="assistantWorkspace" class="assistant-workspace">
+      <div class="assistant-empty">No bundle yet. Start with a prompt to generate a concept, storyboard, asset manifest, scripts, and a publish-ready package.</div>
+    </div>
+  </div>
+</div>
+
+<main>
     <div class="card">
       <h1>Lumi autonomous work panel</h1>
       <p class="meta">Launch tasks, watch Lumi plan and execute them, and download finished artifacts.</p>
@@ -63,8 +96,86 @@
     const queueEl = document.getElementById('queue');
     const eventsEl = document.getElementById('events');
     const artifactsEl = document.getElementById('artifacts');
+    const creationPromptEl = document.getElementById('creationPrompt');
+    const buildWorldBtn = document.getElementById('buildWorldBtn');
+    const storyboardBtn = document.getElementById('storyboardBtn');
+    const assetsBtn = document.getElementById('assetsBtn');
+    const publishBtn = document.getElementById('publishBtn');
+    const assistantToggle = document.getElementById('assistantToggle');
+    const assistantBody = document.getElementById('assistantBody');
+    const assistantStatus = document.getElementById('assistantStatus');
+    const assistantWorkspace = document.getElementById('assistantWorkspace');
     let activeMissionId = null;
     let pollTimer = null;
+    let currentBundle = null;
+
+    function setAssistantStatus(message) {
+      assistantStatus.innerText = message;
+    }
+
+    function renderBundle(bundle) {
+      currentBundle = bundle;
+      if (!bundle) {
+        assistantWorkspace.innerHTML = '<div class="assistant-empty">No bundle yet. Start with a prompt to generate a concept, storyboard, asset manifest, scripts, and a publish-ready package.</div>';
+        return;
+      }
+
+      const stageMarkup = (bundle.stages || []).map(stage => `
+        <div class="event">
+          <strong>${stage.title}</strong><br />
+          <span class="meta">${stage.summary}</span>
+          <div style="margin-top:6px;">${stage.content.replace(/\n/g, '<br />')}</div>
+        </div>
+      `).join('');
+
+      const assetMarkup = (bundle.assets || []).map(asset => `
+        <span class="assistant-chip">${asset.name} · ${asset.trezzbloxClass}</span>
+      `).join('');
+
+      assistantWorkspace.innerHTML = `
+        <div><strong>${bundle.title}</strong></div>
+        <div class="meta" style="margin-top:6px;">${bundle.prompt}</div>
+        <div style="margin-top:8px;">${assetMarkup || '<span class="assistant-empty">No assets generated yet.</span>'}</div>
+        <div style="margin-top:12px;"><strong>Stages</strong></div>
+        <div>${stageMarkup}</div>
+        <div style="margin-top:12px;"><strong>Publish</strong></div>
+        <div class="meta">${bundle.publish ? bundle.publish.message : 'Publish not started.'}</div>
+      `;
+    }
+
+    async function runCreationFlow(mode = 'full') {
+      const prompt = (creationPromptEl.value || '').trim();
+      if (!prompt) {
+        setAssistantStatus('Enter a prompt to start the creation flow.');
+        return;
+      }
+      setAssistantStatus('Building your TrezzBlox creation bundle...');
+      const res = await fetch('/api/lumi/creation/build', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({prompt, mode})
+      });
+      const json = await res.json();
+      renderBundle(json);
+      setAssistantStatus(`Created ${json.title || 'bundle'} (${json.mode || mode}).`);
+    }
+
+    async function publishCurrentBundle() {
+      if (!currentBundle) {
+        setAssistantStatus('Build a bundle before publishing.');
+        return;
+      }
+      setAssistantStatus('Publishing bundle to Roblox...');
+      const res = await fetch('/api/lumi/creation/publish', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({bundle: currentBundle})
+      });
+      const json = await res.json();
+      currentBundle.publish = json.publish;
+      renderBundle(currentBundle);
+      setAssistantStatus(json.publish.message || 'Publish complete.');
+    }
 
     async function refreshArtifacts() {
       const res = await fetch('/api/lumi/artifacts');
@@ -137,6 +248,14 @@
     }
 
     launchBtn.addEventListener('click', launchMission);
+    buildWorldBtn.addEventListener('click', () => runCreationFlow('full'));
+    storyboardBtn.addEventListener('click', () => runCreationFlow('storyboard'));
+    assetsBtn.addEventListener('click', () => runCreationFlow('assets'));
+    publishBtn.addEventListener('click', publishCurrentBundle);
+    assistantToggle.addEventListener('click', () => {
+      assistantBody.classList.toggle('collapsed');
+      assistantToggle.innerText = assistantBody.classList.contains('collapsed') ? 'Expand' : 'Collapse';
+    });
     refreshArtifacts();
   </script>
 </body>
