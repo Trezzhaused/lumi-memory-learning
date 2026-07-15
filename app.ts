@@ -683,6 +683,49 @@ lumiRouter.post("/project", async (req: Request, res: Response, next: NextFuncti
     } catch (err) { next(err); }
 });
 
+// POST /api/lumi/creation/dispatch
+lumiRouter.post("/creation/dispatch", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const sessionId = req.headers["x-session-id"] as string | undefined || "default";
+        const payload = req.body || {};
+        const prompt = typeof payload.prompt === "string" ? payload.prompt : "";
+        const mode = typeof payload.mode === "string" ? payload.mode : "full";
+        const target = typeof payload.target === "string" ? payload.target : "bundle";
+        const approved = payload.approved === true;
+        const repo = typeof payload.repo === "string" ? payload.repo : "shared";
+        const source = typeof payload.source === "string" ? payload.source : "program";
+        if (!prompt) {
+            res.status(400).json({error: "prompt is required"});
+            return;
+        }
+
+        const bundle = await buildTrezzbloxWorldBundle({
+            name: repo === "shared" ? "TrezzBlox creation" : `TrezzBlox creation (${repo})`,
+            type: "trezzblox-world",
+            description: prompt,
+            sessionId,
+        }, mode as any);
+
+        let publishResult = null;
+        if (target === "roblox" && (mode === "publish" || payload.publish === true)) {
+            publishResult = await publishCreationBundle({...bundle, publish: {...bundle.publish, approved}}, sessionId);
+        }
+
+        res.json({
+            ok: true,
+            bundle,
+            publish: publishResult,
+            context: {
+                repo,
+                source,
+                target,
+                sessionId,
+                mode,
+            },
+        });
+    } catch (err) { next(err); }
+});
+
 // POST /api/lumi/creation/build
 lumiRouter.post("/creation/build", async (req: Request, res: Response, next: NextFunction) => {
     try {

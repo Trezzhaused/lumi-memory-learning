@@ -193,7 +193,7 @@ function buildAssetRegistry(prompt: string): TrezzbloxAssetRecommendation[] {
     const keywords = extractKeywords(prompt);
     const assets: TrezzbloxAssetRecommendation[] = [];
 
-    if (keywords.some(keyword => keyword.includes("character") || keyword.includes("character") || keyword.includes("hero") || keyword.includes("npc"))) {
+    if (keywords.some(keyword => keyword.includes("character") || keyword.includes("hero") || keyword.includes("npc"))) {
         assets.push({
             id: "asset-character",
             name: "Hero Character Rig",

@@ -150,14 +150,14 @@
         return;
       }
       setAssistantStatus('Building your TrezzBlox creation bundle...');
-      const res = await fetch('/api/lumi/creation/build', {
+      const res = await fetch('/api/lumi/creation/dispatch', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({prompt, mode})
+        body: JSON.stringify({prompt, mode, repo: 'lumi-panel', source: 'workspace-ui'})
       });
       const json = await res.json();
-      renderBundle(json);
-      setAssistantStatus(`Created ${json.title || 'bundle'} (${json.mode || mode}).`);
+      renderBundle(json.bundle || json);
+      setAssistantStatus(`Created ${json.bundle?.title || json.title || 'bundle'} (${json.bundle?.mode || json.mode || mode}).`);
     }
 
     async function publishCurrentBundle() {

@@ -30,6 +30,9 @@ export interface LumiBridgeContract {
         status: string;
         models: string;
         contract: string;
+        creationBuild: string;
+        creationPublish: string;
+        creationDispatch: string;
     };
     providers: {
         local: {
@@ -70,6 +73,9 @@ export const LUMI_BRIDGE_CONTRACT: LumiBridgeContract = {
         status: "/api/lumi/status",
         models: "/api/lumi/models",
         contract: "/api/lumi/bridge/contract",
+        creationBuild: "/api/lumi/creation/build",
+        creationPublish: "/api/lumi/creation/publish",
+        creationDispatch: "/api/lumi/creation/dispatch",
     },
     providers: {
         local: {

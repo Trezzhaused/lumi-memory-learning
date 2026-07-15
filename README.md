@@ -85,6 +85,18 @@ GET  /api/pipeline/missions
 → { missions: [MissionStatus] }
 ```
 
+### Shared TrezzBlox creation tool
+```
+POST /api/lumi/creation/dispatch
+Body: { prompt, mode?, target?, repo?, source?, approved?, publish? }
+→ { ok, bundle, publish, context }
+
+POST /api/lumi/creation/build
+POST /api/lumi/creation/publish
+```
+
+These endpoints make Lumi's TrezzBlox creation flow reusable by other Trezzhaus repos and automation systems. They can generate the concept/storyboard/asset-manifest/scripts bundle locally and optionally dispatch a Roblox publish path when approval is provided.
+
 ### Video Creator
 ```
 POST /api/video/create
